@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 
@@ -11,7 +12,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
+    <section className="notranslate rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
         {title}
       </h2>
@@ -24,6 +25,12 @@ function Section({
 
 function parseRepurposePayload(
   data: Record<string, unknown>,
+  fallbacks: {
+    twitter: string;
+    carousel: string;
+    hook: string;
+    cta: string;
+  },
 ): RepurposeResult | null {
   const twitter_thread =
     typeof data.twitter_thread === "string" ? data.twitter_thread : "";
@@ -43,16 +50,15 @@ function parseRepurposePayload(
   }
 
   return {
-    twitter_thread:
-      twitter_thread || "(Twitter thread missing in response.)",
-    instagram_carousel:
-      instagram_carousel || "(Carousel missing in response.)",
-    hooks: hooks.length ? hooks : ["(No hooks in response.)"],
-    cta: cta.length ? cta : ["(No CTAs in response.)"],
+    twitter_thread: twitter_thread || fallbacks.twitter,
+    instagram_carousel: instagram_carousel || fallbacks.carousel,
+    hooks: hooks.length ? hooks : [fallbacks.hook],
+    cta: cta.length ? cta : [fallbacks.cta],
   };
 }
 
 export function RepurposeWorkspace() {
+  const t = useTranslations("repurpose");
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +92,13 @@ export function RepurposeWorkspace() {
     setLoading(true);
     setResult(null);
 
+    const fallbacks = {
+      twitter: t("fallbackTwitter"),
+      carousel: t("fallbackCarousel"),
+      hook: t("fallbackHook"),
+      cta: t("fallbackCta"),
+    };
+
     try {
       const res = await fetch("/api/repurpose", {
         method: "POST",
@@ -103,13 +116,13 @@ export function RepurposeWorkspace() {
           setError(
             typeof data.error === "string"
               ? data.error
-              : "Upgrade to continue",
+              : t("errorUpgrade"),
           );
           void refreshUsage();
           return;
         }
         setError(
-          typeof data.error === "string" ? data.error : "Request failed",
+          typeof data.error === "string" ? data.error : t("errorRequestFailed"),
         );
         return;
       }
@@ -119,40 +132,40 @@ export function RepurposeWorkspace() {
         return;
       }
 
-      const parsed = parseRepurposePayload(data);
+      const parsed = parseRepurposePayload(data, fallbacks);
       if (!parsed) {
-        setError("Unexpected response from server.");
+        setError(t("errorUnexpected"));
         return;
       }
 
       setResult(parsed);
       void refreshUsage();
     } catch {
-      setError("Network error. Try again.");
+      setError(t("errorNetwork"));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-2 lg:gap-10">
+    <div className="notranslate grid gap-8 lg:grid-cols-2 lg:gap-10">
       <div className="flex flex-col gap-4">
         {usage ? (
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Free plan: {usage.used}/{usage.limit} requests used
+            {t("usage", { used: usage.used, limit: usage.limit })}
           </p>
         ) : null}
         <label
           htmlFor="repurpose-source"
           className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
         >
-          Source content
+          {t("sourceLabel")}
         </label>
         <textarea
           id="repurpose-source"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Paste a blog post, newsletter, or transcript…"
+          placeholder={t("placeholder")}
           rows={14}
           disabled={loading}
           aria-busy={loading}
@@ -171,10 +184,10 @@ export function RepurposeWorkspace() {
                 className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
                 aria-hidden
               />
-              Loading…
+              {t("loading")}
             </>
           ) : (
-            "Repurpose"
+            t("repurpose")
           )}
         </button>
         {error ? (
@@ -186,14 +199,14 @@ export function RepurposeWorkspace() {
 
       <div className="flex flex-col gap-4">
         <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Results
+          {t("results")}
         </p>
 
         {!result && !loading ? (
           <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200/80 bg-zinc-50/50 py-20 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400">
-            <p>Click Repurpose to send your text to the API and see outputs.</p>
+            <p>{t("emptyHint")}</p>
             <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-              Twitter thread · Carousel · Hooks · CTA
+              {t("emptyFormats")}
             </p>
           </div>
         ) : null}
@@ -208,26 +221,26 @@ export function RepurposeWorkspace() {
               className="size-8 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
               aria-hidden
             />
-            <span>Generating…</span>
+            <span>{t("generating")}</span>
           </div>
         ) : null}
 
         {result && !loading ? (
           <div className="flex flex-col gap-4">
-            <Section title="Twitter thread">
+            <Section title={t("sectionTwitter")}>
               <p className="whitespace-pre-wrap">{result.twitter_thread}</p>
             </Section>
-            <Section title="Carousel">
+            <Section title={t("sectionCarousel")}>
               <p className="whitespace-pre-wrap">{result.instagram_carousel}</p>
             </Section>
-            <Section title="Hooks">
+            <Section title={t("sectionHooks")}>
               <ul className="list-disc space-y-2 pl-4">
                 {result.hooks.map((hook, i) => (
                   <li key={i}>{hook}</li>
                 ))}
               </ul>
             </Section>
-            <Section title="CTA">
+            <Section title={t("sectionCta")}>
               <ul className="list-disc space-y-2 pl-4">
                 {result.cta.map((line, i) => (
                   <li key={i}>{line}</li>

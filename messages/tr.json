@@ -1,0 +1,85 @@
+{
+  "metadata": {
+    "title": "Helia — Sosyal için içeriği yeniden kullan",
+    "description": "Uzun içeriği Twitter thread’lerine, Instagram karusellerine, kancalara ve CTA’lara dönüştürün."
+  },
+  "common": {
+    "brand": "Helia",
+    "loading": "Yükleniyor…",
+    "ellipsis": "…"
+  },
+  "nav": {
+    "logIn": "Giriş",
+    "getStarted": "Başla",
+    "language": "Dil"
+  },
+  "home": {
+    "eyebrow": "İçerik yeniden kullanımı",
+    "headline": "Tek taslak. Thread’ler, karuseller, kancalar ve CTA’lar.",
+    "subhead": "Helia uzun içeriği yapılandırılmış sosyal varlıklara dönüştürür; sesinizi kaybetmeden daha hızlı yayınlamanızı sağlar.",
+    "startFree": "Ücretsiz başla",
+    "openDashboard": "Panoyu aç",
+    "featureThreadsTitle": "Thread’ler",
+    "featureThreadsBody": "Fikirleri tek bir anlatı gibi okunan tweet boyutunda parçalara ayırın.",
+    "featureCarouselsTitle": "Karuseller",
+    "featureCarouselsBody": "Instagram’da kaydetme ve paylaşım için ayarlanmış slayt başlıkları ve metinleri.",
+    "featureHooksTitle": "Kanca ve CTA",
+    "featureHooksBody": "Kaydırmayı durduran girişler ve okuyucular için net bir sonraki adım.",
+    "footer": "Helia — Next.js ve Supabase ile geliştirildi."
+  },
+  "auth": {
+    "title": "Giriş veya kayıt",
+    "subtitle": "E-posta ve şifre ile devam edin.",
+    "emailLabel": "E-posta",
+    "passwordLabel": "Şifre",
+    "login": "Giriş",
+    "signup": "Kayıt ol",
+    "errorAuth": "Oturum açılamadı. Tekrar deneyin veya e-posta ile giriş yapın.",
+    "signupSuccess": "Hesabınız oluşturuldu. E-posta doğrulaması gerekiyorsa gelen kutunuzu kontrol edin; ardından giriş yapın.",
+    "terms": "Devam ederek şartları ve gizlilik politikasını kabul etmiş olursunuz."
+  },
+  "dashboard": {
+    "workspaceEyebrow": "Çalışma alanı",
+    "title": "İçeriği yeniden kullan",
+    "subtitle": "Tek taslağı sosyal için hazır biçimlere dönüştürün.",
+    "backToHome": "Ana sayfaya dön",
+    "signOut": "Çıkış"
+  },
+  "repurpose": {
+    "usage": "Ücretsiz plan: {used}/{limit} istek kullanıldı",
+    "sourceLabel": "Kaynak içerik",
+    "placeholder": "Bir blog yazısı, bülten veya transkript yapıştırın…",
+    "repurpose": "Dönüştür",
+    "loading": "Yükleniyor…",
+    "results": "Sonuçlar",
+    "emptyHint": "Metninizi API’ye göndermek ve çıktıları görmek için Dönüştür’e tıklayın.",
+    "emptyFormats": "Twitter thread · Karusel · Kancalar · CTA",
+    "generating": "Oluşturuluyor…",
+    "sectionTwitter": "Twitter thread",
+    "sectionCarousel": "Karusel",
+    "sectionHooks": "Kancalar",
+    "sectionCta": "CTA",
+    "errorUpgrade": "Devam etmek için yükseltin",
+    "errorRequestFailed": "İstek başarısız",
+    "errorUnexpected": "Sunucudan beklenmeyen yanıt.",
+    "errorNetwork": "Ağ hatası. Tekrar deneyin.",
+    "fallbackTwitter": "(Yanıtta Twitter thread eksik.)",
+    "fallbackCarousel": "(Yanıtta karusel eksik.)",
+    "fallbackHook": "(Yanıtta kanca yok.)",
+    "fallbackCta": "(Yanıtta CTA yok.)"
+  },
+  "supabaseTest": {
+    "title": "Supabase bağlantı testi",
+    "introBeforeUrl": "Şunları kullanır:",
+    "introAnd": "ve",
+    "introFrom": "— kaynak:",
+    "introEnd": ".",
+    "envLabel": "Ortam",
+    "envOk": "URL ayarlı ({urlPrefix}…) · anon anahtar ayarlı",
+    "envMissing": "URL veya anon anahtar eksik — .env.example dosyasını .env.local olarak kopyalayın",
+    "resultLabel": "Sonuç",
+    "resultOk": "Bağlandı · {ms} ms — {detail}",
+    "jsonLabel": "JSON:",
+    "homeLink": "← Ana sayfa"
+  }
+}

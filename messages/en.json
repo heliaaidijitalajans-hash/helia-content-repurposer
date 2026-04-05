@@ -1,0 +1,85 @@
+{
+  "metadata": {
+    "title": "Helia — Repurpose content for social",
+    "description": "Turn long-form content into Twitter threads, Instagram carousels, hooks, and CTAs."
+  },
+  "common": {
+    "brand": "Helia",
+    "loading": "Loading…",
+    "ellipsis": "…"
+  },
+  "nav": {
+    "logIn": "Log in",
+    "getStarted": "Get started",
+    "language": "Language"
+  },
+  "home": {
+    "eyebrow": "Content repurposing",
+    "headline": "One draft. Threads, carousels, hooks, and CTAs.",
+    "subhead": "Helia turns long-form content into structured social assets so you ship faster without losing your voice.",
+    "startFree": "Start free",
+    "openDashboard": "Open dashboard",
+    "featureThreadsTitle": "Threads",
+    "featureThreadsBody": "Break ideas into tweet-sized beats that read as a single narrative.",
+    "featureCarouselsTitle": "Carousels",
+    "featureCarouselsBody": "Slide titles and bodies tuned for saves and shares on Instagram.",
+    "featureHooksTitle": "Hooks & CTA",
+    "featureHooksBody": "Openers that stop the scroll and a clear next step for readers.",
+    "footer": "Helia — built with Next.js and Supabase."
+  },
+  "auth": {
+    "title": "Sign in or sign up",
+    "subtitle": "Continue with email and password.",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "login": "Login",
+    "signup": "Signup",
+    "errorAuth": "Could not sign in. Try again or use email sign-in.",
+    "signupSuccess": "Your account was created. If email verification is required, check your inbox; then sign in.",
+    "terms": "By continuing you agree to the terms and privacy policy."
+  },
+  "dashboard": {
+    "workspaceEyebrow": "Workspace",
+    "title": "Repurpose content",
+    "subtitle": "Turn one draft into social-ready formats.",
+    "backToHome": "Back to home",
+    "signOut": "Sign out"
+  },
+  "repurpose": {
+    "usage": "Free plan: {used}/{limit} requests used",
+    "sourceLabel": "Source content",
+    "placeholder": "Paste a blog post, newsletter, or transcript…",
+    "repurpose": "Repurpose",
+    "loading": "Loading…",
+    "results": "Results",
+    "emptyHint": "Click Repurpose to send your text to the API and see outputs.",
+    "emptyFormats": "Twitter thread · Carousel · Hooks · CTA",
+    "generating": "Generating…",
+    "sectionTwitter": "Twitter thread",
+    "sectionCarousel": "Carousel",
+    "sectionHooks": "Hooks",
+    "sectionCta": "CTA",
+    "errorUpgrade": "Upgrade to continue",
+    "errorRequestFailed": "Request failed",
+    "errorUnexpected": "Unexpected response from server.",
+    "errorNetwork": "Network error. Try again.",
+    "fallbackTwitter": "(Twitter thread missing in response.)",
+    "fallbackCarousel": "(Carousel missing in response.)",
+    "fallbackHook": "(No hooks in response.)",
+    "fallbackCta": "(No CTAs in response.)"
+  },
+  "supabaseTest": {
+    "title": "Supabase connection test",
+    "introBeforeUrl": "Uses",
+    "introAnd": "and",
+    "introFrom": "from",
+    "introEnd": ".",
+    "envLabel": "Environment",
+    "envOk": "URL set ({urlPrefix}…) · anon key set",
+    "envMissing": "Missing URL or anon key — copy .env.example to .env.local",
+    "resultLabel": "Result",
+    "resultOk": "Connected · {ms} ms — {detail}",
+    "jsonLabel": "JSON:",
+    "homeLink": "← Home"
+  }
+}

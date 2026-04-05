@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,23 +12,29 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Helia — Repurpose content for social",
-  description:
-    "Turn long-form content into Twitter threads, Instagram carousels, hooks, and CTAs.",
-};
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const h = await headers();
+  const locale = h.get("X-NEXT-INTL-LOCALE") ?? "tr";
+
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang={locale}
+      className={`notranslate ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      translate="no"
     >
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <head>
+        <meta name="google" content="notranslate" />
+      </head>
+      <body
+        className="min-h-full flex flex-col font-sans"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }

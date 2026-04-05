@@ -1,20 +1,27 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export function AuthForm() {
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? `/${locale}/dashboard`;
   const err = searchParams.get("error");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState<"login" | "signup" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageVariant, setMessageVariant] = useState<"error" | "info">(
+    "error",
+  );
 
   async function handleLogin() {
     setMessage(null);
@@ -26,6 +33,7 @@ export function AuthForm() {
         password,
       });
       if (error) {
+        setMessageVariant("error");
         setMessage(error.message);
         return;
       }
@@ -46,10 +54,11 @@ export function AuthForm() {
         email: email.trim(),
         password,
         options: {
-          emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          emailRedirectTo: `${origin}/${locale}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
       if (error) {
+        setMessageVariant("error");
         setMessage(error.message);
         return;
       }
@@ -58,36 +67,35 @@ export function AuthForm() {
         router.refresh();
         return;
       }
-      setMessage(
-        "Hesabınız oluşturuldu. E-posta doğrulaması gerekiyorsa gelen kutunuzu kontrol edin; ardından giriş yapın.",
-      );
+      setMessageVariant("info");
+      setMessage(t("signupSuccess"));
     } finally {
       setLoading(null);
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
+    <div className="notranslate flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
       <div className="w-full max-w-[400px]">
         <div className="mb-8 text-center">
           <Link
             href="/"
             className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
           >
-            Helia
+            {tc("brand")}
           </Link>
           <h1 className="mt-6 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            Giriş veya kayıt
+            {t("title")}
           </h1>
           <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            E-posta ve şifre ile devam edin.
+            {t("subtitle")}
           </p>
         </div>
 
         <div className="space-y-4 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
           {err === "auth" ? (
             <p className="text-sm text-red-600 dark:text-red-400">
-              Oturum açılamadı. Tekrar deneyin veya e-posta ile giriş yapın.
+              {t("errorAuth")}
             </p>
           ) : null}
 
@@ -96,7 +104,7 @@ export function AuthForm() {
               htmlFor="email"
               className="text-xs font-medium uppercase tracking-wide text-zinc-500"
             >
-              E-posta
+              {t("emailLabel")}
             </label>
             <input
               id="email"
@@ -114,7 +122,7 @@ export function AuthForm() {
               htmlFor="password"
               className="text-xs font-medium uppercase tracking-wide text-zinc-500"
             >
-              Şifre
+              {t("passwordLabel")}
             </label>
             <input
               id="password"
@@ -131,7 +139,7 @@ export function AuthForm() {
           {message ? (
             <p
               className={`text-sm ${
-                message.includes("oluşturuldu")
+                messageVariant === "info"
                   ? "text-zinc-600 dark:text-zinc-300"
                   : "text-red-600 dark:text-red-400"
               }`}
@@ -147,7 +155,7 @@ export function AuthForm() {
               onClick={() => void handleLogin()}
               className="flex h-11 flex-1 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
             >
-              {loading === "login" ? "…" : "Login"}
+              {loading === "login" ? tc("ellipsis") : t("login")}
             </button>
             <button
               type="button"
@@ -155,13 +163,13 @@ export function AuthForm() {
               onClick={() => void handleSignup()}
               className="flex h-11 flex-1 items-center justify-center rounded-xl bg-zinc-900 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
             >
-              {loading === "signup" ? "…" : "Signup"}
+              {loading === "signup" ? tc("ellipsis") : t("signup")}
             </button>
           </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          Devam ederek şartları ve gizlilik politikasını kabul etmiş olursunuz.
+          {t("terms")}
         </p>
       </div>
     </div>
