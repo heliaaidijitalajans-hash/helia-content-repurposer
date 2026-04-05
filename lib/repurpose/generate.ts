@@ -1,5 +1,5 @@
-import OpenAI from "openai";
 import type { RepurposeResult } from "./types";
+import { getOpenAIServerClient } from "./openai-client";
 
 const SYSTEM_PROMPT = `You are a viral content expert. You turn source material into scroll-stopping social assets.
 
@@ -23,6 +23,38 @@ Output shape (snake_case keys only):
 3) hooks — Exactly 5 strings. Attention-grabbing one-liners. Five different angles (curiosity, pain, benefit, contrarian, story).
 
 4) cta — Exactly 3 strings. Clear calls to action. Varied (save, follow, comment, DM, link-ready).`;
+
+/** OpenAI Structured Outputs (json_schema) — gpt-4o-mini uyumlu. */
+const REPURPOSE_JSON_SCHEMA = {
+  name: "repurpose_output",
+  strict: true as const,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: [
+      "twitter_thread",
+      "instagram_carousel",
+      "hooks",
+      "cta",
+    ],
+    properties: {
+      twitter_thread: { type: "string" },
+      instagram_carousel: { type: "string" },
+      hooks: {
+        type: "array",
+        items: { type: "string" },
+        minItems: 5,
+        maxItems: 5,
+      },
+      cta: {
+        type: "array",
+        items: { type: "string" },
+        minItems: 3,
+        maxItems: 3,
+      },
+    },
+  },
+} as const;
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : "";
@@ -115,37 +147,52 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
     return mockResult("");
   }
 
-  if (!process.env.OPENAI_API_KEY) {
+  const openai = getOpenAIServerClient();
+  if (!openai) {
     return mockResult(trimmed);
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Transform this content per your rules. JSON only.
+  if (process.env.NODE_ENV === "development") {
+    console.log("OPENAI KEY:", "(configured)");
+  }
+
+  let completion;
+  try {
+    completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Transform this content per your rules. JSON only.
 
 hooks must have exactly 5 items. cta must have exactly 3 items.
 
 Source (max ~14k chars):\n\n${trimmed.slice(0, 14_000)}`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: REPURPOSE_JSON_SCHEMA,
       },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.6,
-  });
+      temperature: 0.6,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    throw new Error(`OpenAI request failed: ${msg}`);
+  }
 
   const rawText = completion.choices[0]?.message?.content;
-  if (!rawText) {
-    return mockResult(trimmed);
+  if (!rawText?.trim()) {
+    throw new Error("OpenAI returned empty content");
   }
 
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(rawText) as unknown;
-    return normalize(parsed);
+    parsed = JSON.parse(rawText) as unknown;
   } catch {
-    return mockResult(trimmed);
+    throw new Error("OpenAI returned invalid JSON");
   }
+
+  return normalize(parsed);
 }
