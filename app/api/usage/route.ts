@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import {
   FREE_REPURPOSE_LIMIT,
   FREE_TRANSCRIBE_LIMIT,
+  PRO_TRANSCRIBE_LIMIT,
 } from "@/lib/usage/free-tier";
+import { userHasProPlan } from "@/lib/usage/is-pro";
 
 /** Mevcut kullanıcı için free tier kullanım sayısı (dashboard göstergesi). */
 export async function GET() {
@@ -22,13 +24,19 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const isPro = userHasProPlan(user);
+  const transcribeLimit = isPro
+    ? PRO_TRANSCRIBE_LIMIT
+    : FREE_TRANSCRIBE_LIMIT;
+
   if (error) {
     console.warn("usage select:", error.message);
     return NextResponse.json({
       used: 0,
       limit: FREE_REPURPOSE_LIMIT,
       transcribeUsed: 0,
-      transcribeLimit: FREE_TRANSCRIBE_LIMIT,
+      transcribeLimit,
+      isPro,
     });
   }
 
@@ -40,6 +48,7 @@ export async function GET() {
     used,
     limit: FREE_REPURPOSE_LIMIT,
     transcribeUsed,
-    transcribeLimit: FREE_TRANSCRIBE_LIMIT,
+    transcribeLimit,
+    isPro,
   });
 }

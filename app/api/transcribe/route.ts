@@ -2,7 +2,11 @@ import OpenAI from "openai";
 import { toFile } from "openai";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
-import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
+import {
+  FREE_TRANSCRIBE_LIMIT,
+  PRO_TRANSCRIBE_LIMIT,
+} from "@/lib/usage/free-tier";
+import { userHasProPlan } from "@/lib/usage/is-pro";
 
 /** Node required: OpenAI SDK + multipart parsing + Buffer */
 export const runtime = "nodejs";
@@ -132,9 +136,19 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!userHasProPlan(user)) {
+      return Response.json(
+        {
+          error: "Upgrade to use video transcription",
+          code: "TRANSCRIBE_PRO_REQUIRED",
+        },
+        { status: 403 },
+      );
+    }
+
     const { data: quotaData, error: quotaError } = await supabase.rpc(
       "consume_transcribe_quota",
-      { p_limit: FREE_TRANSCRIBE_LIMIT },
+      { p_limit: PRO_TRANSCRIBE_LIMIT },
     );
 
     if (quotaError) {
@@ -150,10 +164,10 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json(
         {
           error:
-            "Free plan includes 1 video or audio transcription. Upgrade for more.",
+            "Transcription limit reached for your plan. Contact support if you need a higher limit.",
           code: "TRANSCRIBE_QUOTA",
-          used: quotaRow?.current_count ?? FREE_TRANSCRIBE_LIMIT,
-          limit: FREE_TRANSCRIBE_LIMIT,
+          used: quotaRow?.current_count ?? PRO_TRANSCRIBE_LIMIT,
+          limit: PRO_TRANSCRIBE_LIMIT,
         },
         { status: 403 },
       );
