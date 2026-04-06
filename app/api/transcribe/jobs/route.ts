@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import {
+  isLikelyMissingTranscriptionJobsTable,
+  logPostgrestError,
+} from "@/lib/supabase/postgrest-error";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,6 +43,17 @@ export async function GET(req: Request): Promise<Response> {
 
     const { data, error } = await query;
     if (error) {
+      logPostgrestError("api/transcribe/jobs", error);
+      if (isLikelyMissingTranscriptionJobsTable(error)) {
+        return NextResponse.json(
+          {
+            error:
+              "Transcription jobs table is missing or not exposed. Apply Supabase migration 007_transcription_jobs.sql (see supabase/migrations).",
+            code: "TRANSCRIPTION_JOBS_SCHEMA",
+          },
+          { status: 503 },
+        );
+      }
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

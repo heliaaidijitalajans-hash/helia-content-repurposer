@@ -1,5 +1,9 @@
 import OpenAI from "openai";
 import { toFile } from "openai";
+import {
+  extensionFromFilename,
+  mimeFromExtension,
+} from "@/lib/transcribe/mime-from-extension";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { TRANSCRIBE_TEMP_BUCKET } from "@/lib/storage/transcribe-bucket";
 import { extractYoutubeVideoId } from "@/lib/youtube/video-id";
@@ -183,7 +187,9 @@ export const transcribeJob = inngest.createFunction(
         }
 
         const name = p.split("/").pop() || "audio.m4a";
-        const file = await toFile(buffer, name, { type: "audio/mp4" });
+        const ext = extensionFromFilename(name);
+        const mimeType = mimeFromExtension(ext) || "audio/mp4";
+        const file = await toFile(buffer, name, { type: mimeType });
         const transcription = await openai.audio.transcriptions.create({
           file,
           model: "whisper-1",

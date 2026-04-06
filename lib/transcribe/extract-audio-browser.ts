@@ -40,7 +40,13 @@ function inputNameFor(file: File): string {
   const dot = file.name.lastIndexOf(".");
   const ext =
     dot >= 0 ? file.name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-  if (ext === "mp4" || ext === "mp3" || ext === "wav" || ext === "m4a") {
+  if (
+    ext === "mp4" ||
+    ext === "mp3" ||
+    ext === "wav" ||
+    ext === "m4a" ||
+    ext === "aac"
+  ) {
     return `input.${ext}`;
   }
   return "input.bin";

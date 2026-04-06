@@ -11,9 +11,16 @@ import {
   WHISPER_MAX_BYTES,
 } from "@/lib/transcribe/extract-audio-browser";
 import { uploadFileResumableToSupabase } from "@/lib/transcribe/tus-upload-browser";
+import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
-const TRANSCRIBE_ALLOWED_EXT = new Set(["mp3", "wav", "mp4"]);
+const TRANSCRIBE_ALLOWED_EXT = new Set([
+  "mp3",
+  "wav",
+  "mp4",
+  "m4a",
+  "aac",
+]);
 const TRANSCRIBE_ALLOWED_MIME = new Set([
   "audio/mpeg",
   "audio/mp3",
@@ -21,6 +28,10 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
   "audio/wave",
   "audio/x-wav",
   "audio/mp4",
+  "audio/m4a",
+  "audio/x-m4a",
+  "audio/aac",
+  "audio/x-aac",
   "video/mp4",
 ]);
 /** Vercel / proxy gövde limiti için uyarı eşiği (sıkıştırma tetiklenir). */
@@ -49,13 +60,13 @@ function mediaExtensionOf(name: string): string {
 function isAllowedMediaFile(file: File): boolean {
   const ext = mediaExtensionOf(file.name || "");
   if (TRANSCRIBE_ALLOWED_EXT.has(ext)) return true;
-  const mime = (file.type || "").toLowerCase().split(";")[0]?.trim() ?? "";
+  const mime = effectiveAudioVideoMime(file).toLowerCase();
   return mime !== "" && TRANSCRIBE_ALLOWED_MIME.has(mime);
 }
 
 /** MP4 video (ses MP4 değil) veya video/* — tarayıcıda sadece ses çıkarılır. */
 function isTranscribeVideoFile(file: File): boolean {
-  const mime = (file.type || "").toLowerCase().split(";")[0]?.trim() ?? "";
+  const mime = effectiveAudioVideoMime(file).toLowerCase();
   if (mime.startsWith("video/")) return true;
   if (mediaExtensionOf(file.name) === "mp4" && !mime.startsWith("audio/")) {
     return true;
@@ -1058,7 +1069,7 @@ export function RepurposeWorkspace() {
                   ref={fileInputRef}
                   id="transcribe-file"
                   type="file"
-                  accept="audio/*,video/mp4,video/quicktime,.mp3,.wav,.mp4,audio/mpeg"
+                  accept="audio/*,video/mp4,video/quicktime,.mp3,.wav,.mp4,.m4a,.aac,audio/mpeg,audio/mp4,audio/aac"
                   disabled={videoControlsDisabled}
                   onChange={onMediaFileChange}
                   className="sr-only"
