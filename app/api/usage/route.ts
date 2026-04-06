@@ -5,7 +5,7 @@ import {
   FREE_TRANSCRIBE_LIMIT,
   PRO_TRANSCRIBE_LIMIT,
 } from "@/lib/usage/free-tier";
-import { userHasProPlan } from "@/lib/usage/is-pro";
+import { getSubscriptionPlan } from "@/lib/subscription/plan";
 
 /** Mevcut kullanıcı için free tier kullanım sayısı (dashboard göstergesi). */
 export async function GET() {
@@ -24,7 +24,8 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const isPro = userHasProPlan(user);
+  const plan = await getSubscriptionPlan(supabase, user.id);
+  const isPro = plan === "pro";
   const transcribeLimit = isPro
     ? PRO_TRANSCRIBE_LIMIT
     : FREE_TRANSCRIBE_LIMIT;

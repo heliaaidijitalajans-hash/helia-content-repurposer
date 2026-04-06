@@ -98,6 +98,7 @@ function transcribeErrorMessage(
     return msg && msg.length > 0 ? msg : t("transcribeErrorServer");
   }
   if (status === 401 || status === 403) {
+    if (msg === "Upgrade required") return t("transcribeProOnly");
     return msg && msg.length > 0 ? msg : t("transcribeErrorAuth");
   }
   if (status === 400 && msg) {
@@ -367,11 +368,6 @@ export function RepurposeWorkspace() {
       }
 
       if (!res.ok) {
-        if (res.status === 403 && data.code === "TRANSCRIBE_PRO_REQUIRED") {
-          setTranscribeError(t("transcribeProOnly"));
-          void refreshUsage();
-          return;
-        }
         if (res.status === 403 && data.code === "TRANSCRIBE_QUOTA") {
           setTranscribeError(null);
           void refreshUsage();
