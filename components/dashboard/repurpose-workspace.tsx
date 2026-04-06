@@ -3,8 +3,6 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
-import { fetchUserSubscriptionFromSupabase } from "@/lib/subscription/fetch-client";
-import type { SubscriptionPlan } from "@/lib/subscription/plan";
 import { createClient } from "@/lib/supabase/client";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
@@ -19,6 +17,16 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
   "video/mp4",
 ]);
 const TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024;
+
+/** Video özelliği: sunucu `checkUserProSubscription` → `{ isPro: boolean }` */
+const SUBSCRIPTION_STATUS_URL = "/api/subscription-status";
+
+function parseSubscriptionStatusPayload(raw: unknown): boolean {
+  if (typeof raw !== "object" || raw === null || !("isPro" in raw)) {
+    return false;
+  }
+  return (raw as { isPro: unknown }).isPro === true;
+}
 
 function mediaExtensionOf(name: string): string {
   const dot = name.lastIndexOf(".");
@@ -126,9 +134,8 @@ export function RepurposeWorkspace() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RepurposeResult | null>(null);
-  /** From `public.subscriptions.plan`; `null` while loading. */
-  const [subscriptionPlan, setSubscriptionPlan] =
-    useState<SubscriptionPlan | null>(null);
+  /** `/api/subscription-status` → `isPro`; `null` yüklenirken. */
+  const [isPro, setIsPro] = useState<boolean | null>(null);
   const [usage, setUsage] = useState<{
     used: number;
     limit: number;
@@ -148,17 +155,28 @@ export function RepurposeWorkspace() {
   const transcribeDragDepthRef = useRef(0);
 
   const transcribeBlocked =
-    subscriptionPlan === "pro" &&
+    isPro === true &&
     usage != null &&
     usage.transcribeUsed >= usage.transcribeLimit;
   const videoControlsDisabled =
-    subscriptionPlan !== "pro" ||
-    transcribeLoading ||
-    transcribeBlocked;
+    isPro !== true || transcribeLoading || transcribeBlocked;
 
-  const refreshSubscription = useCallback(async () => {
-    const { plan } = await fetchUserSubscriptionFromSupabase();
-    setSubscriptionPlan(plan === null ? "free" : plan);
+  const refreshSubscriptionStatus = useCallback(async () => {
+    try {
+      const r = await fetch(SUBSCRIPTION_STATUS_URL, {
+        credentials: "same-origin",
+      });
+      let body: unknown;
+      try {
+        body = await r.json();
+      } catch {
+        setIsPro(false);
+        return;
+      }
+      setIsPro(parseSubscriptionStatusPayload(body));
+    } catch {
+      setIsPro(false);
+    }
   }, []);
 
   const refreshUsage = useCallback(async () => {
@@ -186,32 +204,28 @@ export function RepurposeWorkspace() {
   }, []);
 
   useEffect(() => {
-    void refreshSubscription();
+    void refreshSubscriptionStatus();
     const supabase = createClient();
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(() => {
-      void refreshSubscription();
+      void refreshSubscriptionStatus();
     });
     return () => {
       subscription.unsubscribe();
     };
-  }, [refreshSubscription]);
+  }, [refreshSubscriptionStatus]);
 
   useEffect(() => {
     void refreshUsage();
   }, [refreshUsage, result]);
 
   useEffect(() => {
-    if (
-      transcribeLoading ||
-      transcribeBlocked ||
-      subscriptionPlan === "free"
-    ) {
+    if (transcribeLoading || transcribeBlocked || isPro === false) {
       transcribeDragDepthRef.current = 0;
       setDragActive(false);
     }
-  }, [transcribeLoading, transcribeBlocked, subscriptionPlan]);
+  }, [transcribeLoading, transcribeBlocked, isPro]);
 
   async function onRepurpose() {
     const bodyText = repurposeText.trim();
@@ -428,7 +442,7 @@ export function RepurposeWorkspace() {
         {usage ? (
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
             <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
-            {subscriptionPlan === "pro" ? (
+            {isPro === true ? (
               <span>
                 {t("videoQuota", {
                   used: usage.transcribeUsed,
@@ -628,7 +642,7 @@ export function RepurposeWorkspace() {
             aria-labelledby="tab-video"
             className="flex min-h-[320px] flex-col"
           >
-            {subscriptionPlan === null ? (
+            {isPro === null ? (
               <div
                 className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-6 py-16 dark:border-zinc-800 dark:bg-zinc-900/30"
                 role="status"
@@ -643,13 +657,13 @@ export function RepurposeWorkspace() {
                   {t("subscriptionLoading")}
                 </p>
               </div>
-            ) : subscriptionPlan === "free" ? (
+            ) : isPro === false ? (
               <div
                 className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-zinc-200/80 bg-white px-6 py-12 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
                 role="status"
               >
                 <p className="max-w-md text-sm font-semibold leading-relaxed text-zinc-900 dark:text-zinc-100">
-                  {t("transcribeProOnly")}
+                  {t("videoUpgradeMessage")}
                 </p>
               </div>
             ) : (

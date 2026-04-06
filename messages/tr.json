@@ -75,6 +75,7 @@
     "videoQuota": "Video / ses transkripsiyonu (ücretsiz): {used}/{limit}",
     "transcribeUpgrade": "Ücretsiz video ve ses transkripsiyon hakkınız doldu. Devam etmek için planınızı yükseltin.",
     "transcribeProOnly": "Video transkripsiyonu için yükseltin",
+    "videoUpgradeMessage": "Video transkripsiyonunu kullanmak için yükseltin",
     "subscriptionLoading": "Planınız yükleniyor…",
     "transcribeLabel": "Video veya ses",
     "transcribeDropTitle": "Video veya ses dosyasını sürükleyip bırakın",

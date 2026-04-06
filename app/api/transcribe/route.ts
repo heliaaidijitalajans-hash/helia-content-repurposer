@@ -3,7 +3,7 @@ import { toFile } from "openai";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { PRO_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
-import { getSubscriptionPlan } from "@/lib/subscription/plan";
+import { checkUserProSubscription } from "@/lib/subscription/plan";
 
 /** Node required: OpenAI SDK + multipart parsing + Buffer */
 export const runtime = "nodejs";
@@ -77,6 +77,30 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
+    const { isConfigured } = getPublicSupabaseConfig();
+    if (!isConfigured) {
+      return Response.json(
+        {
+          error:
+            "Transcription quota requires Supabase. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+        },
+        { status: 503 },
+      );
+    }
+
+    // Oturum + subscriptions.plan; işlemden önce (dosya/Whisper yok).
+    const supabase = await createClient();
+    const isPro = await checkUserProSubscription(supabase);
+    if (!isPro) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        return Response.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      return Response.json({ error: "Upgrade required" }, { status: 403 });
+    }
+
     let formData: FormData;
     try {
       formData = await req.formData();
@@ -111,34 +135,6 @@ export async function POST(req: Request): Promise<Response> {
         { error: "File too large (max 25MB per OpenAI Whisper)" },
         { status: 400 },
       );
-    }
-
-    const { isConfigured } = getPublicSupabaseConfig();
-    if (!isConfigured) {
-      return Response.json(
-        {
-          error:
-            "Transcription quota requires Supabase. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-        },
-        { status: 503 },
-      );
-    }
-
-    const supabase = await createClient();
-
-    // Current logged-in user (session cookies).
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // public.subscriptions.plan must be "pro" (see getSubscriptionPlan).
-    const plan = await getSubscriptionPlan(supabase, user.id);
-    if (plan !== "pro") {
-      return Response.json({ error: "Upgrade required" }, { status: 403 });
     }
 
     const { data: quotaData, error: quotaError } = await supabase.rpc(

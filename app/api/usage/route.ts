@@ -5,27 +5,26 @@ import {
   FREE_TRANSCRIBE_LIMIT,
   PRO_TRANSCRIBE_LIMIT,
 } from "@/lib/usage/free-tier";
-import { getSubscriptionPlan } from "@/lib/subscription/plan";
+import { checkUserProSubscription } from "@/lib/subscription/plan";
 
 /** Mevcut kullanıcı için free tier kullanım sayısı (dashboard göstergesi). */
 export async function GET() {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const isPro = await checkUserProSubscription(supabase);
 
   const { data: row, error } = await supabase
     .from("usage")
     .select("request_count, transcribe_count")
     .eq("user_id", user.id)
     .maybeSingle();
-
-  const plan = await getSubscriptionPlan(supabase, user.id);
-  const isPro = plan === "pro";
   const transcribeLimit = isPro
     ? PRO_TRANSCRIBE_LIMIT
     : FREE_TRANSCRIBE_LIMIT;

@@ -75,6 +75,7 @@
     "videoQuota": "Video / audio transcriptions (free): {used}/{limit}",
     "transcribeUpgrade": "You've used all free video and audio transcriptions. Upgrade your plan to unlock more.",
     "transcribeProOnly": "Upgrade to use video transcription",
+    "videoUpgradeMessage": "Upgrade to use video transcription",
     "subscriptionLoading": "Loading your plan…",
     "transcribeLabel": "Video or audio",
     "transcribeDropTitle": "Drag and drop a video or audio file",
