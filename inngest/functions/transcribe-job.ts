@@ -1,3 +1,5 @@
+import type { Readable } from "node:stream";
+import ytdl from "@distube/ytdl-core";
 import OpenAI from "openai";
 import { toFile } from "openai";
 import {
@@ -10,6 +12,26 @@ import { extractYoutubeVideoId } from "@/lib/youtube/video-id";
 import { inngest } from "../client";
 
 const MAX_WHISPER_BYTES = 25 * 1024 * 1024;
+
+async function readableToBufferLimited(
+  stream: Readable,
+  maxBytes: number,
+): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    const buf = Buffer.isBuffer(chunk)
+      ? chunk
+      : Buffer.from(chunk as Uint8Array);
+    total += buf.length;
+    if (total > maxBytes) {
+      stream.destroy();
+      throw new Error("audio_exceeds_whisper_limit");
+    }
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
+}
 
 type JobRow = {
   id: string;
@@ -120,11 +142,84 @@ export const transcribeJob = inngest.createFunction(
             .update({
               status: "completed",
               result_text: captionText,
+              error_message: null,
               updated_at: new Date().toISOString(),
             })
             .eq("id", jobId);
         });
         return { ok: true, mode: "youtube_captions" };
+      }
+
+      const ytdlWhisper = await step.run("youtube-ytdl-whisper", async () => {
+        const apiKey = process.env.OPENAI_API_KEY?.trim();
+        if (!apiKey) {
+          return { ok: false as const, reason: "no_openai" };
+        }
+
+        const videoUrl = job.youtube_url!;
+        const id = extractYoutubeVideoId(videoUrl);
+        if (!id) {
+          return { ok: false as const, reason: "invalid_url" };
+        }
+
+        try {
+          const info = await ytdl.getInfo(videoUrl);
+          const format = ytdl.chooseFormat(info.formats, {
+            filter: "audioonly",
+            quality: "highestaudio",
+          });
+          const stream = ytdl.downloadFromInfo(info, { format });
+          const buffer = await readableToBufferLimited(
+            stream,
+            MAX_WHISPER_BYTES,
+          );
+          if (buffer.byteLength === 0) {
+            return { ok: false as const, reason: "empty_audio" };
+          }
+
+          const container = (format.container || "webm").toLowerCase();
+          const ext =
+            container === "mp4" || container === "m4a" ? "m4a" : "webm";
+          const mimeType = ext === "m4a" ? "audio/mp4" : "audio/webm";
+
+          const openai = new OpenAI({
+            apiKey,
+            timeout: 240_000,
+            maxRetries: 2,
+          });
+          const file = await toFile(buffer, `youtube-audio.${ext}`, {
+            type: mimeType,
+          });
+          const transcription = await openai.audio.transcriptions.create({
+            file,
+            model: "whisper-1",
+          });
+          const text =
+            typeof transcription.text === "string"
+              ? transcription.text.trim()
+              : "";
+          return { ok: true as const, text };
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[transcribe-job] youtube ytdl/whisper:", msg);
+          return { ok: false as const, reason: "ytdl_failed", detail: msg };
+        }
+      });
+
+      if (ytdlWhisper.ok && ytdlWhisper.text.length > 0) {
+        await step.run("complete-youtube-ytdl", async () => {
+          const admin = createServiceRoleClient();
+          await admin
+            .from("transcription_jobs")
+            .update({
+              status: "completed",
+              result_text: ytdlWhisper.text,
+              error_message: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", jobId);
+        });
+        return { ok: true, mode: "youtube_ytdl_whisper" };
       }
 
       await step.run("youtube-needs-audio", async () => {
@@ -134,7 +229,7 @@ export const transcribeJob = inngest.createFunction(
           .update({
             status: "needs_audio",
             error_message:
-              "No captions found for this video. Upload an audio file to transcribe via the queue, or try a video with auto-generated or manual subtitles.",
+              "No captions were found and audio could not be fetched automatically (or it was too large). Upload an audio file to transcribe, or try another video.",
             updated_at: new Date().toISOString(),
           })
           .eq("id", jobId);

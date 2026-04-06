@@ -13,6 +13,7 @@ import {
 import { uploadFileResumableToSupabase } from "@/lib/transcribe/tus-upload-browser";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
+import { extractYoutubeUrlFromText } from "@/lib/youtube/url-from-text";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set([
   "mp3",
@@ -189,7 +190,7 @@ export function RepurposeWorkspace() {
   const [transcribeLargeFileWarning, setTranscribeLargeFileWarning] =
     useState(false);
   const [transcribeBusyStep, setTranscribeBusyStep] = useState<
-    "extract" | "upload" | "transcribe" | null
+    "extract" | "upload" | "transcribe" | "youtube" | null
   >(null);
   const [transcribeUploadPart, setTranscribeUploadPart] = useState<{
     current: number;
@@ -460,10 +461,37 @@ export function RepurposeWorkspace() {
   }
 
   function onMediaFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] ?? null;
-    if (f) assignMediaFile(f);
-    else assignMediaFile(null);
-    e.target.value = "";
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    if (!f) {
+      assignMediaFile(null);
+      input.value = "";
+      return;
+    }
+    void (async () => {
+      const yt = await tryYoutubeShortcutFile(f);
+      if (yt) {
+        await handleUrlSubmit(yt);
+        input.value = "";
+        return;
+      }
+      setYoutubeUrl("");
+      if (!isAllowedMediaFile(f)) {
+        assignMediaFile(f);
+        input.value = "";
+        return;
+      }
+      assignMediaFile(f);
+      void onUploadVideo(f);
+      input.value = "";
+    })();
+  }
+
+  function openHybridFilePicker() {
+    if (videoControlsDisabled) return;
+    setYoutubeUrl("");
+    setTranscribeError(null);
+    fileInputRef.current?.click();
   }
 
   function onTranscribeDragEnter(e: React.DragEvent) {
@@ -496,11 +524,55 @@ export function RepurposeWorkspace() {
     transcribeDragDepthRef.current = 0;
     setDragActive(false);
     if (videoControlsDisabled) return;
+
+    const uriLine =
+      e.dataTransfer.getData("text/uri-list").split("\n").find((l) => {
+        const t = l.trim();
+        return t.length > 0 && !t.startsWith("#");
+      }) ?? "";
+    const plain = e.dataTransfer.getData("text/plain").trim();
+    const fromLink =
+      extractYoutubeUrlFromText(uriLine.trim()) ??
+      extractYoutubeUrlFromText(plain);
+    if (fromLink) {
+      setTranscribeError(null);
+      setYoutubeUrl(fromLink);
+      void handleUrlSubmit(fromLink);
+      return;
+    }
+
     const f = e.dataTransfer.files?.[0];
-    if (f) assignMediaFile(f);
+    if (!f) return;
+    void (async () => {
+      setYoutubeUrl("");
+      const yt = await tryYoutubeShortcutFile(f);
+      if (yt) {
+        setTranscribeError(null);
+        await handleUrlSubmit(yt);
+        return;
+      }
+      if (!isAllowedMediaFile(f)) {
+        assignMediaFile(f);
+        return;
+      }
+      assignMediaFile(f);
+      void onUploadVideo(f);
+    })();
+  }
+
+  function onHybridDropzonePasteCapture(ev: React.ClipboardEvent) {
+    if (videoControlsDisabled || transcribeLoading) return;
+    const text = ev.clipboardData.getData("text/plain");
+    const yt = extractYoutubeUrlFromText(text);
+    if (!yt) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    setYoutubeUrl(yt);
+    void handleUrlSubmit(yt);
   }
 
   function transcribeProgressLabel(): string {
+    if (transcribeBusyStep === "youtube") return t("transcribeYoutubeAnalyzing");
     if (transcribeBusyStep === "extract") return t("transcribeStepExtract");
     if (transcribeBusyStep === "upload") {
       if (transcribeUploadPart && transcribeUploadPart.total > 1) {
@@ -565,26 +637,69 @@ export function RepurposeWorkspace() {
     return false;
   }
 
-  async function onYoutubeTranscribe() {
-    const u = youtubeUrl.trim();
-    if (!u) return;
+  async function tryYoutubeShortcutFile(file: File): Promise<string | null> {
+    const name = file.name.toLowerCase();
+    const textLike =
+      file.type === "text/plain" ||
+      name.endsWith(".url") ||
+      name.endsWith(".webloc");
+    if (!textLike || file.size > 64 * 1024) return null;
+    try {
+      const text = await file.text();
+      return extractYoutubeUrlFromText(text);
+    } catch {
+      return null;
+    }
+  }
 
+  function submitHybridLink() {
+    if (videoControlsDisabled || transcribeLoading) return;
+    const raw = youtubeUrl.trim();
+    if (!raw) {
+      setTranscribeError(t("transcribeHybridNeedInput"));
+      return;
+    }
+    const ytUrl = extractYoutubeUrlFromText(raw);
+    if (!ytUrl) {
+      setTranscribeError(t("transcribeHybridNeedInput"));
+      return;
+    }
+    void handleUrlSubmit(ytUrl);
+  }
+
+  /** YouTube URL’si; dosya MIME kontrolü yapılmaz. */
+  async function handleUrlSubmit(urlOverride?: string) {
+    const raw = (urlOverride ?? youtubeUrl).trim();
+    const ytUrl = extractYoutubeUrlFromText(raw);
+    if (!ytUrl) {
+      setTranscribeError(t("transcribeHybridNeedInput"));
+      setTranscribeReady(false);
+      setTranscriptionText("");
+      return;
+    }
+
+    setYoutubeUrl(ytUrl);
     setTranscribeError(null);
     setTranscribeLoading(true);
+    setTranscribeBusyStep("youtube");
     setTranscribeReady(false);
     setTranscriptionText("");
+    setMediaFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
-      await startTranscribeJobFromJson({ youtubeUrl: u });
+      await startTranscribeJobFromJson({ youtubeUrl: ytUrl });
     } catch {
       setTranscribeError(t("errorNetwork"));
     } finally {
       setTranscribeLoading(false);
+      setTranscribeBusyStep(null);
     }
   }
 
-  async function onUploadVideo() {
-    if (!mediaFile) return;
+  async function onUploadVideo(fileOverride?: File) {
+    const sourceFile = fileOverride ?? mediaFile;
+    if (!sourceFile) return;
 
     setTranscribeError(null);
     setTranscribeBusyStep(null);
@@ -597,15 +712,15 @@ export function RepurposeWorkspace() {
     const timeoutId = window.setTimeout(() => controller.abort(), 600_000);
 
     try {
-      let fileToSend: File = mediaFile;
+      let fileToSend: File = sourceFile;
       const mustTranscode =
-        isTranscribeVideoFile(mediaFile) ||
-        mediaFile.size > TRANSCRIBE_WARN_BYTES;
+        isTranscribeVideoFile(sourceFile) ||
+        sourceFile.size > TRANSCRIBE_WARN_BYTES;
 
       if (mustTranscode) {
         setTranscribeBusyStep("extract");
         try {
-          fileToSend = await transcodeToM4aAac(mediaFile, controller.signal);
+          fileToSend = await transcodeToM4aAac(sourceFile, controller.signal);
         } catch (err) {
           const aborted =
             (err instanceof DOMException && err.name === "AbortError") ||
@@ -1009,24 +1124,51 @@ export function RepurposeWorkspace() {
                     </p>
                   </div>
                 ) : null}
-                <div className="mt-4 flex flex-col gap-2">
-                  <label
-                    htmlFor="youtube-transcribe-url"
-                    className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
-                  >
-                    {t("youtubeTranscribeLabel")}
-                  </label>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  ref={fileInputRef}
+                  id="transcribe-file"
+                  type="file"
+                  accept="audio/*,video/mp4,video/quicktime,.mp3,.wav,.mp4,.m4a,.aac,audio/mpeg,audio/mp4,audio/aac"
+                  disabled={videoControlsDisabled}
+                  onChange={onMediaFileChange}
+                  className="sr-only"
+                />
+                <div
+                  role="region"
+                  aria-label={t("transcribeHybridRegionAria")}
+                  onDragEnter={onTranscribeDragEnter}
+                  onDragLeave={onTranscribeDragLeave}
+                  onDragOver={onTranscribeDragOver}
+                  onDrop={onTranscribeDrop}
+                  onPasteCapture={onHybridDropzonePasteCapture}
+                  className={`mt-4 flex min-h-[14rem] flex-col justify-center gap-5 rounded-2xl border-2 border-dashed px-4 py-6 transition sm:px-6 ${
+                    videoControlsDisabled
+                      ? "cursor-not-allowed border-zinc-200/60 bg-zinc-50/30 opacity-50 dark:border-zinc-800 dark:bg-zinc-900/20"
+                      : dragActive
+                        ? "border-violet-500 bg-violet-50/70 dark:border-violet-400 dark:bg-violet-950/40"
+                        : "border-zinc-200/90 bg-gradient-to-b from-zinc-50/90 to-white dark:border-zinc-700 dark:from-zinc-900/50 dark:to-zinc-900/30"
+                  }`}
+                >
+                  <p className="text-center text-sm font-semibold leading-snug text-zinc-800 dark:text-zinc-100">
+                    {t("transcribeHybridDropzoneTitle")}
+                  </p>
+                  <div className="mx-auto flex w-full max-w-xl flex-col gap-2 sm:flex-row sm:items-stretch">
                     <input
-                      id="youtube-transcribe-url"
-                      type="url"
+                      id="transcribe-hybrid-url"
+                      type="text"
                       inputMode="url"
                       autoComplete="off"
                       placeholder={t("youtubeTranscribePlaceholder")}
                       value={youtubeUrl}
                       onChange={(e) => setYoutubeUrl(e.target.value)}
-                      disabled={videoControlsDisabled}
-                      className="min-w-0 flex-1 rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/50 dark:text-zinc-100"
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        submitHybridLink();
+                      }}
+                      disabled={videoControlsDisabled || transcribeLoading}
+                      aria-describedby="transcribe-formats-hint"
+                      className="min-h-11 min-w-0 flex-1 rounded-xl border border-zinc-200/90 bg-white/90 px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm outline-none ring-0 placeholder:text-zinc-400 focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-950/80 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                     />
                     <button
                       type="button"
@@ -1035,15 +1177,52 @@ export function RepurposeWorkspace() {
                         transcribeLoading ||
                         !youtubeUrl.trim()
                       }
-                      onClick={() => void onYoutubeTranscribe()}
-                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200/80 bg-white px-4 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
+                      onClick={() => submitHybridLink()}
+                      className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-violet-600 dark:hover:bg-violet-500"
                     >
-                      {t("youtubeTranscribeButton")}
+                      {t("transcribeHybridConvert")}
                     </button>
                   </div>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {t("youtubeTranscribeHint")}
-                  </p>
+                  <div className="flex flex-col items-center gap-2">
+                    <div
+                      className="h-px w-full max-w-xs bg-gradient-to-r from-transparent via-zinc-200 to-transparent dark:via-zinc-600"
+                      aria-hidden
+                    />
+                    <button
+                      type="button"
+                      disabled={videoControlsDisabled || transcribeLoading}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openHybridFilePicker();
+                      }}
+                      className="inline-flex items-center gap-2 rounded-xl border border-zinc-200/90 bg-white/90 px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-violet-300/80 hover:bg-violet-50/50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:border-violet-500/40 dark:hover:bg-violet-950/30"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="size-5 text-violet-600 dark:text-violet-400"
+                        aria-hidden
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" x2="12" y1="3" y2="15" />
+                      </svg>
+                      {t("transcribeHybridPickFile")}
+                    </button>
+                    <p className="max-w-md text-center text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      {t("youtubeTranscribeHint")}
+                    </p>
+                  </div>
+                  {mediaFile ? (
+                    <p className="text-center text-xs font-medium text-violet-700 dark:text-violet-300">
+                      {t("transcribeSelected", { name: mediaFile.name })}
+                    </p>
+                  ) : null}
                 </div>
                 {transcribeBlocked && !transcribeReady ? (
                   <div
@@ -1065,61 +1244,6 @@ export function RepurposeWorkspace() {
                     </p>
                   </div>
                 ) : null}
-                <input
-                  ref={fileInputRef}
-                  id="transcribe-file"
-                  type="file"
-                  accept="audio/*,video/mp4,video/quicktime,.mp3,.wav,.mp4,.m4a,.aac,audio/mpeg,audio/mp4,audio/aac"
-                  disabled={videoControlsDisabled}
-                  onChange={onMediaFileChange}
-                  className="sr-only"
-                />
-                <label
-                  htmlFor="transcribe-file"
-                  aria-describedby="transcribe-formats-hint"
-                  onDragEnter={onTranscribeDragEnter}
-                  onDragLeave={onTranscribeDragLeave}
-                  onDragOver={onTranscribeDragOver}
-                  onDrop={onTranscribeDrop}
-                  className={`mt-2 flex min-h-[7.5rem] flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-5 text-center transition ${
-                    videoControlsDisabled
-                      ? "cursor-not-allowed border-zinc-200/60 bg-zinc-50/30 opacity-50 dark:border-zinc-800 dark:bg-zinc-900/20"
-                      : dragActive
-                        ? "cursor-pointer border-violet-500 bg-violet-50/70 dark:border-violet-400 dark:bg-violet-950/40"
-                        : "cursor-pointer border-zinc-200/90 bg-zinc-50/40 hover:border-zinc-300 hover:bg-zinc-50/80 dark:border-zinc-700 dark:bg-zinc-900/30 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/50"
-                  }`}
-                >
-                  <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                    {t("transcribeDropTitle")}
-                  </span>
-                  <span className="max-w-[18rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {t("transcribeDropHint")}
-                  </span>
-                  {mediaFile ? (
-                    <span className="mt-1 max-w-full truncate text-xs font-medium text-violet-700 dark:text-violet-300">
-                      {t("transcribeSelected", { name: mediaFile.name })}
-                    </span>
-                  ) : null}
-                </label>
-                <button
-                  type="button"
-                  disabled={videoControlsDisabled || !mediaFile}
-                  onClick={() => void onUploadVideo()}
-                  aria-busy={transcribeLoading}
-                  className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200/80 bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
-                >
-                  {transcribeLoading ? (
-                    <>
-                      <span
-                        className="size-4 shrink-0 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700 dark:border-zinc-600 dark:border-t-zinc-200"
-                        aria-hidden
-                      />
-                      {transcribeProgressLabel()}
-                    </>
-                  ) : (
-                    t("uploadVideo")
-                  )}
-                </button>
                 {transcribeError ? (
                   <div
                     className="mt-3 rounded-xl border border-red-200/90 bg-red-50/90 px-3 py-2.5 dark:border-red-900/45 dark:bg-red-950/40"
