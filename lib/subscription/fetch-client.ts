@@ -20,11 +20,15 @@ export async function fetchUserSubscriptionFromSupabase(): Promise<{
       return { plan: null };
     }
 
+    console.log(user.id);
+
     const { data, error } = await supabase
       .from("subscriptions")
       .select("plan")
       .eq("user_id", user.id)
       .maybeSingle();
+
+    console.log("subscription query result", { data, error });
 
     if (error) {
       console.warn("[subscription] client fetch:", error.message);
