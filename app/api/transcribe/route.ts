@@ -1,49 +1,16 @@
-import OpenAI from "openai";
-import { toFile } from "openai";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient, isServiceRoleConfigured } from "@/lib/supabase/admin";
+import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
-import { TRANSCRIBE_TEMP_BUCKET } from "@/lib/storage/transcribe-bucket";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { PRO_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { checkUserProSubscription } from "@/lib/subscription/plan";
+import { extractYoutubeVideoId } from "@/lib/youtube/video-id";
+import { inngest } from "@/inngest/client";
 
-/** Node required: OpenAI SDK + multipart / Storage */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Uzun ses / çok parça transkripsiyon için (Vercel Pro). */
-export const maxDuration = 300;
-
-const FIELD_NAME = "file";
-
-const ALLOWED_EXT = new Set(["mp3", "wav", "mp4", "m4a"]);
-
-const ALLOWED_MIME = new Set([
-  "audio/mpeg",
-  "audio/mp3",
-  "audio/wav",
-  "audio/wave",
-  "audio/x-wav",
-  "audio/mp4",
-  "audio/m4a",
-  "audio/x-m4a",
-  "video/mp4",
-]);
-
-/** OpenAI Whisper tek dosya limiti */
-const MAX_BYTES = 25 * 1024 * 1024;
-
-function extensionOf(name: string): string {
-  const dot = name.lastIndexOf(".");
-  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
-}
-
-function isAllowedUpload(file: File): boolean {
-  const ext = extensionOf(file.name || "");
-  if (ALLOWED_EXT.has(ext)) return true;
-  const mime = (file.type || "").toLowerCase().split(";")[0]?.trim() ?? "";
-  return mime !== "" && ALLOWED_MIME.has(mime);
-}
+/** Bu uç nokta yalnızca kuyruğa yazar; ağır iş Inngest’te. */
+export const maxDuration = 60;
 
 type QuotaRpcRow = { allowed: boolean; current_count: number };
 
@@ -106,31 +73,12 @@ async function consumeTranscribeQuotaIfNeeded(
   return null;
 }
 
-async function transcribeBuffer(
-  openai: OpenAI,
-  buffer: Buffer,
-  filename: string,
-  contentType?: string,
-): Promise<string> {
-  const uploadable = await toFile(buffer, filename, {
-    type: contentType || undefined,
-  });
-  const transcription = await openai.audio.transcriptions.create({
-    file: uploadable,
-    model: "whisper-1",
-  });
-  return typeof transcription.text === "string" ? transcription.text : "";
-}
-
+/**
+ * Transkripsiyon işini kuyruğa alır — 202 Accepted + jobId.
+ * Gövde: tam olarak biri — `youtubeUrl` (string) veya `storagePaths` (string[], dolu).
+ */
 export async function POST(req: Request): Promise<Response> {
   try {
-    if (!process.env.OPENAI_API_KEY?.trim()) {
-      return Response.json(
-        { error: "OpenAI API key is not configured" },
-        { status: 500 },
-      );
-    }
-
     const { isConfigured } = getPublicSupabaseConfig();
     if (!isConfigured) {
       return Response.json(
@@ -142,12 +90,11 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    const contentType = req.headers.get("content-type") ?? "";
-    if (contentType.includes("application/json") && !isServiceRoleConfigured()) {
+    if (!isServiceRoleConfigured()) {
       return Response.json(
         {
           error:
-            "JSON + Storage transcribe requires SUPABASE_SERVICE_ROLE_KEY on the server (see .env.example).",
+            "Async transcribe requires SUPABASE_SERVICE_ROLE_KEY (worker updates jobs). See .env.example.",
         },
         { status: 503 },
       );
@@ -166,171 +113,112 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Upgrade required" }, { status: 403 });
     }
 
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 240_000,
-      maxRetries: 2,
-    });
+    let body: { storagePaths?: unknown; youtubeUrl?: unknown };
+    try {
+      body = (await req.json()) as {
+        storagePaths?: unknown;
+        youtubeUrl?: unknown;
+      };
+    } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-    if (contentType.includes("application/json")) {
-      let body: { storagePath?: unknown; storagePaths?: unknown };
-      try {
-        body = (await req.json()) as {
-          storagePath?: unknown;
-          storagePaths?: unknown;
-        };
-      } catch {
-        return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-      }
+    const ytRaw =
+      typeof body.youtubeUrl === "string" ? body.youtubeUrl.trim() : "";
+    const rawPaths = Array.isArray(body.storagePaths) ? body.storagePaths : [];
+    const paths = rawPaths.filter(
+      (p): p is string => typeof p === "string" && p.length > 0,
+    );
 
-      const rawPaths = Array.isArray(body.storagePaths)
-        ? body.storagePaths
-        : typeof body.storagePath === "string"
-          ? [body.storagePath]
-          : [];
-      const paths = rawPaths.filter(
-        (p): p is string => typeof p === "string" && p.length > 0,
+    const hasYt = ytRaw.length > 0;
+    const hasPaths = paths.length > 0;
+    if ((hasYt && hasPaths) || (!hasYt && !hasPaths)) {
+      return Response.json(
+        {
+          error:
+            "Send exactly one of: youtubeUrl (non-empty string) OR storagePaths (non-empty array).",
+        },
+        { status: 400 },
       );
+    }
 
-      if (paths.length === 0) {
-        return Response.json(
-          { error: "Provide storagePath (string) or storagePaths (string[])." },
-          { status: 400 },
-        );
-      }
+    if (hasYt && !extractYoutubeVideoId(ytRaw)) {
+      return Response.json({ error: "Invalid YouTube URL." }, { status: 400 });
+    }
 
+    if (hasPaths) {
       const prefix = `${user.id}/`;
       for (const p of paths) {
         if (!p.startsWith(prefix) || p.includes("..") || p.includes("//")) {
           return Response.json({ error: "Invalid storage path" }, { status: 400 });
         }
       }
-
-      const quotaErr = await consumeTranscribeQuotaIfNeeded(supabase);
-      if (quotaErr) return quotaErr;
-
-      const admin = createServiceRoleClient();
-      const texts: string[] = [];
-
-      try {
-        for (const p of paths) {
-          const { data: blob, error: dlErr } = await admin.storage
-            .from(TRANSCRIBE_TEMP_BUCKET)
-            .download(p);
-
-          if (dlErr || !blob) {
-            console.error("[api/transcribe] storage download:", dlErr?.message);
-            return Response.json(
-              { error: "Could not read file from storage." },
-              { status: 502 },
-            );
-          }
-
-          const buffer = Buffer.from(await blob.arrayBuffer());
-          if (buffer.length === 0) {
-            return Response.json({ error: "Empty file in storage" }, { status: 400 });
-          }
-          if (buffer.length > MAX_BYTES) {
-            return Response.json(
-              { error: "File too large (max 25MB per OpenAI Whisper segment)" },
-              { status: 400 },
-            );
-          }
-
-          const name = p.split("/").pop() || "audio.m4a";
-          const textPart = await transcribeBuffer(
-            openai,
-            buffer,
-            name,
-            "audio/mp4",
-          );
-          texts.push(textPart.trim());
-        }
-      } finally {
-        await admin.storage
-          .from(TRANSCRIBE_TEMP_BUCKET)
-          .remove(paths)
-          .catch((err: Error) =>
-            console.warn("[api/transcribe] storage cleanup:", err?.message),
-          );
-      }
-
-      return Response.json({
-        text: texts.filter((t) => t.length > 0).join("\n\n"),
-      });
     }
 
-    if (!contentType.includes("multipart/form-data")) {
+    const quotaErr = await consumeTranscribeQuotaIfNeeded(supabase);
+    if (quotaErr) return quotaErr;
+
+    const { data: job, error: insertError } = await supabase
+      .from("transcription_jobs")
+      .insert({
+        user_id: user.id,
+        status: "pending",
+        source_type: hasYt ? "youtube" : "storage",
+        storage_paths: hasPaths ? paths : [],
+        youtube_url: hasYt ? ytRaw : null,
+      })
+      .select("id")
+      .single();
+
+    if (insertError || !job?.id) {
+      console.error("[api/transcribe] insert job:", insertError?.message);
+      return Response.json(
+        { error: insertError?.message ?? "Could not create job." },
+        { status: 500 },
+      );
+    }
+
+    const jobId = job.id as string;
+
+    try {
+      await inngest.send({
+        name: "transcribe/job.requested",
+        data: { jobId },
+      });
+    } catch (e) {
+      console.error("[api/transcribe] inngest.send:", e);
+      await supabase
+        .from("transcription_jobs")
+        .update({
+          status: "failed",
+          error_message:
+            "Could not enqueue job. Set INNGEST_EVENT_KEY and deploy the Inngest app (see README).",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId);
+
       return Response.json(
         {
           error:
-            "Use multipart/form-data with field \"file\" or application/json with storagePaths.",
+            "Queue unavailable. Configure INNGEST_EVENT_KEY and run Inngest with your deployment.",
         },
-        { status: 415 },
+        { status: 503 },
       );
     }
 
-    let formData: FormData;
-    try {
-      formData = await req.formData();
-    } catch {
-      return Response.json(
-        { error: "Invalid or empty multipart body" },
-        { status: 400 },
-      );
-    }
-
-    const entry = formData.get(FIELD_NAME);
-    if (!entry || !(entry instanceof File)) {
-      return Response.json(
-        { error: `Missing file: multipart field "${FIELD_NAME}"` },
-        { status: 400 },
-      );
-    }
-
-    if (!isAllowedUpload(entry)) {
-      return Response.json(
-        { error: "Unsupported file type. Allowed: mp3, wav, mp4, m4a." },
-        { status: 400 },
-      );
-    }
-
-    if (entry.size <= 0) {
-      return Response.json({ error: "Empty file" }, { status: 400 });
-    }
-
-    if (entry.size > MAX_BYTES) {
-      return Response.json(
-        { error: "File too large (max 25MB per OpenAI Whisper)" },
-        { status: 400 },
-      );
-    }
-
-    const quotaErrMultipart = await consumeTranscribeQuotaIfNeeded(supabase);
-    if (quotaErrMultipart) return quotaErrMultipart;
-
-    const buffer = Buffer.from(await entry.arrayBuffer());
-    const ext = extensionOf(entry.name || "");
-    const safeName =
-      entry.name?.trim() || (ext ? `upload.${ext}` : "upload.mp3");
-
-    const text = await transcribeBuffer(
-      openai,
-      buffer,
-      safeName,
-      entry.type || undefined,
+    return new Response(
+      JSON.stringify({
+        jobId,
+        status: "pending",
+        pollUrl: `/api/transcribe/jobs/${jobId}`,
+      }),
+      {
+        status: 202,
+        headers: { "Content-Type": "application/json" },
+      },
     );
-    return Response.json({ text });
   } catch (error) {
     console.error("[api/transcribe]", error);
-
-    if (error instanceof OpenAI.APIError) {
-      return Response.json(
-        { error: error.message || "OpenAI API error" },
-        { status: error.status && error.status >= 400 ? error.status : 502 },
-      );
-    }
-
     const message =
       error instanceof Error ? error.message : "Transcription failed";
     return Response.json({ error: message }, { status: 500 });

@@ -10,6 +10,7 @@ import {
   transcodeToM4aAac,
   WHISPER_MAX_BYTES,
 } from "@/lib/transcribe/extract-audio-browser";
+import { uploadFileResumableToSupabase } from "@/lib/transcribe/tus-upload-browser";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set(["mp3", "wav", "mp4"]);
@@ -26,6 +27,9 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
 const TRANSCRIBE_WARN_BYTES = 4 * 1024 * 1024;
 /** Ham video/ses seçimi üst sınırı (tarayıcı belleği / ffmpeg). */
 const TRANSCRIBE_SOURCE_MAX_BYTES = 120 * 1024 * 1024;
+
+const NEXT_PUBLIC_SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_URL = "/api/subscription-status";
@@ -186,6 +190,12 @@ export function RepurposeWorkspace() {
   /** Plain transcript from /api/transcribe only (Video tab). Never sent to /api/repurpose automatically. */
   const [transcriptionText, setTranscriptionText] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [transcribeJobPollingId, setTranscribeJobPollingId] = useState<
+    string | null
+  >(null);
+  const [showAsyncTranscribeNotice, setShowAsyncTranscribeNotice] =
+    useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcribeDragDepthRef = useRef(0);
@@ -266,6 +276,72 @@ export function RepurposeWorkspace() {
   useEffect(() => {
     void refreshUsage();
   }, [refreshUsage, result]);
+
+  useEffect(() => {
+    if (!videoUnlocked) return;
+    void (async () => {
+      try {
+        const r = await fetch("/api/transcribe/jobs?active=1", {
+          credentials: "same-origin",
+        });
+        if (!r.ok) return;
+        const j = (await r.json()) as { jobs?: Array<{ id: string }> };
+        if (j.jobs && j.jobs.length > 0) {
+          setShowAsyncTranscribeNotice(true);
+          setTranscribeJobPollingId((prev) => prev ?? j.jobs![0]!.id);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [videoUnlocked]);
+
+  useEffect(() => {
+    if (!transcribeJobPollingId) return;
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const r = await fetch(
+          `/api/transcribe/jobs/${transcribeJobPollingId}`,
+          { credentials: "same-origin" },
+        );
+        if (!r.ok || cancelled) return;
+        const job = (await r.json()) as {
+          status?: string;
+          result_text?: string | null;
+          error_message?: string | null;
+        };
+        if (job.status === "completed" && typeof job.result_text === "string") {
+          setTranscriptionText(job.result_text);
+          setTranscribeReady(true);
+          setTranscribeJobPollingId(null);
+          setShowAsyncTranscribeNotice(false);
+          void refreshUsage();
+        } else if (
+          job.status === "failed" ||
+          job.status === "needs_audio"
+        ) {
+          const msg =
+            typeof job.error_message === "string" && job.error_message.trim()
+              ? job.error_message
+              : t("transcribeErrorGeneric");
+          setTranscribeError(msg);
+          setTranscribeJobPollingId(null);
+          setShowAsyncTranscribeNotice(false);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    void tick();
+    const id = window.setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [transcribeJobPollingId, refreshUsage, t]);
 
   useEffect(() => {
     if (
@@ -428,6 +504,74 @@ export function RepurposeWorkspace() {
     return t("processingVideo");
   }
 
+  async function startTranscribeJobFromJson(body: {
+    storagePaths?: string[];
+    youtubeUrl?: string;
+  }): Promise<boolean> {
+    const res = await fetch("/api/transcribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    });
+
+    const raw = await res.text();
+    let data: {
+      jobId?: string;
+      error?: string;
+      code?: string;
+    } = {};
+    if (raw.trim()) {
+      try {
+        data = JSON.parse(raw) as typeof data;
+      } catch {
+        setTranscribeError(t("transcribeErrorUnexpectedResponse"));
+        return false;
+      }
+    }
+
+    if (res.status === 202 && typeof data.jobId === "string") {
+      setTranscribeJobPollingId(data.jobId);
+      setShowAsyncTranscribeNotice(true);
+      return true;
+    }
+
+    if (!res.ok) {
+      if (res.status === 403 && data.code === "TRANSCRIBE_QUOTA") {
+        setTranscribeError(null);
+        void refreshUsage();
+        return false;
+      }
+      const serverMsg = typeof data.error === "string" ? data.error : "";
+      setTranscribeError(
+        transcribeErrorMessage(res.status, serverMsg || undefined, t),
+      );
+      if (res.status === 403) void refreshUsage();
+      return false;
+    }
+
+    setTranscribeError(t("transcribeErrorUnexpectedResponse"));
+    return false;
+  }
+
+  async function onYoutubeTranscribe() {
+    const u = youtubeUrl.trim();
+    if (!u) return;
+
+    setTranscribeError(null);
+    setTranscribeLoading(true);
+    setTranscribeReady(false);
+    setTranscriptionText("");
+
+    try {
+      await startTranscribeJobFromJson({ youtubeUrl: u });
+    } catch {
+      setTranscribeError(t("errorNetwork"));
+    } finally {
+      setTranscribeLoading(false);
+    }
+  }
+
   async function onUploadVideo() {
     if (!mediaFile) return;
 
@@ -482,7 +626,20 @@ export function RepurposeWorkspace() {
         }
       }
 
+      if (!NEXT_PUBLIC_SUPABASE_ANON_KEY.trim()) {
+        setTranscribeError(t("transcribeErrorMissingAnon"));
+        return;
+      }
+
       const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setTranscribeError(t("transcribeErrorAuth"));
+        return;
+      }
+
       const storagePaths: string[] = [];
 
       for (let i = 0; i < parts.length; i++) {
@@ -492,129 +649,80 @@ export function RepurposeWorkspace() {
           total: parts.length,
         });
 
-        const signRes = await fetch("/api/transcribe/sign-upload", {
+        const sessRes = await fetch("/api/transcribe/upload-session", {
           method: "POST",
           credentials: "same-origin",
           signal: controller.signal,
         });
 
-        const signRaw = await signRes.text();
-        let signJson: {
-          path?: string;
-          token?: string;
+        const sessRaw = await sessRes.text();
+        let sessJson: {
+          objectPath?: string;
           bucket?: string;
+          projectUrl?: string;
           error?: string;
         } = {};
-        if (signRaw.trim()) {
+        if (sessRaw.trim()) {
           try {
-            signJson = JSON.parse(signRaw) as typeof signJson;
+            sessJson = JSON.parse(sessRaw) as typeof sessJson;
           } catch {
             setTranscribeError(t("transcribeErrorUnexpectedResponse"));
             return;
           }
         }
 
-        if (!signRes.ok) {
+        if (!sessRes.ok) {
           const serverMsg =
-            typeof signJson.error === "string" ? signJson.error : "";
+            typeof sessJson.error === "string" ? sessJson.error : "";
           setTranscribeError(
             transcribeErrorMessage(
-              signRes.status,
+              sessRes.status,
               serverMsg || undefined,
               t,
             ),
           );
-          if (signRes.status === 403) void refreshUsage();
+          if (sessRes.status === 403) void refreshUsage();
           return;
         }
 
-        const path = signJson.path;
-        const token = signJson.token;
-        const bucket = signJson.bucket;
-        if (!path || !token || !bucket) {
+        const objectPath = sessJson.objectPath;
+        const bucket = sessJson.bucket;
+        const projectUrl = sessJson.projectUrl;
+        if (!objectPath || !bucket || !projectUrl) {
           setTranscribeError(t("transcribeErrorUnexpectedResponse"));
           return;
         }
 
-        const { error: uploadError } = await supabase.storage
-          .from(bucket)
-          .uploadToSignedUrl(path, token, parts[i], {
-            contentType: parts[i].type || "audio/mp4",
-            upsert: true,
+        try {
+          await uploadFileResumableToSupabase({
+            file: parts[i]!,
+            bucket,
+            objectPath,
+            projectUrl,
+            anonKey: NEXT_PUBLIC_SUPABASE_ANON_KEY,
+            accessToken: session.access_token,
+            signal: controller.signal,
           });
-
-        if (uploadError) {
+        } catch (err) {
+          const aborted =
+            (err instanceof DOMException && err.name === "AbortError") ||
+            (err instanceof Error && err.name === "AbortError");
           setTranscribeError(
-            uploadError.message || t("transcribeErrorGeneric"),
+            aborted ? t("transcribeErrorTimeout") : t("transcribeErrorGeneric"),
           );
           return;
         }
 
-        storagePaths.push(path);
+        storagePaths.push(objectPath);
       }
 
       setTranscribeBusyStep("transcribe");
       setTranscribeUploadPart(null);
 
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ storagePaths }),
-        signal: controller.signal,
-      });
-
-      const raw = await res.text();
-      let data: {
-        text?: string;
-        error?: string;
-        code?: string;
-      };
-      if (raw.trim()) {
-        try {
-          data = JSON.parse(raw) as {
-            text?: string;
-            error?: string;
-            code?: string;
-          };
-        } catch {
-          setTranscribeError(
-            res.status === 413
-              ? t("transcribeErrorPayloadTooLarge")
-              : t("transcribeErrorUnexpectedResponse"),
-          );
-          return;
-        }
-      } else {
-        data = {};
-        if (res.status === 413) {
-          setTranscribeError(t("transcribeErrorPayloadTooLarge"));
-          return;
-        }
-      }
-
-      if (!res.ok) {
-        if (res.status === 403 && data.code === "TRANSCRIBE_QUOTA") {
-          setTranscribeError(null);
-          void refreshUsage();
-          return;
-        }
-        const serverMsg = typeof data.error === "string" ? data.error : "";
-        setTranscribeError(
-          transcribeErrorMessage(res.status, serverMsg || undefined, t),
-        );
-        if (res.status === 403) void refreshUsage();
+      const queued = await startTranscribeJobFromJson({ storagePaths });
+      if (!queued) {
         return;
       }
-
-      if (typeof data.text !== "string") {
-        setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-        return;
-      }
-
-      setTranscriptionText(data.text);
-      setTranscribeReady(true);
-      void refreshUsage();
     } catch (err) {
       const aborted =
         (err instanceof DOMException && err.name === "AbortError") ||
@@ -876,6 +984,56 @@ export function RepurposeWorkspace() {
                 >
                   {t("transcribeHint")}
                 </p>
+                {showAsyncTranscribeNotice ? (
+                  <div
+                    className="mt-3 rounded-xl border border-violet-200/90 bg-violet-50/90 px-3 py-2.5 dark:border-violet-900/50 dark:bg-violet-950/35"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">
+                      {t("transcribeAsyncNoticeTitle")}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-violet-900/90 dark:text-violet-200/90">
+                      {t("transcribeAsyncNoticeBody")}
+                    </p>
+                  </div>
+                ) : null}
+                <div className="mt-4 flex flex-col gap-2">
+                  <label
+                    htmlFor="youtube-transcribe-url"
+                    className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                  >
+                    {t("youtubeTranscribeLabel")}
+                  </label>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <input
+                      id="youtube-transcribe-url"
+                      type="url"
+                      inputMode="url"
+                      autoComplete="off"
+                      placeholder={t("youtubeTranscribePlaceholder")}
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      disabled={videoControlsDisabled}
+                      className="min-w-0 flex-1 rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-3 py-2 text-sm text-zinc-900 outline-none focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-950/50 dark:text-zinc-100"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        videoControlsDisabled ||
+                        transcribeLoading ||
+                        !youtubeUrl.trim()
+                      }
+                      onClick={() => void onYoutubeTranscribe()}
+                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-zinc-200/80 bg-white px-4 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
+                    >
+                      {t("youtubeTranscribeButton")}
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    {t("youtubeTranscribeHint")}
+                  </p>
+                </div>
                 {transcribeBlocked && !transcribeReady ? (
                   <div
                     className="mt-3 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 dark:border-amber-900/45 dark:bg-amber-950/40"
