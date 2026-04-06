@@ -5,7 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { createClient } from "@/lib/supabase/client";
-import { transcodeToM4aAac } from "@/lib/transcribe/extract-audio-browser";
+import {
+  ensureWhisperSizedParts,
+  transcodeToM4aAac,
+  WHISPER_MAX_BYTES,
+} from "@/lib/transcribe/extract-audio-browser";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set(["mp3", "wav", "mp4"]);
@@ -20,7 +24,8 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
 ]);
 /** Vercel / proxy gövde limiti için uyarı eşiği (sıkıştırma tetiklenir). */
 const TRANSCRIBE_WARN_BYTES = 4 * 1024 * 1024;
-const TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024;
+/** Ham video/ses seçimi üst sınırı (tarayıcı belleği / ffmpeg). */
+const TRANSCRIBE_SOURCE_MAX_BYTES = 120 * 1024 * 1024;
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_URL = "/api/subscription-status";
@@ -114,6 +119,12 @@ function transcribeErrorMessage(
 ): string {
   const msg = serverMessage?.trim();
   if (status === 413) return t("transcribeErrorPayloadTooLarge");
+  if (status === 503) {
+    if (msg && /SERVICE_ROLE_KEY|service role|service_role/i.test(msg)) {
+      return t("transcribeErrorStorageNotConfigured");
+    }
+    return msg && msg.length > 0 ? msg : t("transcribeErrorServer");
+  }
   if (status === 429) return t("transcribeErrorRateLimit");
   if (status === 408 || status === 504) return t("transcribeErrorTimeout");
   if (status >= 500) {
@@ -163,8 +174,12 @@ export function RepurposeWorkspace() {
   const [transcribeLargeFileWarning, setTranscribeLargeFileWarning] =
     useState(false);
   const [transcribeBusyStep, setTranscribeBusyStep] = useState<
-    "extract" | "upload" | null
+    "extract" | "upload" | "transcribe" | null
   >(null);
+  const [transcribeUploadPart, setTranscribeUploadPart] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const [transcribeLoading, setTranscribeLoading] = useState(false);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
   const [transcribeReady, setTranscribeReady] = useState(false);
@@ -341,7 +356,7 @@ export function RepurposeWorkspace() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    if (file.size > TRANSCRIBE_MAX_BYTES) {
+    if (file.size > TRANSCRIBE_SOURCE_MAX_BYTES) {
       setTranscribeError(t("transcribeErrorTooLarge"));
       setMediaFile(null);
       setTranscribeLargeFileWarning(false);
@@ -398,17 +413,33 @@ export function RepurposeWorkspace() {
     if (f) assignMediaFile(f);
   }
 
+  function transcribeProgressLabel(): string {
+    if (transcribeBusyStep === "extract") return t("transcribeStepExtract");
+    if (transcribeBusyStep === "upload") {
+      if (transcribeUploadPart && transcribeUploadPart.total > 1) {
+        return t("transcribeStepUploadPart", {
+          current: transcribeUploadPart.current,
+          total: transcribeUploadPart.total,
+        });
+      }
+      return t("transcribeStepUpload");
+    }
+    if (transcribeBusyStep === "transcribe") return t("transcribeStepAi");
+    return t("processingVideo");
+  }
+
   async function onUploadVideo() {
     if (!mediaFile) return;
 
     setTranscribeError(null);
     setTranscribeBusyStep(null);
+    setTranscribeUploadPart(null);
     setTranscribeLoading(true);
     setTranscribeReady(false);
     setTranscriptionText("");
 
     const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 240_000);
+    const timeoutId = window.setTimeout(() => controller.abort(), 600_000);
 
     try {
       let fileToSend: File = mediaFile;
@@ -431,20 +462,105 @@ export function RepurposeWorkspace() {
         }
       }
 
-      if (fileToSend.size > TRANSCRIBE_MAX_BYTES) {
-        setTranscribeError(t("transcribeErrorTooLarge"));
+      let parts: File[];
+      try {
+        parts = await ensureWhisperSizedParts(fileToSend, controller.signal);
+      } catch (err) {
+        const aborted =
+          (err instanceof DOMException && err.name === "AbortError") ||
+          (err instanceof Error && err.name === "AbortError");
+        setTranscribeError(
+          aborted ? t("transcribeErrorTimeout") : t("transcribeExtractFailed"),
+        );
         return;
       }
 
-      setTranscribeBusyStep("upload");
+      for (const p of parts) {
+        if (p.size > WHISPER_MAX_BYTES) {
+          setTranscribeError(t("transcribeErrorTooLarge"));
+          return;
+        }
+      }
 
-      const fd = new FormData();
-      fd.append("file", fileToSend);
+      const supabase = createClient();
+      const storagePaths: string[] = [];
+
+      for (let i = 0; i < parts.length; i++) {
+        setTranscribeBusyStep("upload");
+        setTranscribeUploadPart({
+          current: i + 1,
+          total: parts.length,
+        });
+
+        const signRes = await fetch("/api/transcribe/sign-upload", {
+          method: "POST",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+
+        const signRaw = await signRes.text();
+        let signJson: {
+          path?: string;
+          token?: string;
+          bucket?: string;
+          error?: string;
+        } = {};
+        if (signRaw.trim()) {
+          try {
+            signJson = JSON.parse(signRaw) as typeof signJson;
+          } catch {
+            setTranscribeError(t("transcribeErrorUnexpectedResponse"));
+            return;
+          }
+        }
+
+        if (!signRes.ok) {
+          const serverMsg =
+            typeof signJson.error === "string" ? signJson.error : "";
+          setTranscribeError(
+            transcribeErrorMessage(
+              signRes.status,
+              serverMsg || undefined,
+              t,
+            ),
+          );
+          if (signRes.status === 403) void refreshUsage();
+          return;
+        }
+
+        const path = signJson.path;
+        const token = signJson.token;
+        const bucket = signJson.bucket;
+        if (!path || !token || !bucket) {
+          setTranscribeError(t("transcribeErrorUnexpectedResponse"));
+          return;
+        }
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .uploadToSignedUrl(path, token, parts[i], {
+            contentType: parts[i].type || "audio/mp4",
+            upsert: true,
+          });
+
+        if (uploadError) {
+          setTranscribeError(
+            uploadError.message || t("transcribeErrorGeneric"),
+          );
+          return;
+        }
+
+        storagePaths.push(path);
+      }
+
+      setTranscribeBusyStep("transcribe");
+      setTranscribeUploadPart(null);
 
       const res = await fetch("/api/transcribe", {
         method: "POST",
-        body: fd,
+        headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
+        body: JSON.stringify({ storagePaths }),
         signal: controller.signal,
       });
 
@@ -511,6 +627,7 @@ export function RepurposeWorkspace() {
     } finally {
       window.clearTimeout(timeoutId);
       setTranscribeBusyStep(null);
+      setTranscribeUploadPart(null);
       setTranscribeLoading(false);
     }
   }
@@ -828,9 +945,7 @@ export function RepurposeWorkspace() {
                         className="size-4 shrink-0 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700 dark:border-zinc-600 dark:border-t-zinc-200"
                         aria-hidden
                       />
-                      {transcribeBusyStep === "extract"
-                        ? t("transcribeExtractingAudio")
-                        : t("processingVideo")}
+                      {transcribeProgressLabel()}
                     </>
                   ) : (
                     t("uploadVideo")
@@ -882,16 +997,14 @@ export function RepurposeWorkspace() {
                     className="absolute inset-0 z-30 flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
                     role="status"
                     aria-live="polite"
-                    aria-label={t("processingVideo")}
+                    aria-label={transcribeProgressLabel()}
                   >
                     <span
                       className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
                       aria-hidden
                     />
                     <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                      {transcribeBusyStep === "extract"
-                        ? t("transcribeExtractingAudio")
-                        : t("processingVideo")}
+                      {transcribeProgressLabel()}
                     </p>
                     <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                       {t("processingVideoHint")}

@@ -1,15 +1,17 @@
 import OpenAI from "openai";
 import { toFile } from "openai";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient, isServiceRoleConfigured } from "@/lib/supabase/admin";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import { TRANSCRIBE_TEMP_BUCKET } from "@/lib/storage/transcribe-bucket";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { PRO_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { checkUserProSubscription } from "@/lib/subscription/plan";
 
-/** Node required: OpenAI SDK + multipart parsing + Buffer */
+/** Node required: OpenAI SDK + multipart / Storage */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-/** Long audio can exceed 60s; Vercel caps by plan (e.g. 60s Hobby, 300s Pro). */
+/** Uzun ses / çok parça transkripsiyon için (Vercel Pro). */
 export const maxDuration = 300;
 
 const FIELD_NAME = "file";
@@ -28,7 +30,7 @@ const ALLOWED_MIME = new Set([
   "video/mp4",
 ]);
 
-/** OpenAI Whisper upload limit */
+/** OpenAI Whisper tek dosya limiti */
 const MAX_BYTES = 25 * 1024 * 1024;
 
 function extensionOf(name: string): string {
@@ -45,9 +47,7 @@ function isAllowedUpload(file: File): boolean {
 
 type QuotaRpcRow = { allowed: boolean; current_count: number };
 
-function firstRpcRow(
-  data: unknown,
-): QuotaRpcRow | null {
+function firstRpcRow(data: unknown): QuotaRpcRow | null {
   if (data == null) return null;
   if (Array.isArray(data)) {
     const row = data[0];
@@ -71,6 +71,57 @@ function firstRpcRow(
   return null;
 }
 
+async function consumeTranscribeQuotaIfNeeded(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<Response | null> {
+  if (FORCE_VIDEO_FEATURE_ENABLED) return null;
+
+  const { data: quotaData, error: quotaError } = await supabase.rpc(
+    "consume_transcribe_quota",
+    { p_limit: PRO_TRANSCRIBE_LIMIT },
+  );
+
+  if (quotaError) {
+    console.error("[api/transcribe] quota rpc:", quotaError.message);
+    return Response.json(
+      { error: "Could not verify transcription quota." },
+      { status: 500 },
+    );
+  }
+
+  const quotaRow = firstRpcRow(quotaData);
+  if (!quotaRow || !quotaRow.allowed) {
+    return Response.json(
+      {
+        error:
+          "Transcription limit reached for your plan. Contact support if you need a higher limit.",
+        code: "TRANSCRIBE_QUOTA",
+        used: quotaRow?.current_count ?? PRO_TRANSCRIBE_LIMIT,
+        limit: PRO_TRANSCRIBE_LIMIT,
+      },
+      { status: 403 },
+    );
+  }
+
+  return null;
+}
+
+async function transcribeBuffer(
+  openai: OpenAI,
+  buffer: Buffer,
+  filename: string,
+  contentType?: string,
+): Promise<string> {
+  const uploadable = await toFile(buffer, filename, {
+    type: contentType || undefined,
+  });
+  const transcription = await openai.audio.transcriptions.create({
+    file: uploadable,
+    model: "whisper-1",
+  });
+  return typeof transcription.text === "string" ? transcription.text : "";
+}
+
 export async function POST(req: Request): Promise<Response> {
   try {
     if (!process.env.OPENAI_API_KEY?.trim()) {
@@ -85,23 +136,138 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json(
         {
           error:
-            "Transcription quota requires Supabase. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+            "Transcription requires Supabase. Configure NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
         },
         { status: 503 },
       );
     }
 
-    // Oturum + subscriptions.plan; işlemden önce (dosya/Whisper yok).
+    const contentType = req.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json") && !isServiceRoleConfigured()) {
+      return Response.json(
+        {
+          error:
+            "JSON + Storage transcribe requires SUPABASE_SERVICE_ROLE_KEY on the server (see .env.example).",
+        },
+        { status: 503 },
+      );
+    }
+
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const isPro = await checkUserProSubscription(supabase);
     if (!isPro) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
       return Response.json({ error: "Upgrade required" }, { status: 403 });
+    }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 240_000,
+      maxRetries: 2,
+    });
+
+    if (contentType.includes("application/json")) {
+      let body: { storagePath?: unknown; storagePaths?: unknown };
+      try {
+        body = (await req.json()) as {
+          storagePath?: unknown;
+          storagePaths?: unknown;
+        };
+      } catch {
+        return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+      }
+
+      const rawPaths = Array.isArray(body.storagePaths)
+        ? body.storagePaths
+        : typeof body.storagePath === "string"
+          ? [body.storagePath]
+          : [];
+      const paths = rawPaths.filter(
+        (p): p is string => typeof p === "string" && p.length > 0,
+      );
+
+      if (paths.length === 0) {
+        return Response.json(
+          { error: "Provide storagePath (string) or storagePaths (string[])." },
+          { status: 400 },
+        );
+      }
+
+      const prefix = `${user.id}/`;
+      for (const p of paths) {
+        if (!p.startsWith(prefix) || p.includes("..") || p.includes("//")) {
+          return Response.json({ error: "Invalid storage path" }, { status: 400 });
+        }
+      }
+
+      const quotaErr = await consumeTranscribeQuotaIfNeeded(supabase);
+      if (quotaErr) return quotaErr;
+
+      const admin = createServiceRoleClient();
+      const texts: string[] = [];
+
+      try {
+        for (const p of paths) {
+          const { data: blob, error: dlErr } = await admin.storage
+            .from(TRANSCRIBE_TEMP_BUCKET)
+            .download(p);
+
+          if (dlErr || !blob) {
+            console.error("[api/transcribe] storage download:", dlErr?.message);
+            return Response.json(
+              { error: "Could not read file from storage." },
+              { status: 502 },
+            );
+          }
+
+          const buffer = Buffer.from(await blob.arrayBuffer());
+          if (buffer.length === 0) {
+            return Response.json({ error: "Empty file in storage" }, { status: 400 });
+          }
+          if (buffer.length > MAX_BYTES) {
+            return Response.json(
+              { error: "File too large (max 25MB per OpenAI Whisper segment)" },
+              { status: 400 },
+            );
+          }
+
+          const name = p.split("/").pop() || "audio.m4a";
+          const textPart = await transcribeBuffer(
+            openai,
+            buffer,
+            name,
+            "audio/mp4",
+          );
+          texts.push(textPart.trim());
+        }
+      } finally {
+        await admin.storage
+          .from(TRANSCRIBE_TEMP_BUCKET)
+          .remove(paths)
+          .catch((err: Error) =>
+            console.warn("[api/transcribe] storage cleanup:", err?.message),
+          );
+      }
+
+      return Response.json({
+        text: texts.filter((t) => t.length > 0).join("\n\n"),
+      });
+    }
+
+    if (!contentType.includes("multipart/form-data")) {
+      return Response.json(
+        {
+          error:
+            "Use multipart/form-data with field \"file\" or application/json with storagePaths.",
+        },
+        { status: 415 },
+      );
     }
 
     let formData: FormData;
@@ -124,7 +290,7 @@ export async function POST(req: Request): Promise<Response> {
 
     if (!isAllowedUpload(entry)) {
       return Response.json(
-        { error: "Unsupported file type. Allowed: mp3, wav, mp4." },
+        { error: "Unsupported file type. Allowed: mp3, wav, mp4, m4a." },
         { status: 400 },
       );
     }
@@ -140,57 +306,20 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    if (!FORCE_VIDEO_FEATURE_ENABLED) {
-      const { data: quotaData, error: quotaError } = await supabase.rpc(
-        "consume_transcribe_quota",
-        { p_limit: PRO_TRANSCRIBE_LIMIT },
-      );
-
-      if (quotaError) {
-        console.error("[api/transcribe] quota rpc:", quotaError.message);
-        return Response.json(
-          { error: "Could not verify transcription quota." },
-          { status: 500 },
-        );
-      }
-
-      const quotaRow = firstRpcRow(quotaData);
-      if (!quotaRow || !quotaRow.allowed) {
-        return Response.json(
-          {
-            error:
-              "Transcription limit reached for your plan. Contact support if you need a higher limit.",
-            code: "TRANSCRIBE_QUOTA",
-            used: quotaRow?.current_count ?? PRO_TRANSCRIBE_LIMIT,
-            limit: PRO_TRANSCRIBE_LIMIT,
-          },
-          { status: 403 },
-        );
-      }
-    }
+    const quotaErrMultipart = await consumeTranscribeQuotaIfNeeded(supabase);
+    if (quotaErrMultipart) return quotaErrMultipart;
 
     const buffer = Buffer.from(await entry.arrayBuffer());
     const ext = extensionOf(entry.name || "");
     const safeName =
       entry.name?.trim() || (ext ? `upload.${ext}` : "upload.mp3");
 
-    const uploadable = await toFile(buffer, safeName, {
-      type: entry.type || undefined,
-    });
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 240_000,
-      maxRetries: 2,
-    });
-
-    const transcription = await openai.audio.transcriptions.create({
-      file: uploadable,
-      model: "whisper-1",
-    });
-
-    const text =
-      typeof transcription.text === "string" ? transcription.text : "";
+    const text = await transcribeBuffer(
+      openai,
+      buffer,
+      safeName,
+      entry.type || undefined,
+    );
     return Response.json({ text });
   } catch (error) {
     console.error("[api/transcribe]", error);

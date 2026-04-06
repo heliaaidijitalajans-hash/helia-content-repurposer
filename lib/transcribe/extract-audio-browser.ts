@@ -10,7 +10,8 @@ const CORE_BASE = `https://cdn.jsdelivr.net/npm/@ffmpeg/core@${CORE_VERSION}/dis
 
 let ffmpegLoadPromise: Promise<FFmpeg> | null = null;
 
-async function getFfmpeg(signal?: AbortSignal): Promise<FFmpeg> {
+/** @internal Paylaşımlı ffmpeg örneği (transcode + parçalama). */
+export async function getFfmpeg(signal?: AbortSignal): Promise<FFmpeg> {
   if (!ffmpegLoadPromise) {
     ffmpegLoadPromise = (async () => {
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
@@ -103,4 +104,93 @@ export async function transcodeToM4aAac(
   const blob = new Blob([bytes], { type: "audio/mp4" });
   const name = `${baseNameFrom(file)}-audio.m4a`;
   return new File([blob], name, { type: "audio/mp4" });
+}
+
+/** OpenAI Whisper tek istek başına üst sınır. */
+export const WHISPER_MAX_BYTES = 25 * 1024 * 1024;
+
+/**
+ * 25 MB üzeri AAC akışını zaman dilimlerine böler (her parça Whisper limitinin altında kalmalı).
+ * ~64 kbps için 420 sn ≈ 3,3 MB/parça.
+ */
+export async function splitM4aBySegmentTime(
+  file: File,
+  segmentSeconds: number,
+  signal?: AbortSignal,
+): Promise<File[]> {
+  const { fetchFile } = await import("@ffmpeg/util");
+  const ffmpeg = await getFfmpeg(signal);
+  const input = "split_in.m4a";
+  const pattern = "part_%03d.m4a";
+
+  await ffmpeg.writeFile(input, await fetchFile(file), { signal });
+
+  const code = await ffmpeg.exec(
+    [
+      "-i",
+      input,
+      "-f",
+      "segment",
+      "-segment_time",
+      String(segmentSeconds),
+      "-reset_timestamps",
+      "1",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "64k",
+      "-ar",
+      "44100",
+      "-ac",
+      "1",
+      pattern,
+    ],
+    -1,
+    { signal },
+  );
+
+  await ffmpeg.deleteFile(input).catch(() => {});
+
+  if (code !== 0) {
+    const listing = await ffmpeg.listDir("/").catch(() => []);
+    for (const n of listing) {
+      if (n.name.startsWith("part_")) {
+        await ffmpeg.deleteFile(n.name).catch(() => {});
+      }
+    }
+    throw new Error("ffmpeg_segment_failed");
+  }
+
+  const listing = await ffmpeg.listDir("/");
+  const names = listing
+    .map((n) => n.name)
+    .filter((name) => /^part_\d{3}\.m4a$/.test(name))
+    .sort();
+
+  const parts: File[] = [];
+  for (const name of names) {
+    const data = await ffmpeg.readFile(name, "binary", { signal });
+    await ffmpeg.deleteFile(name).catch(() => {});
+    if (!(data instanceof Uint8Array) || data.byteLength === 0) continue;
+    const bytes = new Uint8Array(data.byteLength);
+    bytes.set(data);
+    parts.push(
+      new File([new Blob([bytes], { type: "audio/mp4" })], name, {
+        type: "audio/mp4",
+      }),
+    );
+  }
+
+  if (parts.length === 0) {
+    throw new Error("no_audio_chunks");
+  }
+  return parts;
+}
+
+export async function ensureWhisperSizedParts(
+  file: File,
+  signal?: AbortSignal,
+): Promise<File[]> {
+  if (file.size <= WHISPER_MAX_BYTES) return [file];
+  return splitM4aBySegmentTime(file, 420, signal);
 }

@@ -2,7 +2,8 @@ import OpenAI from "openai";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+/** Vercel Pro: uzun GPT çağrıları için (Hobby’de platform üst sınırı geçerli olabilir). */
+export const maxDuration = 300;
 
 export async function POST(req: Request): Promise<Response> {
   try {
