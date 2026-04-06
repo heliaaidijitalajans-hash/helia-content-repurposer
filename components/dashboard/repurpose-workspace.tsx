@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { createClient } from "@/lib/supabase/client";
+import { transcodeToM4aAac } from "@/lib/transcribe/extract-audio-browser";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set(["mp3", "wav", "mp4"]);
@@ -17,6 +18,8 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
   "audio/mp4",
   "video/mp4",
 ]);
+/** Vercel / proxy gövde limiti için uyarı eşiği (sıkıştırma tetiklenir). */
+const TRANSCRIBE_WARN_BYTES = 4 * 1024 * 1024;
 const TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024;
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
@@ -39,6 +42,16 @@ function isAllowedMediaFile(file: File): boolean {
   if (TRANSCRIBE_ALLOWED_EXT.has(ext)) return true;
   const mime = (file.type || "").toLowerCase().split(";")[0]?.trim() ?? "";
   return mime !== "" && TRANSCRIBE_ALLOWED_MIME.has(mime);
+}
+
+/** MP4 video (ses MP4 değil) veya video/* — tarayıcıda sadece ses çıkarılır. */
+function isTranscribeVideoFile(file: File): boolean {
+  const mime = (file.type || "").toLowerCase().split(";")[0]?.trim() ?? "";
+  if (mime.startsWith("video/")) return true;
+  if (mediaExtensionOf(file.name) === "mp4" && !mime.startsWith("audio/")) {
+    return true;
+  }
+  return false;
 }
 
 function Section({
@@ -100,7 +113,7 @@ function transcribeErrorMessage(
   t: (key: string) => string,
 ): string {
   const msg = serverMessage?.trim();
-  if (status === 413) return t("transcribeErrorTooLarge");
+  if (status === 413) return t("transcribeErrorPayloadTooLarge");
   if (status === 429) return t("transcribeErrorRateLimit");
   if (status === 408 || status === 504) return t("transcribeErrorTimeout");
   if (status >= 500) {
@@ -147,6 +160,11 @@ export function RepurposeWorkspace() {
   } | null>(null);
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [transcribeLargeFileWarning, setTranscribeLargeFileWarning] =
+    useState(false);
+  const [transcribeBusyStep, setTranscribeBusyStep] = useState<
+    "extract" | "upload" | null
+  >(null);
   const [transcribeLoading, setTranscribeLoading] = useState(false);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
   const [transcribeReady, setTranscribeReady] = useState(false);
@@ -311,11 +329,13 @@ export function RepurposeWorkspace() {
   function assignMediaFile(file: File | null) {
     if (!file) {
       setMediaFile(null);
+      setTranscribeLargeFileWarning(false);
       return;
     }
     if (!isAllowedMediaFile(file)) {
       setTranscribeError(t("transcribeDropInvalid"));
       setMediaFile(null);
+      setTranscribeLargeFileWarning(false);
       setTranscribeReady(false);
       setTranscriptionText("");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -324,12 +344,14 @@ export function RepurposeWorkspace() {
     if (file.size > TRANSCRIBE_MAX_BYTES) {
       setTranscribeError(t("transcribeErrorTooLarge"));
       setMediaFile(null);
+      setTranscribeLargeFileWarning(false);
       setTranscribeReady(false);
       setTranscriptionText("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setMediaFile(file);
+    setTranscribeLargeFileWarning(file.size > TRANSCRIBE_WARN_BYTES);
     setTranscribeError(null);
     setTranscribeReady(false);
     setTranscriptionText("");
@@ -338,7 +360,7 @@ export function RepurposeWorkspace() {
   function onMediaFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
     if (f) assignMediaFile(f);
-    else setMediaFile(null);
+    else assignMediaFile(null);
     e.target.value = "";
   }
 
@@ -380,6 +402,7 @@ export function RepurposeWorkspace() {
     if (!mediaFile) return;
 
     setTranscribeError(null);
+    setTranscribeBusyStep(null);
     setTranscribeLoading(true);
     setTranscribeReady(false);
     setTranscriptionText("");
@@ -388,8 +411,35 @@ export function RepurposeWorkspace() {
     const timeoutId = window.setTimeout(() => controller.abort(), 240_000);
 
     try {
+      let fileToSend: File = mediaFile;
+      const mustTranscode =
+        isTranscribeVideoFile(mediaFile) ||
+        mediaFile.size > TRANSCRIBE_WARN_BYTES;
+
+      if (mustTranscode) {
+        setTranscribeBusyStep("extract");
+        try {
+          fileToSend = await transcodeToM4aAac(mediaFile, controller.signal);
+        } catch (err) {
+          const aborted =
+            (err instanceof DOMException && err.name === "AbortError") ||
+            (err instanceof Error && err.name === "AbortError");
+          setTranscribeError(
+            aborted ? t("transcribeErrorTimeout") : t("transcribeExtractFailed"),
+          );
+          return;
+        }
+      }
+
+      if (fileToSend.size > TRANSCRIBE_MAX_BYTES) {
+        setTranscribeError(t("transcribeErrorTooLarge"));
+        return;
+      }
+
+      setTranscribeBusyStep("upload");
+
       const fd = new FormData();
-      fd.append("file", mediaFile);
+      fd.append("file", fileToSend);
 
       const res = await fetch("/api/transcribe", {
         method: "POST",
@@ -404,17 +454,27 @@ export function RepurposeWorkspace() {
         error?: string;
         code?: string;
       };
-      try {
-        data = raw.trim()
-          ? (JSON.parse(raw) as {
-              text?: string;
-              error?: string;
-              code?: string;
-            })
-          : {};
-      } catch {
-        setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-        return;
+      if (raw.trim()) {
+        try {
+          data = JSON.parse(raw) as {
+            text?: string;
+            error?: string;
+            code?: string;
+          };
+        } catch {
+          setTranscribeError(
+            res.status === 413
+              ? t("transcribeErrorPayloadTooLarge")
+              : t("transcribeErrorUnexpectedResponse"),
+          );
+          return;
+        }
+      } else {
+        data = {};
+        if (res.status === 413) {
+          setTranscribeError(t("transcribeErrorPayloadTooLarge"));
+          return;
+        }
       }
 
       if (!res.ok) {
@@ -450,6 +510,7 @@ export function RepurposeWorkspace() {
       }
     } finally {
       window.clearTimeout(timeoutId);
+      setTranscribeBusyStep(null);
       setTranscribeLoading(false);
     }
   }
@@ -708,6 +769,16 @@ export function RepurposeWorkspace() {
                     </p>
                   </div>
                 ) : null}
+                {transcribeLargeFileWarning && !transcribeReady ? (
+                  <div
+                    className="mt-3 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 dark:border-amber-900/45 dark:bg-amber-950/40"
+                    role="status"
+                  >
+                    <p className="text-sm font-medium leading-relaxed text-amber-950 dark:text-amber-100">
+                      {t("transcribeWarningOver4mb")}
+                    </p>
+                  </div>
+                ) : null}
                 <input
                   ref={fileInputRef}
                   id="transcribe-file"
@@ -757,7 +828,9 @@ export function RepurposeWorkspace() {
                         className="size-4 shrink-0 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700 dark:border-zinc-600 dark:border-t-zinc-200"
                         aria-hidden
                       />
-                      {t("processingVideo")}
+                      {transcribeBusyStep === "extract"
+                        ? t("transcribeExtractingAudio")
+                        : t("processingVideo")}
                     </>
                   ) : (
                     t("uploadVideo")
@@ -816,7 +889,9 @@ export function RepurposeWorkspace() {
                       aria-hidden
                     />
                     <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                      {t("processingVideo")}
+                      {transcribeBusyStep === "extract"
+                        ? t("transcribeExtractingAudio")
+                        : t("processingVideo")}
                     </p>
                     <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                       {t("processingVideoHint")}

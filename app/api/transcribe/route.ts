@@ -14,7 +14,7 @@ export const maxDuration = 300;
 
 const FIELD_NAME = "file";
 
-const ALLOWED_EXT = new Set(["mp3", "wav", "mp4"]);
+const ALLOWED_EXT = new Set(["mp3", "wav", "mp4", "m4a"]);
 
 const ALLOWED_MIME = new Set([
   "audio/mpeg",
@@ -23,6 +23,8 @@ const ALLOWED_MIME = new Set([
   "audio/wave",
   "audio/x-wav",
   "audio/mp4",
+  "audio/m4a",
+  "audio/x-m4a",
   "video/mp4",
 ]);
 
