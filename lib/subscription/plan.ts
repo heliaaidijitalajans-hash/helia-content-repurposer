@@ -1,10 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 
 export type SubscriptionPlan = "free" | "pro";
 
 /**
  * Sunucu Supabase istemcisi ile oturum kullanıcısı + `subscriptions` satırı.
- * `true` yalnızca `plan === "pro"` iken.
+ * `FORCE_VIDEO_FEATURE_ENABLED` açıkken her zaman `true` (geçici).
+ * Kapalıyken `true` yalnızca `plan === "pro"` iken.
  */
 export async function checkUserProSubscription(
   supabase: SupabaseClient,
@@ -12,6 +14,10 @@ export async function checkUserProSubscription(
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (FORCE_VIDEO_FEATURE_ENABLED) {
+    return true;
+  }
 
   if (!user) {
     return false;

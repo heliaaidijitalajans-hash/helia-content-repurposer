@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { toFile } from "openai";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { PRO_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { checkUserProSubscription } from "@/lib/subscription/plan";
 
@@ -137,31 +138,33 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    const { data: quotaData, error: quotaError } = await supabase.rpc(
-      "consume_transcribe_quota",
-      { p_limit: PRO_TRANSCRIBE_LIMIT },
-    );
-
-    if (quotaError) {
-      console.error("[api/transcribe] quota rpc:", quotaError.message);
-      return Response.json(
-        { error: "Could not verify transcription quota." },
-        { status: 500 },
+    if (!FORCE_VIDEO_FEATURE_ENABLED) {
+      const { data: quotaData, error: quotaError } = await supabase.rpc(
+        "consume_transcribe_quota",
+        { p_limit: PRO_TRANSCRIBE_LIMIT },
       );
-    }
 
-    const quotaRow = firstRpcRow(quotaData);
-    if (!quotaRow || !quotaRow.allowed) {
-      return Response.json(
-        {
-          error:
-            "Transcription limit reached for your plan. Contact support if you need a higher limit.",
-          code: "TRANSCRIBE_QUOTA",
-          used: quotaRow?.current_count ?? PRO_TRANSCRIBE_LIMIT,
-          limit: PRO_TRANSCRIBE_LIMIT,
-        },
-        { status: 403 },
-      );
+      if (quotaError) {
+        console.error("[api/transcribe] quota rpc:", quotaError.message);
+        return Response.json(
+          { error: "Could not verify transcription quota." },
+          { status: 500 },
+        );
+      }
+
+      const quotaRow = firstRpcRow(quotaData);
+      if (!quotaRow || !quotaRow.allowed) {
+        return Response.json(
+          {
+            error:
+              "Transcription limit reached for your plan. Contact support if you need a higher limit.",
+            code: "TRANSCRIBE_QUOTA",
+            used: quotaRow?.current_count ?? PRO_TRANSCRIBE_LIMIT,
+            limit: PRO_TRANSCRIBE_LIMIT,
+          },
+          { status: 403 },
+        );
+      }
     }
 
     const buffer = Buffer.from(await entry.arrayBuffer());

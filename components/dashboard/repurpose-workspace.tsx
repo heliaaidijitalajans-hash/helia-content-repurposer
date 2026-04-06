@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
+import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { createClient } from "@/lib/supabase/client";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
@@ -18,7 +19,7 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
 ]);
 const TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024;
 
-/** Video özelliği: sunucu `checkUserProSubscription` → `{ isPro: boolean }` */
+/** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_URL = "/api/subscription-status";
 
 function parseSubscriptionStatusPayload(raw: unknown): boolean {
@@ -134,8 +135,10 @@ export function RepurposeWorkspace() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RepurposeResult | null>(null);
-  /** `/api/subscription-status` → `isPro`; `null` yüklenirken. */
-  const [isPro, setIsPro] = useState<boolean | null>(null);
+  /** Abonelik / geçici FORCE bayrağı ile video erişimi. */
+  const [isPro, setIsPro] = useState<boolean | null>(() =>
+    FORCE_VIDEO_FEATURE_ENABLED ? true : null,
+  );
   const [usage, setUsage] = useState<{
     used: number;
     limit: number;
@@ -154,14 +157,21 @@ export function RepurposeWorkspace() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcribeDragDepthRef = useRef(0);
 
+  const videoUnlocked = FORCE_VIDEO_FEATURE_ENABLED || isPro === true;
+
   const transcribeBlocked =
-    isPro === true &&
+    !FORCE_VIDEO_FEATURE_ENABLED &&
+    videoUnlocked &&
     usage != null &&
     usage.transcribeUsed >= usage.transcribeLimit;
   const videoControlsDisabled =
-    isPro !== true || transcribeLoading || transcribeBlocked;
+    !videoUnlocked || transcribeLoading || transcribeBlocked;
 
   const refreshSubscriptionStatus = useCallback(async () => {
+    if (FORCE_VIDEO_FEATURE_ENABLED) {
+      setIsPro(true);
+      return;
+    }
     try {
       const r = await fetch(SUBSCRIPTION_STATUS_URL, {
         credentials: "same-origin",
@@ -204,6 +214,10 @@ export function RepurposeWorkspace() {
   }, []);
 
   useEffect(() => {
+    if (FORCE_VIDEO_FEATURE_ENABLED) {
+      setIsPro(true);
+      return;
+    }
     void refreshSubscriptionStatus();
     const supabase = createClient();
     const {
@@ -221,7 +235,11 @@ export function RepurposeWorkspace() {
   }, [refreshUsage, result]);
 
   useEffect(() => {
-    if (transcribeLoading || transcribeBlocked || isPro === false) {
+    if (
+      transcribeLoading ||
+      transcribeBlocked ||
+      (!FORCE_VIDEO_FEATURE_ENABLED && isPro === false)
+    ) {
       transcribeDragDepthRef.current = 0;
       setDragActive(false);
     }
@@ -442,7 +460,7 @@ export function RepurposeWorkspace() {
         {usage ? (
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
             <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
-            {isPro === true ? (
+            {videoUnlocked ? (
               <span>
                 {t("videoQuota", {
                   used: usage.transcribeUsed,
@@ -642,7 +660,7 @@ export function RepurposeWorkspace() {
             aria-labelledby="tab-video"
             className="flex min-h-[320px] flex-col"
           >
-            {isPro === null ? (
+            {!FORCE_VIDEO_FEATURE_ENABLED && isPro === null ? (
               <div
                 className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-6 py-16 dark:border-zinc-800 dark:bg-zinc-900/30"
                 role="status"
@@ -657,7 +675,7 @@ export function RepurposeWorkspace() {
                   {t("subscriptionLoading")}
                 </p>
               </div>
-            ) : isPro === false ? (
+            ) : !FORCE_VIDEO_FEATURE_ENABLED && isPro === false ? (
               <div
                 className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-zinc-200/80 bg-white px-6 py-12 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
                 role="status"
