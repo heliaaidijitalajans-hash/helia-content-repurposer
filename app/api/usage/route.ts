@@ -37,7 +37,6 @@ export async function GET() {
       limit: FREE_REPURPOSE_LIMIT,
       transcribeUsed: 0,
       transcribeLimit,
-      isPro,
     });
   }
 
@@ -50,6 +49,5 @@ export async function GET() {
     limit: FREE_REPURPOSE_LIMIT,
     transcribeUsed,
     transcribeLimit,
-    isPro,
   });
 }

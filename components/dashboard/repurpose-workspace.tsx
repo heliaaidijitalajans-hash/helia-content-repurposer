@@ -3,10 +3,10 @@
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
-import {
-  FREE_TRANSCRIBE_LIMIT,
-  PRO_TRANSCRIBE_LIMIT,
-} from "@/lib/usage/free-tier";
+import { fetchUserSubscriptionFromSupabase } from "@/lib/subscription/fetch-client";
+import type { SubscriptionPlan } from "@/lib/subscription/plan";
+import { createClient } from "@/lib/supabase/client";
+import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set(["mp3", "wav", "mp4"]);
 const TRANSCRIBE_ALLOWED_MIME = new Set([
@@ -126,12 +126,14 @@ export function RepurposeWorkspace() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<RepurposeResult | null>(null);
+  /** From `public.subscriptions.plan`; `null` while loading. */
+  const [subscriptionPlan, setSubscriptionPlan] =
+    useState<SubscriptionPlan | null>(null);
   const [usage, setUsage] = useState<{
     used: number;
     limit: number;
     transcribeUsed: number;
     transcribeLimit: number;
-    isPro: boolean;
   } | null>(null);
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -145,16 +147,19 @@ export function RepurposeWorkspace() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcribeDragDepthRef = useRef(0);
 
-  const videoFreeLocked = usage !== null && !usage.isPro;
   const transcribeBlocked =
+    subscriptionPlan === "pro" &&
     usage != null &&
-    usage.isPro &&
     usage.transcribeUsed >= usage.transcribeLimit;
   const videoControlsDisabled =
-    usage === null ||
-    !usage.isPro ||
+    subscriptionPlan !== "pro" ||
     transcribeLoading ||
     transcribeBlocked;
+
+  const refreshSubscription = useCallback(async () => {
+    const { plan } = await fetchUserSubscriptionFromSupabase();
+    setSubscriptionPlan(plan === null ? "free" : plan);
+  }, []);
 
   const refreshUsage = useCallback(async () => {
     try {
@@ -165,18 +170,14 @@ export function RepurposeWorkspace() {
         limit?: number;
         transcribeUsed?: number;
         transcribeLimit?: number;
-        isPro?: boolean;
       };
       if (typeof j.used === "number" && typeof j.limit === "number") {
-        const isPro = j.isPro === true;
         setUsage({
           used: j.used,
           limit: j.limit,
           transcribeUsed: j.transcribeUsed ?? 0,
           transcribeLimit:
-            j.transcribeLimit ??
-            (isPro ? PRO_TRANSCRIBE_LIMIT : FREE_TRANSCRIBE_LIMIT),
-          isPro,
+            j.transcribeLimit ?? FREE_TRANSCRIBE_LIMIT,
         });
       }
     } catch {
@@ -185,15 +186,32 @@ export function RepurposeWorkspace() {
   }, []);
 
   useEffect(() => {
+    void refreshSubscription();
+    const supabase = createClient();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      void refreshSubscription();
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [refreshSubscription]);
+
+  useEffect(() => {
     void refreshUsage();
   }, [refreshUsage, result]);
 
   useEffect(() => {
-    if (transcribeLoading || transcribeBlocked || videoFreeLocked) {
+    if (
+      transcribeLoading ||
+      transcribeBlocked ||
+      subscriptionPlan === "free"
+    ) {
       transcribeDragDepthRef.current = 0;
       setDragActive(false);
     }
-  }, [transcribeLoading, transcribeBlocked, videoFreeLocked]);
+  }, [transcribeLoading, transcribeBlocked, subscriptionPlan]);
 
   async function onRepurpose() {
     const bodyText = repurposeText.trim();
@@ -410,7 +428,7 @@ export function RepurposeWorkspace() {
         {usage ? (
           <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
             <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
-            {usage.isPro ? (
+            {subscriptionPlan === "pro" ? (
               <span>
                 {t("videoQuota", {
                   used: usage.transcribeUsed,
@@ -610,16 +628,34 @@ export function RepurposeWorkspace() {
             aria-labelledby="tab-video"
             className="flex min-h-[320px] flex-col"
           >
-            <div
-              className="relative rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
-              aria-busy={transcribeLoading}
-            >
+            {subscriptionPlan === null ? (
               <div
-                className={
-                  videoFreeLocked
-                    ? "pointer-events-none select-none blur-[2.5px]"
-                    : undefined
-                }
+                className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-6 py-16 dark:border-zinc-800 dark:bg-zinc-900/30"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <span
+                  className="size-8 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
+                  aria-hidden
+                />
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {t("subscriptionLoading")}
+                </p>
+              </div>
+            ) : subscriptionPlan === "free" ? (
+              <div
+                className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-zinc-200/80 bg-white px-6 py-12 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
+                role="status"
+              >
+                <p className="max-w-md text-sm font-semibold leading-relaxed text-zinc-900 dark:text-zinc-100">
+                  {t("transcribeProOnly")}
+                </p>
+              </div>
+            ) : (
+              <div
+                className="relative rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
+                aria-busy={transcribeLoading}
               >
                 <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   {t("transcribeLabel")}
@@ -678,9 +714,7 @@ export function RepurposeWorkspace() {
                 </label>
                 <button
                   type="button"
-                  disabled={
-                    videoControlsDisabled || !mediaFile
-                  }
+                  disabled={videoControlsDisabled || !mediaFile}
                   onClick={() => void onUploadVideo()}
                   aria-busy={transcribeLoading}
                   className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-zinc-200/80 bg-white px-5 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
@@ -738,38 +772,27 @@ export function RepurposeWorkspace() {
                     </div>
                   </div>
                 ) : null}
+                {transcribeLoading ? (
+                  <div
+                    className="absolute inset-0 z-30 flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
+                    role="status"
+                    aria-live="polite"
+                    aria-label={t("processingVideo")}
+                  >
+                    <span
+                      className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
+                      aria-hidden
+                    />
+                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                      {t("processingVideo")}
+                    </p>
+                    <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      {t("processingVideoHint")}
+                    </p>
+                  </div>
+                ) : null}
               </div>
-              {videoFreeLocked ? (
-                <div
-                  className="pointer-events-auto absolute inset-0 z-20 flex min-h-[12rem] items-center justify-center rounded-2xl bg-white/55 px-4 backdrop-blur-[3px] dark:bg-zinc-950/60"
-                  role="status"
-                  aria-live="polite"
-                >
-                  <p className="max-w-[18rem] text-center text-sm font-semibold leading-relaxed text-zinc-900 dark:text-zinc-50">
-                    {t("transcribeProOnly")}
-                  </p>
-                </div>
-              ) : null}
-              {transcribeLoading ? (
-                <div
-                  className="absolute inset-0 z-30 flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
-                  role="status"
-                  aria-live="polite"
-                  aria-label={t("processingVideo")}
-                >
-                  <span
-                    className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
-                    aria-hidden
-                  />
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                    {t("processingVideo")}
-                  </p>
-                  <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                    {t("processingVideoHint")}
-                  </p>
-                </div>
-              ) : null}
-            </div>
+            )}
           </div>
         )}
       </div>

@@ -125,6 +125,8 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const supabase = await createClient();
+
+    // Current logged-in user (session cookies).
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -133,6 +135,7 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // public.subscriptions.plan must be "pro" (see getSubscriptionPlan).
     const plan = await getSubscriptionPlan(supabase, user.id);
     if (plan !== "pro") {
       return Response.json({ error: "Upgrade required" }, { status: 403 });
