@@ -1,44 +1,30 @@
-import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+export async function POST() {
+  console.log("API CALISTI")
 
-export async function POST(req: Request) {
   try {
-    console.log("API HIT")
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
-    const body = await req.json()
-    const { userId } = body
-
-    // 1. Job oluştur
     const { data, error } = await supabase
-      .from("transcription_jobs")
-      .insert([
-        {
-          user_id: userId || "test-user",
-          status: "pending",
-          progress: 0,
-        },
-      ])
+      .from("transcriptions")
+      .insert([{ status: "pending" }])
       .select()
-      .single()
+
+    console.log("DATA:", data)
+    console.log("ERROR:", error)
 
     if (error) {
-      console.error("DB ERROR:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return Response.json({ error: error.message }, { status: 500 })
     }
 
-    console.log("JOB CREATED:", data.id)
+    return Response.json({ success: true, data })
 
-    return NextResponse.json({
-      success: true,
-      jobId: data.id,
-    })
-  } catch (err: any) {
-    console.error("API ERROR:", err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err) {
+    console.error("CRASH:", err)
+    return Response.json({ error: "server error" }, { status: 500 })
   }
 }
