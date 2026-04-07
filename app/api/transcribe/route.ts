@@ -3,7 +3,10 @@
  * (not under `app/[locale]/…`). The URL is always `/api/transcribe` (no locale prefix).
  */
 import { createClient } from "@/lib/supabase/server";
-import { isServiceRoleConfigured } from "@/lib/supabase/admin";
+import {
+  createServiceRoleClient,
+  isServiceRoleConfigured,
+} from "@/lib/supabase/admin";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { PRO_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
@@ -84,17 +87,17 @@ export async function GET(): Promise<Response> {
     post: {
       description: "Enqueue a transcription job",
       body: { storagePaths: "non-empty string[] of user-scoped storage paths" },
-      success: { status: 202, jobId: "uuid", pollUrl: "/api/transcribe/jobs/:id" },
+      success: { jobId: "uuid", shape: { success: true, jobId: "uuid" } },
     },
   });
 }
 
 /**
- * Transkripsiyon işini kuyruğa alır — 202 Accepted + jobId.
- * Gövde: `storagePaths` (string[], en az bir yol; kullanıcının Supabase depo ön eki).
+ * Transkripsiyon işini kuyruğa alır — JSON { success: true, jobId }.
+ * Insert uses the service role so RLS never blocks the row creation.
  */
 export async function POST(req: Request): Promise<Response> {
-  console.log("[api/transcribe] POST start");
+  console.log("API HIT");
   try {
     const { isConfigured } = getPublicSupabaseConfig();
     if (!isConfigured) {
@@ -125,6 +128,8 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const ownerId = user.id;
+
     const isPro = await checkUserProSubscription(supabase);
     if (!isPro) {
       return Response.json({ error: "Upgrade required" }, { status: 403 });
@@ -152,7 +157,7 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    const prefix = `${user.id}/`;
+    const prefix = `${ownerId}/`;
     for (const p of paths) {
       if (!p.startsWith(prefix) || p.includes("..") || p.includes("//")) {
         return Response.json({ error: "Invalid storage path" }, { status: 400 });
@@ -162,16 +167,14 @@ export async function POST(req: Request): Promise<Response> {
     const quotaErr = await consumeTranscribeQuotaIfNeeded(supabase);
     if (quotaErr) return quotaErr;
 
-    console.log("[api/transcribe] before Supabase insert", {
-      userId: user.id,
-      storagePathCount: paths.length,
-    });
+    const admin = createServiceRoleClient();
 
-    const { data: job, error: insertError } = await supabase
+    const { data: job, error: insertError } = await admin
       .from("transcription_jobs")
       .insert({
-        user_id: user.id,
+        user_id: ownerId,
         status: "pending",
+        progress: 0,
         source_type: "storage",
         storage_paths: paths,
         youtube_url: null,
@@ -184,13 +187,13 @@ export async function POST(req: Request): Promise<Response> {
         insertError ?? new Error("transcription_jobs insert returned no id"),
       );
       return Response.json(
-        { error: insertError?.message ?? "Could not create job." },
+        { success: false, error: insertError?.message ?? "Could not create job." },
         { status: 500 },
       );
     }
 
     const jobId = job.id as string;
-    console.log("[api/transcribe] after Supabase insert", { jobId });
+    console.log("JOB CREATED");
 
     try {
       await inngest.send({
@@ -199,7 +202,7 @@ export async function POST(req: Request): Promise<Response> {
       });
     } catch (e) {
       console.error(e);
-      await supabase
+      await admin
         .from("transcription_jobs")
         .update({
           status: "failed",
@@ -211,6 +214,7 @@ export async function POST(req: Request): Promise<Response> {
 
       return Response.json(
         {
+          success: false,
           error:
             "Queue unavailable. Configure INNGEST_EVENT_KEY and run Inngest with your deployment.",
         },
@@ -218,25 +222,14 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    console.log("[api/transcribe] before response", {
-      jobId,
-      status: 202,
-    });
-    return new Response(
-      JSON.stringify({
-        jobId,
-        status: "pending",
-        pollUrl: `/api/transcribe/jobs/${jobId}`,
-      }),
-      {
-        status: 202,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
+    return Response.json({ success: true, jobId });
   } catch (error) {
     console.error(error);
     const message =
       error instanceof Error ? error.message : "Transcription failed";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json(
+      { success: false, error: message },
+      { status: 500 },
+    );
   }
 }

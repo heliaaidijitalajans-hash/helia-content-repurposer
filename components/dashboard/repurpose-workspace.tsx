@@ -614,6 +614,7 @@ export function RepurposeWorkspace() {
 
     const raw = await res.text();
     let data: {
+      success?: boolean;
       jobId?: string;
       error?: string;
       code?: string;
@@ -627,7 +628,11 @@ export function RepurposeWorkspace() {
       }
     }
 
-    if (res.status === 202 && typeof data.jobId === "string") {
+    if (
+      res.ok &&
+      data.success === true &&
+      typeof data.jobId === "string"
+    ) {
       setTranscribeError(null);
       setTranscribeJobPollStatus("pending");
       setTranscribeJobPollingId(data.jobId);
