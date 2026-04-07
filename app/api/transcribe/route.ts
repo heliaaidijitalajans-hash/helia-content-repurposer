@@ -48,7 +48,7 @@ async function consumeTranscribeQuotaIfNeeded(
   );
 
   if (quotaError) {
-    console.error("[api/transcribe] quota rpc:", quotaError.message);
+    console.error(quotaError);
     return Response.json(
       { error: "Could not verify transcription quota." },
       { status: 500 },
@@ -77,6 +77,7 @@ async function consumeTranscribeQuotaIfNeeded(
  * Gövde: `storagePaths` (string[], en az bir yol; kullanıcının Supabase depo ön eki).
  */
 export async function POST(req: Request): Promise<Response> {
+  console.log("[api/transcribe] POST start");
   try {
     const { isConfigured } = getPublicSupabaseConfig();
     if (!isConfigured) {
@@ -144,6 +145,11 @@ export async function POST(req: Request): Promise<Response> {
     const quotaErr = await consumeTranscribeQuotaIfNeeded(supabase);
     if (quotaErr) return quotaErr;
 
+    console.log("[api/transcribe] before Supabase insert", {
+      userId: user.id,
+      storagePathCount: paths.length,
+    });
+
     const { data: job, error: insertError } = await supabase
       .from("transcription_jobs")
       .insert({
@@ -157,7 +163,9 @@ export async function POST(req: Request): Promise<Response> {
       .single();
 
     if (insertError || !job?.id) {
-      console.error("[api/transcribe] insert job:", insertError?.message);
+      console.error(
+        insertError ?? new Error("transcription_jobs insert returned no id"),
+      );
       return Response.json(
         { error: insertError?.message ?? "Could not create job." },
         { status: 500 },
@@ -165,6 +173,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const jobId = job.id as string;
+    console.log("[api/transcribe] after Supabase insert", { jobId });
 
     try {
       await inngest.send({
@@ -172,7 +181,7 @@ export async function POST(req: Request): Promise<Response> {
         data: { jobId },
       });
     } catch (e) {
-      console.error("[api/transcribe] inngest.send:", e);
+      console.error(e);
       await supabase
         .from("transcription_jobs")
         .update({
@@ -192,6 +201,10 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
+    console.log("[api/transcribe] before response", {
+      jobId,
+      status: 202,
+    });
     return new Response(
       JSON.stringify({
         jobId,
@@ -204,7 +217,7 @@ export async function POST(req: Request): Promise<Response> {
       },
     );
   } catch (error) {
-    console.error("[api/transcribe]", error);
+    console.error(error);
     const message =
       error instanceof Error ? error.message : "Transcription failed";
     return Response.json({ error: message }, { status: 500 });
