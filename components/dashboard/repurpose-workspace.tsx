@@ -5,12 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { createClient } from "@/lib/supabase/client";
-import {
-  ensureWhisperSizedParts,
-  transcodeToM4aAac,
-  WHISPER_MAX_BYTES,
-} from "@/lib/transcribe/extract-audio-browser";
-import { uploadFileResumableToSupabase } from "@/lib/transcribe/tus-upload-browser";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
@@ -35,13 +29,8 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
   "audio/x-aac",
   "video/mp4",
 ]);
-/** Vercel / proxy gövde limiti için uyarı eşiği (sıkıştırma tetiklenir). */
-const TRANSCRIBE_WARN_BYTES = 4 * 1024 * 1024;
-/** Ham video/ses seçimi üst sınırı (tarayıcı belleği / ffmpeg). */
-const TRANSCRIBE_SOURCE_MAX_BYTES = 120 * 1024 * 1024;
-
-const NEXT_PUBLIC_SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+/** OpenAI transkripsiyon için gövde üst sınırı (~25 MB). */
+const TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024;
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_PATH = "/api/subscription-status";
@@ -63,36 +52,6 @@ function isAllowedMediaFile(file: File): boolean {
   if (TRANSCRIBE_ALLOWED_EXT.has(ext)) return true;
   const mime = effectiveAudioVideoMime(file).toLowerCase();
   return mime !== "" && TRANSCRIBE_ALLOWED_MIME.has(mime);
-}
-
-/** MP4 video (ses MP4 değil) veya video/* — tarayıcıda sadece ses çıkarılır. */
-function isTranscribeVideoFile(file: File): boolean {
-  const mime = effectiveAudioVideoMime(file).toLowerCase();
-  if (mime.startsWith("video/")) return true;
-  if (mediaExtensionOf(file.name) === "mp4" && !mime.startsWith("audio/")) {
-    return true;
-  }
-  return false;
-}
-
-/** Eski YouTube / altyazı hata metinleri — nötr iş mesajına indirgenir. */
-function legacyTranscribeUserMessage(msg: string): boolean {
-  const lower = msg.toLowerCase();
-  return (
-    lower.includes("no captions") ||
-    (lower.includes("caption") && lower.includes("found")) ||
-    lower.includes("youtube processing error") ||
-    lower.includes("youtube urls are no longer") ||
-    lower.includes("youtube url") ||
-    lower.includes("could not download youtube") ||
-    lower.includes("ses çıkarılamadı") ||
-    (lower.includes("dönüştürülemedi") && lower.includes("ses")) ||
-    lower.includes("couldn't extract") ||
-    lower.includes("extract or compress audio") ||
-    lower.includes("upload an audio file") ||
-    lower.includes("needs_audio") ||
-    (lower.includes("otomatik") && lower.includes("ses"))
-  );
 }
 
 function Section({
@@ -207,28 +166,15 @@ export function RepurposeWorkspace() {
   } | null>(null);
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [transcribeLargeFileWarning, setTranscribeLargeFileWarning] =
-    useState(false);
-  const [transcribeBusyStep, setTranscribeBusyStep] = useState<
-    "extract" | "upload" | "transcribe" | null
-  >(null);
-  const [transcribeUploadPart, setTranscribeUploadPart] = useState<{
-    current: number;
-    total: number;
-  } | null>(null);
   const [transcribeLoading, setTranscribeLoading] = useState(false);
   const [transcribeError, setTranscribeError] = useState<string | null>(null);
   const [transcribeReady, setTranscribeReady] = useState(false);
   /** Plain transcript from /api/transcribe only (Video tab). Never sent to /api/repurpose automatically. */
   const [transcriptionText, setTranscriptionText] = useState("");
+  const [transcribeApiMeta, setTranscribeApiMeta] = useState<string | null>(
+    null,
+  );
   const [dragActive, setDragActive] = useState(false);
-  const [transcribeJobPollingId, setTranscribeJobPollingId] = useState<
-    string | null
-  >(null);
-  /** Latest job status from GET /api/transcribe/jobs/:id while polling. */
-  const [transcribeJobPollStatus, setTranscribeJobPollStatus] = useState<
-    "pending" | "processing" | null
-  >(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcribeDragDepthRef = useRef(0);
@@ -313,106 +259,6 @@ export function RepurposeWorkspace() {
   }, [refreshUsage, result]);
 
   useEffect(() => {
-    if (!videoUnlocked) return;
-    void (async () => {
-      try {
-        const r = await fetch(apiOriginUrl("/api/transcribe/jobs?active=1"), {
-          credentials: "same-origin",
-        });
-        if (!r.ok) return;
-        const j = (await r.json()) as { jobs?: Array<{ id: string }> };
-        if (j.jobs && j.jobs.length > 0) {
-          setTranscribeError(null);
-          setTranscribeJobPollingId((prev) => prev ?? j.jobs![0]!.id);
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
-  }, [videoUnlocked]);
-
-  useEffect(() => {
-    if (!transcribeJobPollingId) {
-      setTranscribeJobPollStatus(null);
-      return;
-    }
-    let cancelled = false;
-
-    const tick = async () => {
-      if (cancelled) return;
-      try {
-        const r = await fetch(
-          apiOriginUrl(`/api/transcribe/jobs/${transcribeJobPollingId}`),
-          { credentials: "same-origin" },
-        );
-        if (cancelled) return;
-
-        if (!r.ok) {
-          let serverMsg = "";
-          try {
-            const errBody = (await r.json()) as { error?: string };
-            serverMsg =
-              typeof errBody.error === "string" ? errBody.error.trim() : "";
-          } catch {
-            /* ignore */
-          }
-          setTranscribeJobPollingId(null);
-          setTranscribeJobPollStatus(null);
-          setTranscribeError(
-            transcribeErrorMessage(r.status, serverMsg || undefined, t),
-          );
-          return;
-        }
-
-        const job = (await r.json()) as {
-          status?: string;
-          result_text?: string | null;
-          error_message?: string | null;
-        };
-
-        if (job.status === "pending" || job.status === "processing") {
-          setTranscribeJobPollStatus(job.status);
-          setTranscribeError(null);
-          return;
-        }
-
-        if (job.status === "completed") {
-          const text =
-            typeof job.result_text === "string" ? job.result_text : "";
-          setTranscriptionText(text);
-          setTranscribeReady(true);
-          setTranscribeJobPollingId(null);
-          setTranscribeJobPollStatus(null);
-          setTranscribeError(null);
-          void refreshUsage();
-          return;
-        }
-
-        if (job.status === "failed" || job.status === "needs_audio") {
-          const raw =
-            typeof job.error_message === "string" ? job.error_message.trim() : "";
-          const msg =
-            raw && !legacyTranscribeUserMessage(raw)
-              ? raw
-              : t("transcribeJobWorkerFailed");
-          setTranscribeError(msg);
-          setTranscribeJobPollingId(null);
-          setTranscribeJobPollStatus(null);
-        }
-      } catch {
-        /* network blip: next interval retries */
-      }
-    };
-
-    void tick();
-    const intervalId = window.setInterval(tick, 3000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [transcribeJobPollingId, refreshUsage, t]);
-
-  useEffect(() => {
     if (
       transcribeLoading ||
       transcribeBlocked ||
@@ -490,32 +336,32 @@ export function RepurposeWorkspace() {
   function assignMediaFile(file: File | null) {
     if (!file) {
       setMediaFile(null);
-      setTranscribeLargeFileWarning(false);
+      setTranscribeApiMeta(null);
       return;
     }
     if (!isAllowedMediaFile(file)) {
       setTranscribeError(t("transcribeDropInvalid"));
       setMediaFile(null);
-      setTranscribeLargeFileWarning(false);
       setTranscribeReady(false);
       setTranscriptionText("");
+      setTranscribeApiMeta(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    if (file.size > TRANSCRIBE_SOURCE_MAX_BYTES) {
+    if (file.size > TRANSCRIBE_MAX_BYTES) {
       setTranscribeError(t("transcribeErrorTooLarge"));
       setMediaFile(null);
-      setTranscribeLargeFileWarning(false);
       setTranscribeReady(false);
       setTranscriptionText("");
+      setTranscribeApiMeta(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setMediaFile(file);
-    setTranscribeLargeFileWarning(file.size > TRANSCRIBE_WARN_BYTES);
     setTranscribeError(null);
     setTranscribeReady(false);
     setTranscriptionText("");
+    setTranscribeApiMeta(null);
   }
 
   function onMediaFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -526,13 +372,7 @@ export function RepurposeWorkspace() {
       input.value = "";
       return;
     }
-    if (!isAllowedMediaFile(f)) {
-      assignMediaFile(f);
-      input.value = "";
-      return;
-    }
     assignMediaFile(f);
-    void onUploadVideo(f);
     input.value = "";
   }
 
@@ -575,253 +415,82 @@ export function RepurposeWorkspace() {
 
     const f = e.dataTransfer.files?.[0];
     if (!f) return;
-    if (!isAllowedMediaFile(f)) {
-      assignMediaFile(f);
+    assignMediaFile(f);
+  }
+
+  async function submitTranscription() {
+    const file = mediaFile;
+    if (!file || !isAllowedMediaFile(file)) {
+      console.log("[transcribe] Dosya yok veya geçersiz");
+      setTranscribeError(t("transcribeNeedFile"));
       return;
     }
-    assignMediaFile(f);
-    void onUploadVideo(f);
-  }
-
-  function transcribeProgressLabel(): string {
-    if (transcribeBusyStep === "extract") return t("transcribeStepExtract");
-    if (transcribeBusyStep === "upload") {
-      if (transcribeUploadPart && transcribeUploadPart.total > 1) {
-        return t("transcribeStepUploadPart", {
-          current: transcribeUploadPart.current,
-          total: transcribeUploadPart.total,
-        });
-      }
-      return t("transcribeStepUpload");
-    }
-    if (transcribeBusyStep === "transcribe") return t("transcribeStepAi");
-    return t("processingVideo");
-  }
-
-  function transcribeProgressDetail(): string {
-    return t("processingVideoHint");
-  }
-
-  async function startTranscribeJobFromJson(body: {
-    storagePaths: string[];
-  }): Promise<boolean> {
-    const res = await fetch(apiOriginUrl("/api/transcribe"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify(body),
-    });
-
-    const raw = await res.text();
-    let data: {
-      success?: boolean;
-      jobId?: string;
-      error?: string;
-      code?: string;
-    } = {};
-    if (raw.trim()) {
-      try {
-        data = JSON.parse(raw) as typeof data;
-      } catch {
-        setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-        return false;
-      }
-    }
-
-    if (
-      res.ok &&
-      data.success === true &&
-      typeof data.jobId === "string"
-    ) {
-      setTranscribeError(null);
-      setTranscribeJobPollStatus("pending");
-      setTranscribeJobPollingId(data.jobId);
-      return true;
-    }
-
-    if (!res.ok) {
-      if (res.status === 403 && data.code === "TRANSCRIBE_QUOTA") {
-        setTranscribeError(null);
-        void refreshUsage();
-        return false;
-      }
-      const serverMsg = typeof data.error === "string" ? data.error : "";
-      setTranscribeError(
-        transcribeErrorMessage(res.status, serverMsg || undefined, t),
-      );
-      if (res.status === 403) void refreshUsage();
-      return false;
-    }
-
-    setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-    return false;
-  }
-
-  async function onUploadVideo(fileOverride?: File) {
-    const sourceFile = fileOverride ?? mediaFile;
-    if (!sourceFile) return;
 
     setTranscribeError(null);
-    setTranscribeBusyStep(null);
-    setTranscribeUploadPart(null);
+    setTranscribeApiMeta(null);
     setTranscribeLoading(true);
     setTranscribeReady(false);
     setTranscriptionText("");
 
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 600_000);
+    const fd = new FormData();
+    fd.append("file", file, file.name);
 
     try {
-      let fileToSend: File = sourceFile;
-      const mustTranscode =
-        isTranscribeVideoFile(sourceFile) ||
-        sourceFile.size > TRANSCRIBE_WARN_BYTES;
-
-      if (mustTranscode) {
-        setTranscribeBusyStep("extract");
-        try {
-          fileToSend = await transcodeToM4aAac(sourceFile, controller.signal);
-        } catch (err) {
-          const aborted =
-            (err instanceof DOMException && err.name === "AbortError") ||
-            (err instanceof Error && err.name === "AbortError");
-          setTranscribeError(
-            aborted ? t("transcribeErrorTimeout") : t("transcribeExtractFailed"),
-          );
-          return;
-        }
-      }
-
-      let parts: File[];
+      console.log("[transcribe] POST /api/transcribe (FormData)", file.name);
+      const res = await fetch(apiOriginUrl("/api/transcribe"), {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd,
+      });
+      const raw = await res.text();
+      let data: {
+        success?: boolean;
+        text?: string;
+        id?: string;
+        message?: string;
+        error?: string;
+        transcribedText?: string;
+        warning?: string;
+      } = {};
       try {
-        parts = await ensureWhisperSizedParts(fileToSend, controller.signal);
-      } catch (err) {
-        const aborted =
-          (err instanceof DOMException && err.name === "AbortError") ||
-          (err instanceof Error && err.name === "AbortError");
-        setTranscribeError(
-          aborted ? t("transcribeErrorTimeout") : t("transcribeExtractFailed"),
+        data = raw.trim() ? (JSON.parse(raw) as typeof data) : {};
+      } catch (e) {
+        console.log("[transcribe] JSON parse hata", e, raw.slice(0, 200));
+        setTranscribeError(t("transcribeErrorUnexpectedResponse"));
+        return;
+      }
+
+      console.log("[transcribe] API yanıtı", res.status, data);
+
+      if (res.ok && data.success === true && typeof data.text === "string") {
+        setTranscriptionText(data.text);
+        setTranscribeReady(true);
+        setTranscribeApiMeta(
+          typeof data.id === "string"
+            ? t("transcribeApiSaved", { id: data.id })
+            : (data.message ?? null),
         );
+        void refreshUsage();
         return;
       }
 
-      for (const p of parts) {
-        if (p.size > WHISPER_MAX_BYTES) {
-          setTranscribeError(t("transcribeErrorTooLarge"));
-          return;
-        }
+      const serverMsg =
+        typeof data.error === "string"
+          ? data.error
+          : typeof data.warning === "string"
+            ? data.warning
+            : "";
+      if (typeof data.transcribedText === "string" && data.transcribedText) {
+        setTranscriptionText(data.transcribedText);
+        setTranscribeReady(true);
       }
-
-      if (!NEXT_PUBLIC_SUPABASE_ANON_KEY.trim()) {
-        setTranscribeError(t("transcribeErrorMissingAnon"));
-        return;
-      }
-
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        setTranscribeError(t("transcribeErrorAuth"));
-        return;
-      }
-
-      const storagePaths: string[] = [];
-
-      for (let i = 0; i < parts.length; i++) {
-        setTranscribeBusyStep("upload");
-        setTranscribeUploadPart({
-          current: i + 1,
-          total: parts.length,
-        });
-
-        const sessRes = await fetch(apiOriginUrl("/api/transcribe/upload-session"), {
-          method: "POST",
-          credentials: "same-origin",
-          signal: controller.signal,
-        });
-
-        const sessRaw = await sessRes.text();
-        let sessJson: {
-          objectPath?: string;
-          bucket?: string;
-          projectUrl?: string;
-          error?: string;
-        } = {};
-        if (sessRaw.trim()) {
-          try {
-            sessJson = JSON.parse(sessRaw) as typeof sessJson;
-          } catch {
-            setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-            return;
-          }
-        }
-
-        if (!sessRes.ok) {
-          const serverMsg =
-            typeof sessJson.error === "string" ? sessJson.error : "";
-          setTranscribeError(
-            transcribeErrorMessage(
-              sessRes.status,
-              serverMsg || undefined,
-              t,
-            ),
-          );
-          if (sessRes.status === 403) void refreshUsage();
-          return;
-        }
-
-        const objectPath = sessJson.objectPath;
-        const bucket = sessJson.bucket;
-        const projectUrl = sessJson.projectUrl;
-        if (!objectPath || !bucket || !projectUrl) {
-          setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-          return;
-        }
-
-        try {
-          await uploadFileResumableToSupabase({
-            file: parts[i]!,
-            bucket,
-            objectPath,
-            projectUrl,
-            anonKey: NEXT_PUBLIC_SUPABASE_ANON_KEY,
-            accessToken: session.access_token,
-            signal: controller.signal,
-          });
-        } catch (err) {
-          const aborted =
-            (err instanceof DOMException && err.name === "AbortError") ||
-            (err instanceof Error && err.name === "AbortError");
-          setTranscribeError(
-            aborted ? t("transcribeErrorTimeout") : t("transcribeErrorGeneric"),
-          );
-          return;
-        }
-
-        storagePaths.push(objectPath);
-      }
-
-      setTranscribeBusyStep("transcribe");
-      setTranscribeUploadPart(null);
-
-      const queued = await startTranscribeJobFromJson({ storagePaths });
-      if (!queued) {
-        return;
-      }
-    } catch (err) {
-      const aborted =
-        (err instanceof DOMException && err.name === "AbortError") ||
-        (err instanceof Error && err.name === "AbortError");
-      if (aborted) {
-        setTranscribeError(t("transcribeErrorTimeout"));
-      } else {
-        setTranscribeError(t("errorNetwork"));
-      }
+      setTranscribeError(
+        transcribeErrorMessage(res.status, serverMsg || undefined, t),
+      );
+    } catch (e) {
+      console.log("[transcribe] Ağ veya istemci hata", e);
+      setTranscribeError(t("errorNetwork"));
     } finally {
-      window.clearTimeout(timeoutId);
-      setTranscribeBusyStep(null);
-      setTranscribeUploadPart(null);
       setTranscribeLoading(false);
     }
   }
@@ -1075,31 +744,6 @@ export function RepurposeWorkspace() {
                 >
                   {t("transcribeHint")}
                 </p>
-                {transcribeJobPollingId ? (
-                  <div
-                    className="mt-3 flex gap-3 rounded-xl border border-violet-200/90 bg-violet-50/90 px-3 py-3 dark:border-violet-900/50 dark:bg-violet-950/35"
-                    role="status"
-                    aria-live="polite"
-                    aria-busy={true}
-                  >
-                    <span
-                      className="mt-0.5 size-5 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-800 dark:border-t-violet-400"
-                      aria-hidden
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">
-                        {transcribeJobPollStatus === "processing"
-                          ? t("transcribeJobRunningTitle")
-                          : t("transcribeJobStarted")}
-                      </p>
-                      <p className="mt-1 text-xs leading-relaxed text-violet-900/90 dark:text-violet-200/90">
-                        {transcribeJobPollStatus === "processing"
-                          ? t("transcribeAsyncNoticeBody")
-                          : t("transcribeJobStartedDetail")}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
                 <input
                   ref={fileInputRef}
                   id="transcribe-file"
@@ -1157,6 +801,34 @@ export function RepurposeWorkspace() {
                     <p className="max-w-md text-center text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
                       {t("transcribeFileHint")}
                     </p>
+                    <div
+                      className="pointer-events-auto flex w-full max-w-sm flex-col items-center gap-2"
+                      style={{ position: "relative", zIndex: 9999 }}
+                    >
+                      <button
+                        type="button"
+                        disabled={
+                          videoControlsDisabled ||
+                          transcribeLoading ||
+                          !mediaFile ||
+                          !isAllowedMediaFile(mediaFile)
+                        }
+                        onClick={() => void submitTranscription()}
+                        className="inline-flex h-11 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white sm:w-auto sm:min-w-[12rem]"
+                      >
+                        {transcribeLoading ? (
+                          <>
+                            <span
+                              className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
+                              aria-hidden
+                            />
+                            {t("transcribeProcessingDirect")}
+                          </>
+                        ) : (
+                          t("transcribeSubmit")
+                        )}
+                      </button>
+                    </div>
                   </div>
                   {mediaFile ? (
                     <p className="text-center text-xs font-medium text-violet-700 dark:text-violet-300">
@@ -1168,17 +840,17 @@ export function RepurposeWorkspace() {
                       className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
                       role="status"
                       aria-live="polite"
-                      aria-label={transcribeProgressLabel()}
+                      aria-label={t("transcribeProcessingDirect")}
                     >
                       <span
                         className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
                         aria-hidden
                       />
                       <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                        {transcribeProgressLabel()}
+                        {t("transcribeProcessingDirect")}
                       </p>
                       <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {transcribeProgressDetail()}
+                        {t("processingVideoHint")}
                       </p>
                     </div>
                   ) : null}
@@ -1193,17 +865,7 @@ export function RepurposeWorkspace() {
                     </p>
                   </div>
                 ) : null}
-                {transcribeLargeFileWarning && !transcribeReady ? (
-                  <div
-                    className="mt-3 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 dark:border-amber-900/45 dark:bg-amber-950/40"
-                    role="status"
-                  >
-                    <p className="text-sm font-medium leading-relaxed text-amber-950 dark:text-amber-100">
-                      {t("transcribeWarningOver4mb")}
-                    </p>
-                  </div>
-                ) : null}
-                {transcribeError && !transcribeJobPollingId ? (
+                {transcribeError ? (
                   <div
                     className="mt-3 rounded-xl border border-red-200/90 bg-red-50/90 px-3 py-2.5 dark:border-red-900/45 dark:bg-red-950/40"
                     role="alert"
@@ -1215,6 +877,11 @@ export function RepurposeWorkspace() {
                 ) : null}
                 {transcribeReady ? (
                   <div className="mt-3 flex flex-col gap-3">
+                    {transcribeApiMeta ? (
+                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                        {transcribeApiMeta}
+                      </p>
+                    ) : null}
                     <div
                       className="rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-2.5 dark:border-emerald-900/45 dark:bg-emerald-950/40"
                       role="status"
