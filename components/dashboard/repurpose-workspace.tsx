@@ -669,7 +669,7 @@ export function RepurposeWorkspace() {
     void handleUrlSubmit(ytUrl);
   }
 
-  /** YouTube URL’si; dosya MIME kontrolü yapılmaz. */
+  /** YouTube: yalnızca /api/youtube/process (kuyruk + Inngest). */
   async function handleUrlSubmit(urlOverride?: string) {
     const raw = (urlOverride ?? youtubeUrl).trim();
     const ytUrl = extractYoutubeUrlFromText(raw);
@@ -690,7 +690,48 @@ export function RepurposeWorkspace() {
     if (fileInputRef.current) fileInputRef.current.value = "";
 
     try {
-      await startTranscribeJobFromJson({ youtubeUrl: ytUrl });
+      const res = await fetch("/api/youtube/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ url: ytUrl, userId: "test-user" }),
+      });
+
+      let data: { jobId?: string; error?: string; code?: string } = {};
+      const responseText = await res.text();
+      if (responseText.trim()) {
+        try {
+          data = JSON.parse(responseText) as typeof data;
+        } catch {
+          setTranscribeError(t("transcribeErrorUnexpectedResponse"));
+          return;
+        }
+      }
+
+      console.log(data);
+      alert(JSON.stringify(data));
+
+      if (res.status === 202 && typeof data.jobId === "string") {
+        setTranscribeJobPollingId(data.jobId);
+        setShowAsyncTranscribeNotice(true);
+        return;
+      }
+
+      if (!res.ok) {
+        if (res.status === 403 && data.code === "TRANSCRIBE_QUOTA") {
+          setTranscribeError(null);
+          void refreshUsage();
+          return;
+        }
+        const serverMsg = typeof data.error === "string" ? data.error : "";
+        setTranscribeError(
+          transcribeErrorMessage(res.status, serverMsg || undefined, t),
+        );
+        if (res.status === 403) void refreshUsage();
+        return;
+      }
+
+      setTranscribeError(t("transcribeErrorUnexpectedResponse"));
     } catch {
       setTranscribeError(t("errorNetwork"));
     } finally {

@@ -124,32 +124,6 @@ export const transcribeJob = inngest.createFunction(
         return { ok: false };
       }
 
-      const captionText = await step.run("youtube-captions", async () => {
-        const { YoutubeTranscript } = await import("youtube-transcript");
-        try {
-          const chunks = await YoutubeTranscript.fetchTranscript(vid);
-          return chunks.map((c: { text: string }) => c.text).join(" ").trim();
-        } catch {
-          return "";
-        }
-      });
-
-      if (captionText.length > 0) {
-        await step.run("complete-youtube-captions", async () => {
-          const admin = createServiceRoleClient();
-          await admin
-            .from("transcription_jobs")
-            .update({
-              status: "completed",
-              result_text: captionText,
-              error_message: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", jobId);
-        });
-        return { ok: true, mode: "youtube_captions" };
-      }
-
       const ytdlWhisper = await step.run("youtube-ytdl-whisper", async () => {
         const apiKey = process.env.OPENAI_API_KEY?.trim();
         if (!apiKey) {
@@ -222,19 +196,26 @@ export const transcribeJob = inngest.createFunction(
         return { ok: true, mode: "youtube_ytdl_whisper" };
       }
 
-      await step.run("youtube-needs-audio", async () => {
-        const admin = createServiceRoleClient();
-        await admin
-          .from("transcription_jobs")
-          .update({
-            status: "needs_audio",
-            error_message:
-              "No captions were found and audio could not be fetched automatically (or it was too large). Upload an audio file to transcribe, or try another video.",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", jobId);
+      await step.run("youtube-transcribe-failed", async () => {
+        let msg = "YouTube sesi alınamadı veya yazıya çevrilemedi.";
+        if (ytdlWhisper.ok && ytdlWhisper.text.length === 0) {
+          msg = "Whisper returned no text for this video.";
+        } else if (!ytdlWhisper.ok) {
+          const err = ytdlWhisper;
+          if (err.reason === "no_openai") {
+            msg = "OPENAI_API_KEY is not configured on the server.";
+          } else if (err.reason === "empty_audio") {
+            msg = "Downloaded audio was empty.";
+          } else if ("detail" in err && err.detail) {
+            msg = `YouTube processing error: ${err.detail}`;
+          } else if (err.reason === "ytdl_failed") {
+            msg =
+              "Could not download YouTube audio. The video may be restricted or unavailable.";
+          }
+        }
+        await failJob(jobId, msg);
       });
-      return { ok: false, mode: "youtube_needs_audio" };
+      return { ok: false, mode: "youtube_failed" };
     }
 
     const paths = Array.isArray(job.storage_paths) ? job.storage_paths : [];
