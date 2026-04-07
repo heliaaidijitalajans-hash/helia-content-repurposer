@@ -432,15 +432,22 @@ export function RepurposeWorkspace() {
     setTranscribeReady(false);
     setTranscriptionText("");
 
-    const fd = new FormData();
-    fd.append("file", file, file.name);
+    const formData = new FormData();
+    formData.append("file", file, file.name);
 
     try {
-      console.log("[transcribe] POST /api/transcribe (FormData)", file.name);
-      const res = await fetch(apiOriginUrl("/api/transcribe"), {
+      console.log(
+        "[transcribe] FormData:",
+        file.name,
+        "size=",
+        file.size,
+        "type=",
+        file.type,
+      );
+      // Content-Type set ETME — tarayıcı boundary ile multipart yazar
+      const res = await fetch("/api/transcribe", {
         method: "POST",
-        credentials: "same-origin",
-        body: fd,
+        body: formData,
       });
       const raw = await res.text();
       let data: {

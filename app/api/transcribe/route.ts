@@ -26,6 +26,15 @@ function logError(label: string, err: unknown) {
   console.log(`[api/transcribe] ERROR ${label}`, err);
 }
 
+function isBlobLike(v: unknown): v is Blob {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as Blob).size === "number" &&
+    typeof (v as Blob).arrayBuffer === "function"
+  );
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -34,7 +43,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(request: Request): Promise<Response> {
   console.log("[api/transcribe] POST — formData alınıyor");
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -80,36 +89,66 @@ export async function POST(req: Request): Promise<Response> {
     logError("auth.getUser", e);
   }
 
-  const contentType = req.headers.get("content-type") ?? "";
-  if (!contentType.includes("multipart/form-data")) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Content-Type: multipart/form-data ve file alanı gerekli.",
-      },
-      { status: 400 },
+  const rawCt = request.headers.get("content-type") ?? "";
+  const contentTypeLc = rawCt.toLowerCase();
+  console.log("[api/transcribe] Content-Type:", rawCt || "(yok)");
+
+  // Bazı proxy'ler farklı casing kullanır; sadece uyarı — parse'ı yine dene
+  if (
+    rawCt &&
+    !contentTypeLc.includes("multipart/form-data") &&
+    !contentTypeLc.includes("application/octet-stream")
+  ) {
+    console.log(
+      "[api/transcribe] UYARI: Beklenmeyen Content-Type, yine de formData() deneniyor",
     );
   }
 
-  let form: FormData;
+  let formData: FormData;
   try {
-    form = await req.formData();
+    formData = await request.formData();
   } catch (e) {
     logError("formData", e);
-    return NextResponse.json(
-      { success: false, error: "Form verisi okunamadı." },
-      { status: 400 },
-    );
+    return new Response(JSON.stringify({ error: "Form verisi okunamadı." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  const file = form.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    console.log("[api/transcribe] file yok veya boş");
-    return NextResponse.json(
-      { success: false, error: "Dosya gerekli (form alanı: file)." },
-      { status: 400 },
-    );
+  const keys = [...formData.keys()];
+  console.log("[api/transcribe] formData alanları:", keys);
+
+  const fileEntry = formData.get("file");
+  console.log(
+    "[api/transcribe] file alanı:",
+    fileEntry === null
+      ? "null"
+      : fileEntry === undefined
+        ? "undefined"
+        : typeof fileEntry,
+    isBlobLike(fileEntry) ? `size=${fileEntry.size}` : "",
+    fileEntry instanceof File ? `name=${fileEntry.name}` : "",
+  );
+
+  if (fileEntry === null || fileEntry === undefined) {
+    return new Response(JSON.stringify({ error: "No file" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
   }
+
+  if (!isBlobLike(fileEntry) || fileEntry.size === 0) {
+    return new Response(JSON.stringify({ error: "No file" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const file = fileEntry as File | Blob;
+  const fileName =
+    file instanceof File && file.name
+      ? file.name
+      : "audio";
 
   if (file.size > MAX_FILE_BYTES) {
     return NextResponse.json(
@@ -135,16 +174,24 @@ export async function POST(req: Request): Promise<Response> {
     );
   }
 
+  // OpenAI multipart: undici FormData için Blob/File gerekir (ReadableStream doğrudan güvenilir değil)
   const buf = Buffer.from(await file.arrayBuffer());
   const uint8 = new Uint8Array(buf);
+  const mimeType = file.type || "application/octet-stream";
+  const fileForOpenAI =
+    typeof File !== "undefined"
+      ? new File([uint8], fileName, { type: mimeType })
+      : new Blob([uint8], { type: mimeType });
 
   const openaiBody = new FormData();
-  openaiBody.append(
-    "file",
-    new Blob([uint8], { type: file.type || "application/octet-stream" }),
-    file.name || "audio",
-  );
+  openaiBody.append("file", fileForOpenAI, fileName);
   openaiBody.append("model", TRANSCRIBE_MODEL);
+  console.log(
+    "[api/transcribe] OpenAI'ye gönderiliyor:",
+    fileName,
+    "bytes=",
+    uint8.byteLength,
+  );
 
   let text = "";
   try {
@@ -190,7 +237,7 @@ export async function POST(req: Request): Promise<Response> {
       user_id: userId,
       status: "done",
       result: text,
-      file_name: file.name || null,
+      file_name: fileName || null,
     })
     .select("id")
     .single();
