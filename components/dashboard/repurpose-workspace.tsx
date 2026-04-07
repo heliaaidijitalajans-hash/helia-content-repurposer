@@ -367,6 +367,7 @@ export function RepurposeWorkspace() {
   }, [transcribeLoading, transcribeBlocked, isPro]);
 
   async function onRepurpose() {
+    console.log("clicked");
     const bodyText = repurposeText.trim();
     if (!bodyText) return;
 
@@ -653,6 +654,7 @@ export function RepurposeWorkspace() {
   }
 
   function submitHybridLink() {
+    console.log("clicked");
     if (videoControlsDisabled || transcribeLoading) return;
     const raw = youtubeUrl.trim();
     if (!raw) {
@@ -980,25 +982,30 @@ export function RepurposeWorkspace() {
                 aria-busy={loading}
                 className="min-h-[280px] w-full resize-y rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-sm text-zinc-900 shadow-inner outline-none ring-0 placeholder:text-zinc-400 focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
               />
-              <button
-                type="button"
-                disabled={loading || !repurposeText.trim()}
-                onClick={() => void onRepurpose()}
-                aria-busy={loading}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+              <div
+                className="pointer-events-auto w-fit"
+                style={{ position: "relative", zIndex: 9999 }}
               >
-                {loading ? (
-                  <>
-                    <span
-                      className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
-                      aria-hidden
-                    />
-                    {t("loading")}
-                  </>
-                ) : (
-                  t("repurpose")
-                )}
-              </button>
+                <button
+                  type="button"
+                  disabled={loading || !repurposeText.trim()}
+                  onClick={() => void onRepurpose()}
+                  aria-busy={loading}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+                >
+                  {loading ? (
+                    <>
+                      <span
+                        className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
+                        aria-hidden
+                      />
+                      {t("loading")}
+                    </>
+                  ) : (
+                    t("repurpose")
+                  )}
+                </button>
+              </div>
               {error ? (
                 <p
                   className="text-sm text-red-600 dark:text-red-400"
@@ -1098,7 +1105,7 @@ export function RepurposeWorkspace() {
               </div>
             ) : (
               <div
-                className="relative rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
+                className="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
                 aria-busy={transcribeLoading}
               >
                 <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -1141,7 +1148,7 @@ export function RepurposeWorkspace() {
                   onDragOver={onTranscribeDragOver}
                   onDrop={onTranscribeDrop}
                   onPasteCapture={onHybridDropzonePasteCapture}
-                  className={`mt-4 flex min-h-[14rem] flex-col justify-center gap-5 rounded-2xl border-2 border-dashed px-4 py-6 transition sm:px-6 ${
+                  className={`relative mt-4 flex min-h-[14rem] flex-col justify-center gap-5 rounded-2xl border-2 border-dashed px-4 py-6 transition sm:px-6 ${
                     videoControlsDisabled
                       ? "cursor-not-allowed border-zinc-200/60 bg-zinc-50/30 opacity-50 dark:border-zinc-800 dark:bg-zinc-900/20"
                       : dragActive
@@ -1152,7 +1159,10 @@ export function RepurposeWorkspace() {
                   <p className="text-center text-sm font-semibold leading-snug text-zinc-800 dark:text-zinc-100">
                     {t("transcribeHybridDropzoneTitle")}
                   </p>
-                  <div className="mx-auto flex w-full max-w-xl flex-col gap-2 sm:flex-row sm:items-stretch">
+                  <div
+                    className="mx-auto flex w-full max-w-xl flex-col gap-2 pointer-events-auto sm:flex-row sm:items-stretch"
+                    style={{ position: "relative", zIndex: 9999 }}
+                  >
                     <input
                       id="transcribe-hybrid-url"
                       type="text"
@@ -1223,6 +1233,25 @@ export function RepurposeWorkspace() {
                       {t("transcribeSelected", { name: mediaFile.name })}
                     </p>
                   ) : null}
+                  {transcribeLoading ? (
+                    <div
+                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
+                      role="status"
+                      aria-live="polite"
+                      aria-label={transcribeProgressLabel()}
+                    >
+                      <span
+                        className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
+                        aria-hidden
+                      />
+                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                        {transcribeProgressLabel()}
+                      </p>
+                      <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {t("processingVideoHint")}
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 {transcribeBlocked && !transcribeReady ? (
                   <div
@@ -1283,25 +1312,6 @@ export function RepurposeWorkspace() {
                         className="min-h-[160px] w-full resize-y rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-3 py-2.5 text-sm text-zinc-900 outline-none ring-0 focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-950/50 dark:text-zinc-100"
                       />
                     </div>
-                  </div>
-                ) : null}
-                {transcribeLoading ? (
-                  <div
-                    className="absolute inset-0 z-30 flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
-                    role="status"
-                    aria-live="polite"
-                    aria-label={transcribeProgressLabel()}
-                  >
-                    <span
-                      className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
-                      aria-hidden
-                    />
-                    <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                      {transcribeProgressLabel()}
-                    </p>
-                    <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      {t("processingVideoHint")}
-                    </p>
                   </div>
                 ) : null}
               </div>
