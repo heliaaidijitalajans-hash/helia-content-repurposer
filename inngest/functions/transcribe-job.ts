@@ -1,5 +1,3 @@
-import type { Readable } from "node:stream";
-import ytdl from "@distube/ytdl-core";
 import OpenAI from "openai";
 import { toFile } from "openai";
 import {
@@ -8,30 +6,9 @@ import {
 } from "@/lib/transcribe/mime-from-extension";
 import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { TRANSCRIBE_TEMP_BUCKET } from "@/lib/storage/transcribe-bucket";
-import { extractYoutubeVideoId } from "@/lib/youtube/video-id";
 import { inngest } from "../client";
 
 const MAX_WHISPER_BYTES = 25 * 1024 * 1024;
-
-async function readableToBufferLimited(
-  stream: Readable,
-  maxBytes: number,
-): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  let total = 0;
-  for await (const chunk of stream) {
-    const buf = Buffer.isBuffer(chunk)
-      ? chunk
-      : Buffer.from(chunk as Uint8Array);
-    total += buf.length;
-    if (total > maxBytes) {
-      stream.destroy();
-      throw new Error("audio_exceeds_whisper_limit");
-    }
-    chunks.push(buf);
-  }
-  return Buffer.concat(chunks);
-}
 
 type JobRow = {
   id: string;
@@ -39,7 +16,6 @@ type JobRow = {
   status: string;
   source_type: string;
   storage_paths: string[] | null;
-  youtube_url: string | null;
 };
 
 async function failJob(jobId: string, message: string) {
@@ -71,7 +47,7 @@ async function failJob(jobId: string, message: string) {
 export const transcribeJob = inngest.createFunction(
   {
     id: "transcribe-job",
-    name: "Transcribe job (Whisper / YouTube)",
+    name: "Transcribe job (storage + Whisper)",
     retries: 1,
     triggers: [{ event: "transcribe/job.requested" }],
     onFailure: async ({ event, error }) => {
@@ -92,9 +68,7 @@ export const transcribeJob = inngest.createFunction(
       const admin = createServiceRoleClient();
       const { data, error } = await admin
         .from("transcription_jobs")
-        .select(
-          "id,user_id,status,source_type,storage_paths,youtube_url",
-        )
+        .select("id,user_id,status,source_type,storage_paths")
         .eq("id", jobId)
         .single();
 
@@ -115,107 +89,14 @@ export const transcribeJob = inngest.createFunction(
         .eq("id", jobId);
     });
 
-    if (job.source_type === "youtube" && job.youtube_url) {
-      const vid = extractYoutubeVideoId(job.youtube_url);
-      if (!vid) {
-        await step.run("fail-invalid-youtube", async () => {
-          await failJob(jobId, "Invalid YouTube URL.");
-        });
-        return { ok: false };
-      }
-
-      const ytdlWhisper = await step.run("youtube-ytdl-whisper", async () => {
-        const apiKey = process.env.OPENAI_API_KEY?.trim();
-        if (!apiKey) {
-          return { ok: false as const, reason: "no_openai" };
-        }
-
-        const videoUrl = job.youtube_url!;
-        const id = extractYoutubeVideoId(videoUrl);
-        if (!id) {
-          return { ok: false as const, reason: "invalid_url" };
-        }
-
-        try {
-          const info = await ytdl.getInfo(videoUrl);
-          const format = ytdl.chooseFormat(info.formats, {
-            filter: "audioonly",
-            quality: "highestaudio",
-          });
-          const stream = ytdl.downloadFromInfo(info, { format });
-          const buffer = await readableToBufferLimited(
-            stream,
-            MAX_WHISPER_BYTES,
-          );
-          if (buffer.byteLength === 0) {
-            return { ok: false as const, reason: "empty_audio" };
-          }
-
-          const container = (format.container || "webm").toLowerCase();
-          const ext =
-            container === "mp4" || container === "m4a" ? "m4a" : "webm";
-          const mimeType = ext === "m4a" ? "audio/mp4" : "audio/webm";
-
-          const openai = new OpenAI({
-            apiKey,
-            timeout: 240_000,
-            maxRetries: 2,
-          });
-          const file = await toFile(buffer, `youtube-audio.${ext}`, {
-            type: mimeType,
-          });
-          const transcription = await openai.audio.transcriptions.create({
-            file,
-            model: "whisper-1",
-          });
-          const text =
-            typeof transcription.text === "string"
-              ? transcription.text.trim()
-              : "";
-          return { ok: true as const, text };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.error("[transcribe-job] youtube ytdl/whisper:", msg);
-          return { ok: false as const, reason: "ytdl_failed", detail: msg };
-        }
+    if (job.source_type === "youtube") {
+      await step.run("fail-youtube-unsupported", async () => {
+        await failJob(
+          jobId,
+          "YouTube URLs are no longer supported. Upload a video or audio file instead.",
+        );
       });
-
-      if (ytdlWhisper.ok && ytdlWhisper.text.length > 0) {
-        await step.run("complete-youtube-ytdl", async () => {
-          const admin = createServiceRoleClient();
-          await admin
-            .from("transcription_jobs")
-            .update({
-              status: "completed",
-              result_text: ytdlWhisper.text,
-              error_message: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", jobId);
-        });
-        return { ok: true, mode: "youtube_ytdl_whisper" };
-      }
-
-      await step.run("youtube-transcribe-failed", async () => {
-        let msg = "YouTube sesi alınamadı veya yazıya çevrilemedi.";
-        if (ytdlWhisper.ok && ytdlWhisper.text.length === 0) {
-          msg = "Whisper returned no text for this video.";
-        } else if (!ytdlWhisper.ok) {
-          const err = ytdlWhisper;
-          if (err.reason === "no_openai") {
-            msg = "OPENAI_API_KEY is not configured on the server.";
-          } else if (err.reason === "empty_audio") {
-            msg = "Downloaded audio was empty.";
-          } else if ("detail" in err && err.detail) {
-            msg = `YouTube processing error: ${err.detail}`;
-          } else if (err.reason === "ytdl_failed") {
-            msg =
-              "Could not download YouTube audio. The video may be restricted or unavailable.";
-          }
-        }
-        await failJob(jobId, msg);
-      });
-      return { ok: false, mode: "youtube_failed" };
+      return { ok: false, mode: "youtube_unsupported" };
     }
 
     const paths = Array.isArray(job.storage_paths) ? job.storage_paths : [];

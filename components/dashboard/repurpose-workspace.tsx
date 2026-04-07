@@ -13,7 +13,6 @@ import {
 import { uploadFileResumableToSupabase } from "@/lib/transcribe/tus-upload-browser";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
-import { extractYoutubeUrlFromText } from "@/lib/youtube/url-from-text";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set([
   "mp3",
@@ -73,6 +72,26 @@ function isTranscribeVideoFile(file: File): boolean {
     return true;
   }
   return false;
+}
+
+/** Eski YouTube / altyazı hata metinleri — nötr iş mesajına indirgenir. */
+function legacyTranscribeUserMessage(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("no captions") ||
+    (lower.includes("caption") && lower.includes("found")) ||
+    lower.includes("youtube processing error") ||
+    lower.includes("youtube urls are no longer") ||
+    lower.includes("youtube url") ||
+    lower.includes("could not download youtube") ||
+    lower.includes("ses çıkarılamadı") ||
+    (lower.includes("dönüştürülemedi") && lower.includes("ses")) ||
+    lower.includes("couldn't extract") ||
+    lower.includes("extract or compress audio") ||
+    lower.includes("upload an audio file") ||
+    lower.includes("needs_audio") ||
+    (lower.includes("otomatik") && lower.includes("ses"))
+  );
 }
 
 function Section({
@@ -190,7 +209,7 @@ export function RepurposeWorkspace() {
   const [transcribeLargeFileWarning, setTranscribeLargeFileWarning] =
     useState(false);
   const [transcribeBusyStep, setTranscribeBusyStep] = useState<
-    "extract" | "upload" | "transcribe" | "youtube" | null
+    "extract" | "upload" | "transcribe" | null
   >(null);
   const [transcribeUploadPart, setTranscribeUploadPart] = useState<{
     current: number;
@@ -202,7 +221,6 @@ export function RepurposeWorkspace() {
   /** Plain transcript from /api/transcribe only (Video tab). Never sent to /api/repurpose automatically. */
   const [transcriptionText, setTranscriptionText] = useState("");
   const [dragActive, setDragActive] = useState(false);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [transcribeJobPollingId, setTranscribeJobPollingId] = useState<
     string | null
   >(null);
@@ -300,6 +318,7 @@ export function RepurposeWorkspace() {
         const j = (await r.json()) as { jobs?: Array<{ id: string }> };
         if (j.jobs && j.jobs.length > 0) {
           setShowAsyncTranscribeNotice(true);
+          setTranscribeError(null);
           setTranscribeJobPollingId((prev) => prev ?? j.jobs![0]!.id);
         }
       } catch {
@@ -329,18 +348,23 @@ export function RepurposeWorkspace() {
           setTranscribeReady(true);
           setTranscribeJobPollingId(null);
           setShowAsyncTranscribeNotice(false);
+          setTranscribeError(null);
           void refreshUsage();
-        } else if (
-          job.status === "failed" ||
-          job.status === "needs_audio"
-        ) {
+        } else if (job.status === "failed" || job.status === "needs_audio") {
+          const raw =
+            typeof job.error_message === "string" ? job.error_message.trim() : "";
           const msg =
-            typeof job.error_message === "string" && job.error_message.trim()
-              ? job.error_message
-              : t("transcribeErrorGeneric");
+            raw && !legacyTranscribeUserMessage(raw)
+              ? raw
+              : t("transcribeJobWorkerFailed");
           setTranscribeError(msg);
           setTranscribeJobPollingId(null);
           setShowAsyncTranscribeNotice(false);
+        } else if (
+          job.status === "pending" ||
+          job.status === "processing"
+        ) {
+          setTranscribeError(null);
         }
       } catch {
         /* ignore */
@@ -469,28 +493,18 @@ export function RepurposeWorkspace() {
       input.value = "";
       return;
     }
-    void (async () => {
-      const yt = await tryYoutubeShortcutFile(f);
-      if (yt) {
-        await handleUrlSubmit(yt);
-        input.value = "";
-        return;
-      }
-      setYoutubeUrl("");
-      if (!isAllowedMediaFile(f)) {
-        assignMediaFile(f);
-        input.value = "";
-        return;
-      }
+    if (!isAllowedMediaFile(f)) {
       assignMediaFile(f);
-      void onUploadVideo(f);
       input.value = "";
-    })();
+      return;
+    }
+    assignMediaFile(f);
+    void onUploadVideo(f);
+    input.value = "";
   }
 
-  function openHybridFilePicker() {
+  function openTranscribeFilePicker() {
     if (videoControlsDisabled) return;
-    setYoutubeUrl("");
     setTranscribeError(null);
     fileInputRef.current?.click();
   }
@@ -526,54 +540,17 @@ export function RepurposeWorkspace() {
     setDragActive(false);
     if (videoControlsDisabled) return;
 
-    const uriLine =
-      e.dataTransfer.getData("text/uri-list").split("\n").find((l) => {
-        const t = l.trim();
-        return t.length > 0 && !t.startsWith("#");
-      }) ?? "";
-    const plain = e.dataTransfer.getData("text/plain").trim();
-    const fromLink =
-      extractYoutubeUrlFromText(uriLine.trim()) ??
-      extractYoutubeUrlFromText(plain);
-    if (fromLink) {
-      setTranscribeError(null);
-      setYoutubeUrl(fromLink);
-      void handleUrlSubmit(fromLink);
-      return;
-    }
-
     const f = e.dataTransfer.files?.[0];
     if (!f) return;
-    void (async () => {
-      setYoutubeUrl("");
-      const yt = await tryYoutubeShortcutFile(f);
-      if (yt) {
-        setTranscribeError(null);
-        await handleUrlSubmit(yt);
-        return;
-      }
-      if (!isAllowedMediaFile(f)) {
-        assignMediaFile(f);
-        return;
-      }
+    if (!isAllowedMediaFile(f)) {
       assignMediaFile(f);
-      void onUploadVideo(f);
-    })();
-  }
-
-  function onHybridDropzonePasteCapture(ev: React.ClipboardEvent) {
-    if (videoControlsDisabled || transcribeLoading) return;
-    const text = ev.clipboardData.getData("text/plain");
-    const yt = extractYoutubeUrlFromText(text);
-    if (!yt) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    setYoutubeUrl(yt);
-    void handleUrlSubmit(yt);
+      return;
+    }
+    assignMediaFile(f);
+    void onUploadVideo(f);
   }
 
   function transcribeProgressLabel(): string {
-    if (transcribeBusyStep === "youtube") return t("transcribeYoutubeAnalyzing");
     if (transcribeBusyStep === "extract") return t("transcribeStepExtract");
     if (transcribeBusyStep === "upload") {
       if (transcribeUploadPart && transcribeUploadPart.total > 1) {
@@ -588,9 +565,12 @@ export function RepurposeWorkspace() {
     return t("processingVideo");
   }
 
+  function transcribeProgressDetail(): string {
+    return t("processingVideoHint");
+  }
+
   async function startTranscribeJobFromJson(body: {
-    storagePaths?: string[];
-    youtubeUrl?: string;
+    storagePaths: string[];
   }): Promise<boolean> {
     const res = await fetch("/api/transcribe", {
       method: "POST",
@@ -615,6 +595,7 @@ export function RepurposeWorkspace() {
     }
 
     if (res.status === 202 && typeof data.jobId === "string") {
+      setTranscribeError(null);
       setTranscribeJobPollingId(data.jobId);
       setShowAsyncTranscribeNotice(true);
       return true;
@@ -636,108 +617,6 @@ export function RepurposeWorkspace() {
 
     setTranscribeError(t("transcribeErrorUnexpectedResponse"));
     return false;
-  }
-
-  async function tryYoutubeShortcutFile(file: File): Promise<string | null> {
-    const name = file.name.toLowerCase();
-    const textLike =
-      file.type === "text/plain" ||
-      name.endsWith(".url") ||
-      name.endsWith(".webloc");
-    if (!textLike || file.size > 64 * 1024) return null;
-    try {
-      const text = await file.text();
-      return extractYoutubeUrlFromText(text);
-    } catch {
-      return null;
-    }
-  }
-
-  function submitHybridLink() {
-    console.log("clicked");
-    if (videoControlsDisabled || transcribeLoading) return;
-    const raw = youtubeUrl.trim();
-    if (!raw) {
-      setTranscribeError(t("transcribeHybridNeedInput"));
-      return;
-    }
-    const ytUrl = extractYoutubeUrlFromText(raw);
-    if (!ytUrl) {
-      setTranscribeError(t("transcribeHybridNeedInput"));
-      return;
-    }
-    void handleUrlSubmit(ytUrl);
-  }
-
-  /** YouTube: yalnızca /api/youtube/process (kuyruk + Inngest). */
-  async function handleUrlSubmit(urlOverride?: string) {
-    const raw = (urlOverride ?? youtubeUrl).trim();
-    const ytUrl = extractYoutubeUrlFromText(raw);
-    if (!ytUrl) {
-      setTranscribeError(t("transcribeHybridNeedInput"));
-      setTranscribeReady(false);
-      setTranscriptionText("");
-      return;
-    }
-
-    setYoutubeUrl(ytUrl);
-    setTranscribeError(null);
-    setTranscribeLoading(true);
-    setTranscribeBusyStep("youtube");
-    setTranscribeReady(false);
-    setTranscriptionText("");
-    setMediaFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-
-    try {
-      const res = await fetch("/api/youtube/process", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ url: ytUrl, userId: "test-user" }),
-      });
-
-      let data: { jobId?: string; error?: string; code?: string } = {};
-      const responseText = await res.text();
-      if (responseText.trim()) {
-        try {
-          data = JSON.parse(responseText) as typeof data;
-        } catch {
-          setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-          return;
-        }
-      }
-
-      console.log(data);
-      alert(JSON.stringify(data));
-
-      if (res.status === 202 && typeof data.jobId === "string") {
-        setTranscribeJobPollingId(data.jobId);
-        setShowAsyncTranscribeNotice(true);
-        return;
-      }
-
-      if (!res.ok) {
-        if (res.status === 403 && data.code === "TRANSCRIBE_QUOTA") {
-          setTranscribeError(null);
-          void refreshUsage();
-          return;
-        }
-        const serverMsg = typeof data.error === "string" ? data.error : "";
-        setTranscribeError(
-          transcribeErrorMessage(res.status, serverMsg || undefined, t),
-        );
-        if (res.status === 403) void refreshUsage();
-        return;
-      }
-
-      setTranscribeError(t("transcribeErrorUnexpectedResponse"));
-    } catch {
-      setTranscribeError(t("errorNetwork"));
-    } finally {
-      setTranscribeLoading(false);
-      setTranscribeBusyStep(null);
-    }
   }
 
   async function onUploadVideo(fileOverride?: File) {
@@ -1158,14 +1037,14 @@ export function RepurposeWorkspace() {
                 >
                   {t("transcribeHint")}
                 </p>
-                {showAsyncTranscribeNotice ? (
+                {showAsyncTranscribeNotice && transcribeJobPollingId ? (
                   <div
                     className="mt-3 rounded-xl border border-violet-200/90 bg-violet-50/90 px-3 py-2.5 dark:border-violet-900/50 dark:bg-violet-950/35"
                     role="status"
                     aria-live="polite"
                   >
                     <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">
-                      {t("transcribeAsyncNoticeTitle")}
+                      {t("transcribeJobRunningTitle")}
                     </p>
                     <p className="mt-1 text-xs leading-relaxed text-violet-900/90 dark:text-violet-200/90">
                       {t("transcribeAsyncNoticeBody")}
@@ -1183,12 +1062,11 @@ export function RepurposeWorkspace() {
                 />
                 <div
                   role="region"
-                  aria-label={t("transcribeHybridRegionAria")}
+                  aria-label={t("transcribeFileRegionAria")}
                   onDragEnter={onTranscribeDragEnter}
                   onDragLeave={onTranscribeDragLeave}
                   onDragOver={onTranscribeDragOver}
                   onDrop={onTranscribeDrop}
-                  onPasteCapture={onHybridDropzonePasteCapture}
                   className={`relative mt-4 flex min-h-[14rem] flex-col justify-center gap-5 rounded-2xl border-2 border-dashed px-4 py-6 transition sm:px-6 ${
                     videoControlsDisabled
                       ? "cursor-not-allowed border-zinc-200/60 bg-zinc-50/30 opacity-50 dark:border-zinc-800 dark:bg-zinc-900/20"
@@ -1200,53 +1078,15 @@ export function RepurposeWorkspace() {
                   <p className="text-center text-sm font-semibold leading-snug text-zinc-800 dark:text-zinc-100">
                     {t("transcribeHybridDropzoneTitle")}
                   </p>
-                  <div
-                    className="mx-auto flex w-full max-w-xl flex-col gap-2 pointer-events-auto sm:flex-row sm:items-stretch"
-                    style={{ position: "relative", zIndex: 9999 }}
-                  >
-                    <input
-                      id="transcribe-hybrid-url"
-                      type="text"
-                      inputMode="url"
-                      autoComplete="off"
-                      placeholder={t("youtubeTranscribePlaceholder")}
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== "Enter") return;
-                        e.preventDefault();
-                        submitHybridLink();
-                      }}
-                      disabled={videoControlsDisabled || transcribeLoading}
-                      aria-describedby="transcribe-formats-hint"
-                      className="min-h-11 min-w-0 flex-1 rounded-xl border border-zinc-200/90 bg-white/90 px-3.5 py-2.5 text-sm text-zinc-900 shadow-sm outline-none ring-0 placeholder:text-zinc-400 focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-950/80 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-                    />
-                    <button
-                      type="button"
-                      disabled={
-                        videoControlsDisabled ||
-                        transcribeLoading ||
-                        !youtubeUrl.trim()
-                      }
-                      onClick={() => submitHybridLink()}
-                      className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-violet-600 dark:hover:bg-violet-500"
-                    >
-                      {t("transcribeHybridConvert")}
-                    </button>
-                  </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div
-                      className="h-px w-full max-w-xs bg-gradient-to-r from-transparent via-zinc-200 to-transparent dark:via-zinc-600"
-                      aria-hidden
-                    />
+                  <div className="flex flex-col items-center gap-3">
                     <button
                       type="button"
                       disabled={videoControlsDisabled || transcribeLoading}
                       onClick={(e) => {
                         e.stopPropagation();
-                        openHybridFilePicker();
+                        openTranscribeFilePicker();
                       }}
-                      className="inline-flex items-center gap-2 rounded-xl border border-zinc-200/90 bg-white/90 px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-violet-300/80 hover:bg-violet-50/50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:border-violet-500/40 dark:hover:bg-violet-950/30"
+                      className="relative z-[9999] inline-flex items-center gap-2 rounded-xl border border-zinc-200/90 bg-white/90 px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-violet-300/80 hover:bg-violet-50/50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:border-violet-500/40 dark:hover:bg-violet-950/30"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1266,7 +1106,7 @@ export function RepurposeWorkspace() {
                       {t("transcribeHybridPickFile")}
                     </button>
                     <p className="max-w-md text-center text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                      {t("youtubeTranscribeHint")}
+                      {t("transcribeFileHint")}
                     </p>
                   </div>
                   {mediaFile ? (
@@ -1289,7 +1129,7 @@ export function RepurposeWorkspace() {
                         {transcribeProgressLabel()}
                       </p>
                       <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {t("processingVideoHint")}
+                        {transcribeProgressDetail()}
                       </p>
                     </div>
                   ) : null}
@@ -1314,7 +1154,7 @@ export function RepurposeWorkspace() {
                     </p>
                   </div>
                 ) : null}
-                {transcribeError ? (
+                {transcribeError && !transcribeJobPollingId ? (
                   <div
                     className="mt-3 rounded-xl border border-red-200/90 bg-red-50/90 px-3 py-2.5 dark:border-red-900/45 dark:bg-red-950/40"
                     role="alert"

@@ -4,7 +4,6 @@ import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { PRO_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { checkUserProSubscription } from "@/lib/subscription/plan";
-import { extractYoutubeVideoId } from "@/lib/youtube/video-id";
 import { inngest } from "@/inngest/client";
 
 export const runtime = "nodejs";
@@ -75,7 +74,7 @@ async function consumeTranscribeQuotaIfNeeded(
 
 /**
  * Transkripsiyon işini kuyruğa alır — 202 Accepted + jobId.
- * Gövde: tam olarak biri — `youtubeUrl` (string) veya `storagePaths` (string[], dolu).
+ * Gövde: `storagePaths` (string[], en az bir yol; kullanıcının Supabase depo ön eki).
  */
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -113,45 +112,32 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Upgrade required" }, { status: 403 });
     }
 
-    let body: { storagePaths?: unknown; youtubeUrl?: unknown };
+    let body: { storagePaths?: unknown };
     try {
-      body = (await req.json()) as {
-        storagePaths?: unknown;
-        youtubeUrl?: unknown;
-      };
+      body = (await req.json()) as { storagePaths?: unknown };
     } catch {
       return Response.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const ytRaw =
-      typeof body.youtubeUrl === "string" ? body.youtubeUrl.trim() : "";
     const rawPaths = Array.isArray(body.storagePaths) ? body.storagePaths : [];
     const paths = rawPaths.filter(
       (p): p is string => typeof p === "string" && p.length > 0,
     );
 
-    const hasYt = ytRaw.length > 0;
-    const hasPaths = paths.length > 0;
-    if ((hasYt && hasPaths) || (!hasYt && !hasPaths)) {
+    if (paths.length === 0) {
       return Response.json(
         {
           error:
-            "Send exactly one of: youtubeUrl (non-empty string) OR storagePaths (non-empty array).",
+            "Send storagePaths: a non-empty array of storage object paths.",
         },
         { status: 400 },
       );
     }
 
-    if (hasYt && !extractYoutubeVideoId(ytRaw)) {
-      return Response.json({ error: "Invalid YouTube URL." }, { status: 400 });
-    }
-
-    if (hasPaths) {
-      const prefix = `${user.id}/`;
-      for (const p of paths) {
-        if (!p.startsWith(prefix) || p.includes("..") || p.includes("//")) {
-          return Response.json({ error: "Invalid storage path" }, { status: 400 });
-        }
+    const prefix = `${user.id}/`;
+    for (const p of paths) {
+      if (!p.startsWith(prefix) || p.includes("..") || p.includes("//")) {
+        return Response.json({ error: "Invalid storage path" }, { status: 400 });
       }
     }
 
@@ -163,9 +149,9 @@ export async function POST(req: Request): Promise<Response> {
       .insert({
         user_id: user.id,
         status: "pending",
-        source_type: hasYt ? "youtube" : "storage",
-        storage_paths: hasPaths ? paths : [],
-        youtube_url: hasYt ? ytRaw : null,
+        source_type: "storage",
+        storage_paths: paths,
+        youtube_url: null,
       })
       .select("id")
       .single();
