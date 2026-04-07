@@ -8,9 +8,14 @@ const handleI18n = createMiddleware(routing);
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Inngest: no locale prefix, no Supabase session — signing is handled in /api/inngest.
-  if (pathname === "/api/inngest" || pathname.startsWith("/api/inngest/")) {
-    return NextResponse.next();
+  // All App Router API routes live under `app/api/**` (not `app/[locale]`).
+  // Skip next-intl so nothing gets a `/tr` or `/en` prefix.
+  if (pathname.startsWith("/api/") || pathname === "/api") {
+    // Inngest: signing only — no Supabase cookie handling.
+    if (pathname === "/api/inngest" || pathname.startsWith("/api/inngest/")) {
+      return NextResponse.next();
+    }
+    return await updateSession(request, NextResponse.next());
   }
 
   const response = handleI18n(request);
@@ -19,9 +24,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Pages + locale routes only; other /api/* stays out unless listed below.
+    // Pages + locale routes; `api` excluded here so i18n does not treat `/api/*` as localized.
     "/((?!api|_next|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-    "/api/inngest",
-    "/api/inngest/:path*",
+    "/api/:path*",
   ],
 };

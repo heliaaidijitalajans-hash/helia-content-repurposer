@@ -12,6 +12,7 @@ import {
 } from "@/lib/transcribe/extract-audio-browser";
 import { uploadFileResumableToSupabase } from "@/lib/transcribe/tus-upload-browser";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
+import { apiOriginUrl } from "@/lib/api/origin-url";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set([
@@ -43,7 +44,7 @@ const NEXT_PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
-const SUBSCRIPTION_STATUS_URL = "/api/subscription-status";
+const SUBSCRIPTION_STATUS_PATH = "/api/subscription-status";
 
 function parseSubscriptionStatusPayload(raw: unknown): boolean {
   if (typeof raw !== "object" || raw === null || !("isPro" in raw)) {
@@ -248,7 +249,7 @@ export function RepurposeWorkspace() {
       return;
     }
     try {
-      const r = await fetch(SUBSCRIPTION_STATUS_URL, {
+      const r = await fetch(apiOriginUrl(SUBSCRIPTION_STATUS_PATH), {
         credentials: "same-origin",
       });
       let body: unknown;
@@ -266,7 +267,9 @@ export function RepurposeWorkspace() {
 
   const refreshUsage = useCallback(async () => {
     try {
-      const r = await fetch("/api/usage", { credentials: "same-origin" });
+      const r = await fetch(apiOriginUrl("/api/usage"), {
+        credentials: "same-origin",
+      });
       if (!r.ok) return;
       const j = (await r.json()) as {
         used?: number;
@@ -313,7 +316,7 @@ export function RepurposeWorkspace() {
     if (!videoUnlocked) return;
     void (async () => {
       try {
-        const r = await fetch("/api/transcribe/jobs?active=1", {
+        const r = await fetch(apiOriginUrl("/api/transcribe/jobs?active=1"), {
           credentials: "same-origin",
         });
         if (!r.ok) return;
@@ -339,7 +342,7 @@ export function RepurposeWorkspace() {
       if (cancelled) return;
       try {
         const r = await fetch(
-          `/api/transcribe/jobs/${transcribeJobPollingId}`,
+          apiOriginUrl(`/api/transcribe/jobs/${transcribeJobPollingId}`),
           { credentials: "same-origin" },
         );
         if (cancelled) return;
@@ -437,7 +440,7 @@ export function RepurposeWorkspace() {
     };
 
     try {
-      const res = await fetch("/api/repurpose", {
+      const res = await fetch(apiOriginUrl("/api/repurpose"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -602,7 +605,7 @@ export function RepurposeWorkspace() {
   async function startTranscribeJobFromJson(body: {
     storagePaths: string[];
   }): Promise<boolean> {
-    const res = await fetch("/api/transcribe", {
+    const res = await fetch(apiOriginUrl("/api/transcribe"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
@@ -727,7 +730,7 @@ export function RepurposeWorkspace() {
           total: parts.length,
         });
 
-        const sessRes = await fetch("/api/transcribe/upload-session", {
+        const sessRes = await fetch(apiOriginUrl("/api/transcribe/upload-session"), {
           method: "POST",
           credentials: "same-origin",
           signal: controller.signal,
