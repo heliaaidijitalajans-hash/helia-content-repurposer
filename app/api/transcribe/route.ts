@@ -1,3 +1,7 @@
+/**
+ * Next.js App Router: this file must stay at `app/api/transcribe/route.ts`
+ * (not under `app/[locale]/…`). The URL is always `/api/transcribe` (no locale prefix).
+ */
 import { createClient } from "@/lib/supabase/server";
 import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
@@ -70,6 +74,19 @@ async function consumeTranscribeQuotaIfNeeded(
   }
 
   return null;
+}
+
+/** Quick check that the route is mounted (e.g. open http://localhost:3000/api/transcribe). */
+export async function GET(): Promise<Response> {
+  return Response.json({
+    ok: true,
+    path: "/api/transcribe",
+    post: {
+      description: "Enqueue a transcription job",
+      body: { storagePaths: "non-empty string[] of user-scoped storage paths" },
+      success: { status: 202, jobId: "uuid", pollUrl: "/api/transcribe/jobs/:id" },
+    },
+  });
 }
 
 /**
