@@ -224,8 +224,10 @@ export function RepurposeWorkspace() {
   const [transcribeJobPollingId, setTranscribeJobPollingId] = useState<
     string | null
   >(null);
-  const [showAsyncTranscribeNotice, setShowAsyncTranscribeNotice] =
-    useState(false);
+  /** Latest job status from GET /api/transcribe/jobs/:id while polling. */
+  const [transcribeJobPollStatus, setTranscribeJobPollStatus] = useState<
+    "pending" | "processing" | null
+  >(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const transcribeDragDepthRef = useRef(0);
@@ -317,7 +319,6 @@ export function RepurposeWorkspace() {
         if (!r.ok) return;
         const j = (await r.json()) as { jobs?: Array<{ id: string }> };
         if (j.jobs && j.jobs.length > 0) {
-          setShowAsyncTranscribeNotice(true);
           setTranscribeError(null);
           setTranscribeJobPollingId((prev) => prev ?? j.jobs![0]!.id);
         }
@@ -328,29 +329,63 @@ export function RepurposeWorkspace() {
   }, [videoUnlocked]);
 
   useEffect(() => {
-    if (!transcribeJobPollingId) return;
+    if (!transcribeJobPollingId) {
+      setTranscribeJobPollStatus(null);
+      return;
+    }
     let cancelled = false;
 
     const tick = async () => {
+      if (cancelled) return;
       try {
         const r = await fetch(
           `/api/transcribe/jobs/${transcribeJobPollingId}`,
           { credentials: "same-origin" },
         );
-        if (!r.ok || cancelled) return;
+        if (cancelled) return;
+
+        if (!r.ok) {
+          let serverMsg = "";
+          try {
+            const errBody = (await r.json()) as { error?: string };
+            serverMsg =
+              typeof errBody.error === "string" ? errBody.error.trim() : "";
+          } catch {
+            /* ignore */
+          }
+          setTranscribeJobPollingId(null);
+          setTranscribeJobPollStatus(null);
+          setTranscribeError(
+            transcribeErrorMessage(r.status, serverMsg || undefined, t),
+          );
+          return;
+        }
+
         const job = (await r.json()) as {
           status?: string;
           result_text?: string | null;
           error_message?: string | null;
         };
-        if (job.status === "completed" && typeof job.result_text === "string") {
-          setTranscriptionText(job.result_text);
+
+        if (job.status === "pending" || job.status === "processing") {
+          setTranscribeJobPollStatus(job.status);
+          setTranscribeError(null);
+          return;
+        }
+
+        if (job.status === "completed") {
+          const text =
+            typeof job.result_text === "string" ? job.result_text : "";
+          setTranscriptionText(text);
           setTranscribeReady(true);
           setTranscribeJobPollingId(null);
-          setShowAsyncTranscribeNotice(false);
+          setTranscribeJobPollStatus(null);
           setTranscribeError(null);
           void refreshUsage();
-        } else if (job.status === "failed" || job.status === "needs_audio") {
+          return;
+        }
+
+        if (job.status === "failed" || job.status === "needs_audio") {
           const raw =
             typeof job.error_message === "string" ? job.error_message.trim() : "";
           const msg =
@@ -359,23 +394,18 @@ export function RepurposeWorkspace() {
               : t("transcribeJobWorkerFailed");
           setTranscribeError(msg);
           setTranscribeJobPollingId(null);
-          setShowAsyncTranscribeNotice(false);
-        } else if (
-          job.status === "pending" ||
-          job.status === "processing"
-        ) {
-          setTranscribeError(null);
+          setTranscribeJobPollStatus(null);
         }
       } catch {
-        /* ignore */
+        /* network blip: next interval retries */
       }
     };
 
     void tick();
-    const id = window.setInterval(tick, 3000);
+    const intervalId = window.setInterval(tick, 3000);
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      window.clearInterval(intervalId);
     };
   }, [transcribeJobPollingId, refreshUsage, t]);
 
@@ -596,8 +626,8 @@ export function RepurposeWorkspace() {
 
     if (res.status === 202 && typeof data.jobId === "string") {
       setTranscribeError(null);
+      setTranscribeJobPollStatus("pending");
       setTranscribeJobPollingId(data.jobId);
-      setShowAsyncTranscribeNotice(true);
       return true;
     }
 
@@ -1037,18 +1067,29 @@ export function RepurposeWorkspace() {
                 >
                   {t("transcribeHint")}
                 </p>
-                {showAsyncTranscribeNotice && transcribeJobPollingId ? (
+                {transcribeJobPollingId ? (
                   <div
-                    className="mt-3 rounded-xl border border-violet-200/90 bg-violet-50/90 px-3 py-2.5 dark:border-violet-900/50 dark:bg-violet-950/35"
+                    className="mt-3 flex gap-3 rounded-xl border border-violet-200/90 bg-violet-50/90 px-3 py-3 dark:border-violet-900/50 dark:bg-violet-950/35"
                     role="status"
                     aria-live="polite"
+                    aria-busy={true}
                   >
-                    <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">
-                      {t("transcribeJobRunningTitle")}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-violet-900/90 dark:text-violet-200/90">
-                      {t("transcribeAsyncNoticeBody")}
-                    </p>
+                    <span
+                      className="mt-0.5 size-5 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-800 dark:border-t-violet-400"
+                      aria-hidden
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-violet-950 dark:text-violet-100">
+                        {transcribeJobPollStatus === "processing"
+                          ? t("transcribeJobRunningTitle")
+                          : t("transcribeJobStarted")}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-violet-900/90 dark:text-violet-200/90">
+                        {transcribeJobPollStatus === "processing"
+                          ? t("transcribeAsyncNoticeBody")
+                          : t("transcribeJobStartedDetail")}
+                      </p>
+                    </div>
                   </div>
                 ) : null}
                 <input
