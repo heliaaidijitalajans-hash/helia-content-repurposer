@@ -433,32 +433,15 @@ export function RepurposeWorkspace() {
     setTranscriptionText("");
 
     const formData = new FormData();
-    formData.append("file", file, file.name);
+    formData.append("file", file);
 
     try {
-      console.log(
-        "[transcribe] FormData:",
-        file.name,
-        "size=",
-        file.size,
-        "type=",
-        file.type,
-      );
-      // Content-Type set ETME — tarayıcı boundary ile multipart yazar
       const res = await fetch("/api/transcribe", {
         method: "POST",
         body: formData,
       });
       const raw = await res.text();
-      let data: {
-        success?: boolean;
-        text?: string;
-        id?: string;
-        message?: string;
-        error?: string;
-        transcribedText?: string;
-        warning?: string;
-      } = {};
+      let data: { success?: boolean; error?: string } = {};
       try {
         data = raw.trim() ? (JSON.parse(raw) as typeof data) : {};
       } catch (e) {
@@ -467,30 +450,15 @@ export function RepurposeWorkspace() {
         return;
       }
 
-      console.log("[transcribe] API yanıtı", res.status, data);
-
-      if (res.ok && data.success === true && typeof data.text === "string") {
-        setTranscriptionText(data.text);
+      if (res.ok && data.success === true) {
+        setTranscriptionText("");
         setTranscribeReady(true);
-        setTranscribeApiMeta(
-          typeof data.id === "string"
-            ? t("transcribeApiSaved", { id: data.id })
-            : (data.message ?? null),
-        );
+        setTranscribeApiMeta(t("transcribeUploadOkDebug"));
         void refreshUsage();
         return;
       }
 
-      const serverMsg =
-        typeof data.error === "string"
-          ? data.error
-          : typeof data.warning === "string"
-            ? data.warning
-            : "";
-      if (typeof data.transcribedText === "string" && data.transcribedText) {
-        setTranscriptionText(data.transcribedText);
-        setTranscribeReady(true);
-      }
+      const serverMsg = typeof data.error === "string" ? data.error : "";
       setTranscribeError(
         transcribeErrorMessage(res.status, serverMsg || undefined, t),
       );

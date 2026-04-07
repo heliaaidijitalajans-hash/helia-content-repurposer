@@ -111,6 +111,7 @@
     "transcribeProcessingDirect": "Transcribing…",
     "transcribeNeedFile": "Select a valid audio or video file first.",
     "transcribeApiSaved": "Saved record ID: {id}",
+    "transcribeUploadOkDebug": "File reached the server (debug mode).",
     "transcribeFileHint": "Choose a file, then press Transcribe. MP3, WAV, MP4, M4A, AAC · up to ~25 MB.",
     "transcribeFileRegionAria": "Transcription from uploaded video or audio",
     "transcribeErrorPayloadTooLarge": "The upload is too large. Please choose a shorter video or clip.",

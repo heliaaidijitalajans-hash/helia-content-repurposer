@@ -111,6 +111,7 @@
     "transcribeProcessingDirect": "Transkripsiyon yapılıyor…",
     "transcribeNeedFile": "Önce geçerli bir ses veya video dosyası seçin.",
     "transcribeApiSaved": "Kayıt ID: {id}",
+    "transcribeUploadOkDebug": "Dosya sunucuya ulaştı (test modu).",
     "transcribeFileHint": "Dosyayı seçin, ardından «Transkribe et»e basın. MP3, WAV, MP4, M4A, AAC · en fazla ~25 MB.",
     "transcribeFileRegionAria": "Video veya ses dosyası ile transkripsiyon",
     "transcribeErrorPayloadTooLarge": "Dosya boyutu çok büyük, lütfen daha kısa bir video seçin.",
