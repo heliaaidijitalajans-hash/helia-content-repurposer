@@ -19,6 +19,44 @@ function CheckItem({ children }: { children: React.ReactNode }) {
   );
 }
 
+function PricingCreditsEquivalent({
+  videoCredits,
+  textCredits,
+  label,
+  videoLabel,
+  textLabel,
+  hint,
+}: {
+  videoCredits: number;
+  textCredits: number;
+  label: string;
+  videoLabel: string;
+  textLabel: string;
+  hint: string;
+}) {
+  return (
+    <div
+      className="mt-3 border-t border-gray-200 pt-3 text-sm text-gray-500"
+      title={hint}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <p className="mt-2 leading-relaxed">
+        <span aria-hidden>🎥 </span>
+        <span className="font-semibold text-gray-700">{videoCredits}</span>
+        {videoLabel}
+      </p>
+      <p className="mt-1 leading-relaxed">
+        <span aria-hidden>📝 </span>
+        <span className="font-semibold text-gray-700">{textCredits}</span>
+        {textLabel}
+      </p>
+      <p className="mt-2 text-xs leading-relaxed text-gray-400">{hint}</p>
+    </div>
+  );
+}
+
 export async function MarketingPricingContent() {
   const t = await getTranslations("marketingPages");
 
@@ -51,6 +89,14 @@ export async function MarketingPricingContent() {
             <CheckItem>{t("pricingPageFreeF2")}</CheckItem>
             <CheckItem>{t("pricingPageFreeF3")}</CheckItem>
           </ul>
+          <PricingCreditsEquivalent
+            videoCredits={30}
+            textCredits={3}
+            label={t("pricingPageCreditsLabel")}
+            videoLabel={t("pricingPageCreditsVideoLabel")}
+            textLabel={t("pricingPageCreditsTextLabel")}
+            hint={t("pricingPageCreditsHint")}
+          />
           <Link href="/auth" className={`${outlineCtaClass} pt-6`}>
             {t("pricingPageFreeCta")}
           </Link>
@@ -69,6 +115,14 @@ export async function MarketingPricingContent() {
             <CheckItem>{t("pricingPageMonthlyF2")}</CheckItem>
             <CheckItem>{t("pricingPageMonthlyF3")}</CheckItem>
           </ul>
+          <PricingCreditsEquivalent
+            videoCredits={200}
+            textCredits={40}
+            label={t("pricingPageCreditsLabel")}
+            videoLabel={t("pricingPageCreditsVideoLabel")}
+            textLabel={t("pricingPageCreditsTextLabel")}
+            hint={t("pricingPageCreditsHint")}
+          />
           <NextLink href="/account" className={`${primaryCtaClass} pt-6`}>
             {t("pricingPageMonthlyCta")}
           </NextLink>
@@ -91,6 +145,14 @@ export async function MarketingPricingContent() {
             <CheckItem>{t("pricingPageProF3")}</CheckItem>
             <CheckItem>{t("pricingPageProF4")}</CheckItem>
           </ul>
+          <PricingCreditsEquivalent
+            videoCredits={300}
+            textCredits={55}
+            label={t("pricingPageCreditsLabel")}
+            videoLabel={t("pricingPageCreditsVideoLabel")}
+            textLabel={t("pricingPageCreditsTextLabel")}
+            hint={t("pricingPageCreditsHint")}
+          />
           <NextLink href="/account" className={`${primaryCtaClass} pt-6`}>
             {t("pricingPageProCta")}
           </NextLink>
@@ -113,6 +175,14 @@ export async function MarketingPricingContent() {
             <CheckItem>{t("pricingPageYearlyF3")}</CheckItem>
             <CheckItem>{t("pricingPageYearlyF4")}</CheckItem>
           </ul>
+          <PricingCreditsEquivalent
+            videoCredits={3000}
+            textCredits={550}
+            label={t("pricingPageCreditsLabel")}
+            videoLabel={t("pricingPageCreditsVideoLabel")}
+            textLabel={t("pricingPageCreditsTextLabel")}
+            hint={t("pricingPageCreditsHint")}
+          />
           <NextLink href="/account" className={`${primaryCtaClass} pt-6`}>
             {t("pricingPageYearlyCta")}
           </NextLink>

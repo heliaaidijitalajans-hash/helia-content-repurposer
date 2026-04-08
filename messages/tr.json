@@ -117,6 +117,10 @@
     "pricingPageYearlyF3": "En hızlı işlem",
     "pricingPageYearlyF4": "Maksimum verim",
     "pricingPageYearlyCta": "Yıllık Al",
+    "pricingPageCreditsLabel": "Kredi Karşılığı",
+    "pricingPageCreditsVideoLabel": " Video Kredisi",
+    "pricingPageCreditsTextLabel": " Metin Kredisi",
+    "pricingPageCreditsHint": "1 dk video = 1 kredi · 1 metin = 1 kredi",
     "supportTitle": "Destek",
     "supportSub": "Herhangi bir sorunuz mu var? Size yardımcı olmaktan mutluluk duyarız."
   },

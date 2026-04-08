@@ -117,6 +117,10 @@
     "pricingPageYearlyF3": "Fastest processing",
     "pricingPageYearlyF4": "Maximum throughput",
     "pricingPageYearlyCta": "Get yearly",
+    "pricingPageCreditsLabel": "Credit equivalent",
+    "pricingPageCreditsVideoLabel": " video credits",
+    "pricingPageCreditsTextLabel": " text credits",
+    "pricingPageCreditsHint": "1 min video = 1 credit · 1 text gen = 1 credit",
     "supportTitle": "Support",
     "supportSub": "Have a question? We’re happy to help."
   },
