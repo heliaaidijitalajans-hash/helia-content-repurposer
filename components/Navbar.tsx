@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { HeliaLogoNext } from "@/components/brand/helia-logo";
 
 type NavbarProps = {
   onMenuClick?: () => void;
@@ -51,12 +52,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
               </svg>
             </button>
           ) : null}
-          <Link
-            href="/dashboard"
-            className="truncate text-base font-semibold tracking-tight text-gray-900 transition hover:text-blue-600"
-          >
-            Helia AI
-          </Link>
+          <HeliaLogoNext href="/" />
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-1 sm:gap-2">

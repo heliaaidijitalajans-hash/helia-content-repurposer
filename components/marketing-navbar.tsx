@@ -1,7 +1,12 @@
 "use client";
 
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
+import {
+  HeliaLogoMark,
+  HeliaLogoWordmark,
+  heliaLogoLinkClass,
+} from "@/components/brand/helia-logo";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 
 const nav = [
@@ -22,16 +27,17 @@ function linkActive(pathname: string, href: string): boolean {
 export function MarketingNavbar() {
   const t = useTranslations("marketingNav");
   const pathname = usePathname();
-  const locale = useLocale();
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white text-gray-900">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="shrink-0 text-base font-semibold tracking-tight text-gray-900 transition hover:text-blue-600"
+          className={`shrink-0 ${heliaLogoLinkClass}`}
+          aria-label="Helia AI home"
         >
-          Helia AI
+          <HeliaLogoMark />
+          <HeliaLogoWordmark />
         </Link>
 
         <nav
