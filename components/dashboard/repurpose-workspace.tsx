@@ -5,11 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { createClient } from "@/lib/supabase/client";
+import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
-import {
-  uploadToSupabaseStorageXHR,
-  uploadsObjectPath,
-} from "@/lib/transcribe/supabase-storage-upload-xhr";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
@@ -36,11 +33,6 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
 ]);
 /** Depoya yükleme üst sınırı (Supabase bucket ~500 MB; tarayıcı belleği sınırlı olabilir). */
 const TRANSCRIBE_MAX_BYTES = 480 * 1024 * 1024;
-
-const NEXT_PUBLIC_SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
-const NEXT_PUBLIC_SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_PATH = "/api/subscription-status";
@@ -184,10 +176,6 @@ export function RepurposeWorkspace() {
   const [transcribeApiMeta, setTranscribeApiMeta] = useState<string | null>(
     null,
   );
-  /** 0–100 yükleme; null = yükleme yok veya API aşaması */
-  const [transcribeUploadPercent, setTranscribeUploadPercent] = useState<
-    number | null
-  >(null);
   const [dragActive, setDragActive] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -440,7 +428,8 @@ export function RepurposeWorkspace() {
       return;
     }
 
-    if (!NEXT_PUBLIC_SUPABASE_URL || !NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const { isConfigured } = getPublicSupabaseConfig();
+    if (!isConfigured) {
       setTranscribeError(t("transcribeErrorMissingAnon"));
       return;
     }
@@ -450,96 +439,87 @@ export function RepurposeWorkspace() {
     setTranscribeLoading(true);
     setTranscribeReady(false);
     setTranscriptionText("");
-    setTranscribeUploadPercent(0);
 
     const supabase = createClient();
     const {
       data: { session },
     } = await supabase.auth.getSession();
-    if (!session?.user?.id || !session.access_token) {
-      setTranscribeUploadPercent(null);
+    if (!session?.access_token) {
       setTranscribeLoading(false);
       setTranscribeError(t("transcribeErrorAuth"));
       return;
     }
 
-    const objectPath = uploadsObjectPath(session.user.id, file);
-    console.log("[transcribe] Storage yüklemesi", UPLOADS_BUCKET, objectPath);
+    const safeName = (file.name || "media").replace(/[/\\]/g, "_");
+    const storagePath = `files/${Date.now()}-${safeName}`;
 
-    try {
-      await uploadToSupabaseStorageXHR({
-        projectUrl: NEXT_PUBLIC_SUPABASE_URL,
-        anonKey: NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        accessToken: session.access_token,
-        bucket: UPLOADS_BUCKET,
-        objectPath,
-        file,
-        onProgress: (r) =>
-          setTranscribeUploadPercent(Math.min(100, Math.round(r * 100))),
-      });
-    } catch (e) {
-      console.log("[transcribe] Storage yükleme hata", e);
-      setTranscribeUploadPercent(null);
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(UPLOADS_BUCKET)
+      .upload(storagePath, file);
+
+    if (uploadError) {
+      console.error("UPLOAD ERROR:", uploadError);
       setTranscribeLoading(false);
-      setTranscribeError(
-        e instanceof Error ? e.message : t("transcribeErrorGeneric"),
-      );
+      setTranscribeError(uploadError.message || t("transcribeErrorGeneric"));
       return;
     }
 
-    setTranscribeUploadPercent(null);
-    const { data: pub } = supabase.storage
+    const { data: urlData } = supabase.storage
       .from(UPLOADS_BUCKET)
-      .getPublicUrl(objectPath);
-    const fileUrl = pub.publicUrl;
-    console.log("[transcribe] public URL", fileUrl);
+      .getPublicUrl(uploadData.path);
+
+    const fileUrl = urlData.publicUrl;
+    console.log("FILE URL:", fileUrl);
 
     try {
       const res = await fetch("/api/transcribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUrl }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ url: fileUrl }),
       });
       const raw = await res.text();
-      let data: {
-        success?: boolean;
+      let parsed: {
         text?: string;
-        id?: string;
-        message?: string;
-        error?: string;
+        error?: string | { message?: string };
       } = {};
       try {
-        data = raw.trim() ? (JSON.parse(raw) as typeof data) : {};
+        parsed = raw.trim()
+          ? (JSON.parse(raw) as typeof parsed)
+          : {};
       } catch (e) {
         console.log("[transcribe] JSON parse hata", e, raw.slice(0, 200));
         setTranscribeError(t("transcribeErrorUnexpectedResponse"));
         return;
       }
 
-      console.log("[transcribe] API yanıtı", res.status, data);
+      console.log("[transcribe] API yanıtı", res.status, parsed);
 
-      if (res.ok && data.success === true && typeof data.text === "string") {
-        setTranscriptionText(data.text);
+      if (res.ok && typeof parsed.text === "string") {
+        setTranscriptionText(parsed.text);
         setTranscribeReady(true);
-        setTranscribeApiMeta(
-          typeof data.id === "string"
-            ? t("transcribeApiSaved", { id: data.id })
-            : (data.message ?? null),
-        );
+        setTranscribeApiMeta(null);
         void refreshUsage();
         return;
       }
 
-      const serverMsg = typeof data.error === "string" ? data.error : "";
+      const err =
+        typeof parsed.error === "object" && parsed.error?.message
+          ? parsed.error.message
+          : typeof parsed.error === "string"
+            ? parsed.error
+            : typeof (parsed as { message?: string }).message === "string"
+              ? (parsed as { message: string }).message
+              : "";
       setTranscribeError(
-        transcribeErrorMessage(res.status, serverMsg || undefined, t),
+        transcribeErrorMessage(res.status, err || undefined, t),
       );
     } catch (e) {
       console.log("[transcribe] Ağ veya istemci hata", e);
       setTranscribeError(t("errorNetwork"));
     } finally {
       setTranscribeLoading(false);
-      setTranscribeUploadPercent(null);
     }
   }
 
@@ -870,11 +850,7 @@ export function RepurposeWorkspace() {
                               className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
                               aria-hidden
                             />
-                            {transcribeUploadPercent !== null
-                              ? t("transcribeUploadingPct", {
-                                  pct: transcribeUploadPercent,
-                                })
-                              : t("transcribeTranscribingStep")}
+                            {t("transcribeTranscribingStep")}
                           </>
                         ) : (
                           t("transcribeSubmit")
@@ -889,42 +865,21 @@ export function RepurposeWorkspace() {
                   ) : null}
                   {transcribeLoading ? (
                     <div
-                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
+                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
                       role="status"
                       aria-live="polite"
-                      aria-label={
-                        transcribeUploadPercent !== null
-                          ? t("transcribeUploadingPct", {
-                              pct: transcribeUploadPercent,
-                            })
-                          : t("transcribeTranscribingStep")
-                      }
+                      aria-label={t("transcribeTranscribingStep")}
                     >
                       <span
                         className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
                         aria-hidden
                       />
                       <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                        {transcribeUploadPercent !== null
-                          ? t("transcribeUploadingPct", {
-                              pct: transcribeUploadPercent,
-                            })
-                          : t("transcribeTranscribingStep")}
+                        {t("transcribeTranscribingStep")}
                       </p>
-                      {transcribeUploadPercent !== null ? (
-                        <div className="h-2 w-full max-w-[14rem] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                          <div
-                            className="h-full rounded-full bg-violet-600 transition-[width] duration-150 dark:bg-violet-400"
-                            style={{
-                              width: `${transcribeUploadPercent}%`,
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                          {t("processingVideoHint")}
-                        </p>
-                      )}
+                      <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                        {t("processingVideoHint")}
+                      </p>
                     </div>
                   ) : null}
                 </div>
