@@ -13,6 +13,25 @@
     "getStarted": "Get started",
     "language": "Language"
   },
+  "marketingNav": {
+    "home": "Home",
+    "features": "Features",
+    "examples": "Examples",
+    "pricing": "Pricing",
+    "support": "Support",
+    "login": "Log in",
+    "ctaPrimary": "Start free"
+  },
+  "marketingPages": {
+    "featuresTitle": "Features",
+    "featuresSub": "More coming soon.",
+    "examplesTitle": "Examples",
+    "examplesSub": "More coming soon.",
+    "pricingTitle": "Pricing",
+    "pricingSub": "More coming soon.",
+    "supportTitle": "Support",
+    "supportSub": "More coming soon."
+  },
   "home": {
     "heroBrand": "Helia AI",
     "heroEyebrow": "Turn content into viral formats",

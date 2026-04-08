@@ -13,6 +13,25 @@
     "getStarted": "Başla",
     "language": "Dil"
   },
+  "marketingNav": {
+    "home": "Ana Sayfa",
+    "features": "Özellikler",
+    "examples": "Örnekler",
+    "pricing": "Fiyatlandırma",
+    "support": "Destek",
+    "login": "Giriş Yap",
+    "ctaPrimary": "Ücretsiz Başla"
+  },
+  "marketingPages": {
+    "featuresTitle": "Özellikler",
+    "featuresSub": "Yakında.",
+    "examplesTitle": "Örnekler",
+    "examplesSub": "Yakında.",
+    "pricingTitle": "Fiyatlandırma",
+    "pricingSub": "Yakında.",
+    "supportTitle": "Destek",
+    "supportSub": "Yakında."
+  },
   "home": {
     "heroBrand": "Helia AI",
     "heroEyebrow": "İçeriği viral formata dönüştür",

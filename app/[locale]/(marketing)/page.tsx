@@ -1,6 +1,5 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { LanguageSwitcher } from "@/components/layout/language-switcher";
 
 const glassCard =
   "rounded-xl border border-white/15 bg-white/[0.07] shadow-lg shadow-black/25 backdrop-blur-xl";
@@ -12,7 +11,6 @@ export default async function HomePage({
 }) {
   const { locale } = await params;
   const t = await getTranslations("home");
-  const tn = await getTranslations("nav");
 
   const features = [
     {
@@ -52,28 +50,7 @@ export default async function HomePage({
         aria-hidden
       />
 
-      <header className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-6 sm:py-6">
-        <span className="text-sm font-semibold tracking-tight text-white/95">
-          {t("heroBrand")}
-        </span>
-        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-          <LanguageSwitcher />
-          <Link
-            href="/auth"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-sky-100/90 transition hover:bg-white/10 hover:text-white"
-          >
-            {tn("logIn")}
-          </Link>
-          <Link
-            href="/auth"
-            className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-md shadow-black/20 transition hover:bg-sky-50"
-          >
-            {tn("getStarted")}
-          </Link>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 pt-6 sm:px-6 sm:pb-28 sm:pt-10">
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-24 pt-8 sm:px-6 sm:pb-28 sm:pt-12">
         {/* Hero */}
         <div className="grid items-center gap-12 lg:grid-cols-[1fr,minmax(0,26rem)] lg:gap-16">
           <div>
@@ -143,7 +120,6 @@ export default async function HomePage({
           </div>
         </div>
 
-        {/* Features */}
         <section className="mt-24 sm:mt-28">
           <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-sky-300/85">
             {t("featuresEyebrow")}
@@ -168,7 +144,6 @@ export default async function HomePage({
           </ul>
         </section>
 
-        {/* How it works */}
         <section className="mt-24 sm:mt-28">
           <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-sky-300/85">
             {t("howEyebrow")}
@@ -196,7 +171,6 @@ export default async function HomePage({
           </ol>
         </section>
 
-        {/* Bottom CTA */}
         <section className="mt-24 sm:mt-28">
           <div
             className={`mx-auto max-w-2xl ${glassCard} px-8 py-12 text-center ring-1 ring-white/10 sm:px-10 sm:py-14`}
