@@ -1,12 +1,12 @@
-export default function SupportPage() {
+import { SupportCenter } from "@/components/support/support-center";
+import { getSupportPageCopy } from "@/lib/support/load-copy";
+
+export default async function SupportPage() {
+  const copy = await getSupportPageCopy();
+
   return (
-    <div className="space-y-2">
-      <h1 className="text-2xl font-semibold tracking-tight text-gray-900">
-        Support
-      </h1>
-      <p className="text-sm text-gray-500">
-        Help center and contact options will appear here.
-      </p>
+    <div className="notranslate bg-white text-gray-900">
+      <SupportCenter copy={copy} />
     </div>
   );
 }
