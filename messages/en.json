@@ -16,7 +16,7 @@
   "marketingNav": {
     "home": "Home",
     "features": "Features",
-    "examples": "Examples",
+    "about": "About",
     "pricing": "Pricing",
     "support": "Support",
     "login": "Log in",
@@ -81,6 +81,26 @@
     "ctaBottomSub": "Start free — create your first output in minutes.",
     "ctaBottomButton": "Get started",
     "footer": "Helia AI — premium content workflows."
+  },
+  "aboutPage": {
+    "heroTitle": "We make content creation easy for everyone",
+    "heroSub": "Helia AI helps creators produce more, faster — without wasting time on busywork.",
+    "missionTitle": "Our mission",
+    "missionText": "Creating content shouldn't be hard. Our goal at Helia AI is to speed up production by turning video, audio, and text into shareable formats in seconds.",
+    "whatTitle": "What we do",
+    "what1": "We transcribe video and audio to text",
+    "what2": "We reshape content into viral-ready formats",
+    "what3": "We generate threads, carousels, and hooks",
+    "what4": "We automate the content workflow",
+    "whyTitle": "Why Helia AI?",
+    "whyFastTitle": "Fast",
+    "whyFastText": "Results in seconds",
+    "whyEasyTitle": "Easy",
+    "whyEasyText": "No technical skills required",
+    "whyEffectiveTitle": "Effective",
+    "whyEffectiveText": "Social-ready output",
+    "ctaText": "Try it now and speed up your content workflow",
+    "ctaButton": "Start free"
   },
   "auth": {
     "title": "Sign in or sign up",

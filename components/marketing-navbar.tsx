@@ -7,7 +7,7 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 const nav = [
   { href: "/", key: "home" as const },
   { href: "/features", key: "features" as const },
-  { href: "/examples", key: "examples" as const },
+  { href: "/about", key: "about" as const },
   { href: "/pricing", key: "pricing" as const },
   { href: "/support", key: "support" as const },
 ];

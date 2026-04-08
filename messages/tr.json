@@ -16,7 +16,7 @@
   "marketingNav": {
     "home": "Ana Sayfa",
     "features": "Özellikler",
-    "examples": "Örnekler",
+    "about": "Hakkımızda",
     "pricing": "Fiyatlandırma",
     "support": "Destek",
     "login": "Giriş Yap",
@@ -81,6 +81,26 @@
     "ctaBottomSub": "Ücretsiz başla; ilk çıktını birkaç dakikada oluştur.",
     "ctaBottomButton": "Başla",
     "footer": "Helia AI — Premium içerik iş akışları."
+  },
+  "aboutPage": {
+    "heroTitle": "İçerik üretimini herkes için kolaylaştırıyoruz",
+    "heroSub": "Helia AI, içerik üreticilerinin zaman kaybetmeden daha fazla ve daha etkili içerik üretmesini sağlar.",
+    "missionTitle": "Misyonumuz",
+    "missionText": "İçerik üretmek zor olmamalı. Helia AI olarak amacımız, video, ses ve metinleri saniyeler içinde paylaşılabilir içeriklere dönüştürerek üretim sürecini hızlandırmak.",
+    "whatTitle": "Ne Yapıyoruz?",
+    "what1": "Video ve sesi metne çeviririz",
+    "what2": "İçeriği viral formatlara dönüştürürüz",
+    "what3": "Thread, carousel ve hook üretiriz",
+    "what4": "İçerik üretimini otomatik hale getiririz",
+    "whyTitle": "Neden Helia AI?",
+    "whyFastTitle": "Hızlı",
+    "whyFastText": "Saniyeler içinde sonuç",
+    "whyEasyTitle": "Kolay",
+    "whyEasyText": "Teknik bilgi gerekmez",
+    "whyEffectiveTitle": "Etkili",
+    "whyEffectiveText": "Sosyal medyaya hazır içerikler",
+    "ctaText": "Hemen dene ve içerik üretimini hızlandır",
+    "ctaButton": "Ücretsiz Başla"
   },
   "auth": {
     "title": "Giriş veya kayıt",
