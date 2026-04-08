@@ -31,7 +31,9 @@ export async function middleware(request: NextRequest) {
     pathname === "/settings" ||
     pathname.startsWith("/settings/") ||
     pathname === "/support" ||
-    pathname.startsWith("/support/")
+    pathname.startsWith("/support/") ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/checkout/")
   ) {
     return await updateSession(request, NextResponse.next());
   }
