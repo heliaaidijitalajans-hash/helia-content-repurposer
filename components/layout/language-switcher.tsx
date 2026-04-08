@@ -66,14 +66,14 @@ export function LanguageSwitcher() {
                 aria-selected={loc === locale}
                 className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-gray-100 ${
                   loc === locale
-                    ? "font-semibold text-blue-700"
+                    ? "font-semibold text-gray-900"
                     : "text-gray-800"
                 }`}
                 onClick={() => select(loc)}
               >
                 {labels[loc]}
                 {loc === locale ? (
-                  <span className="text-xs text-blue-600">✓</span>
+                  <span className="text-xs text-gray-600">✓</span>
                 ) : null}
               </button>
             </li>
