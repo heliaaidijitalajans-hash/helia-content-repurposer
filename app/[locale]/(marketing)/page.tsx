@@ -35,11 +35,11 @@ export default async function HomePage({
 
   return (
     <div className="notranslate overflow-x-hidden bg-white text-gray-900">
-      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950 text-white">
+      <section className="bg-gradient-to-br from-zinc-900 via-zinc-800 to-zinc-950 text-white">
         <div className="mx-auto w-full max-w-6xl px-5 pb-16 pt-8 sm:px-6 sm:pb-20 sm:pt-12">
           <div className="grid items-center gap-12 lg:grid-cols-[1fr,minmax(0,26rem)] lg:gap-16">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300/90">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-300">
                 {t("heroEyebrow")}
               </p>
               <h1 className="mt-4 text-4xl font-semibold leading-[1.12] tracking-tight sm:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
@@ -51,7 +51,7 @@ export default async function HomePage({
               <div className="mt-9 flex flex-wrap gap-3">
                 <Link
                   href="/auth"
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                  className="inline-flex h-12 items-center justify-center rounded-xl bg-white px-6 text-sm font-semibold text-zinc-900 shadow-sm transition hover:bg-zinc-100"
                 >
                   {t("ctaFree")}
                 </Link>
@@ -78,7 +78,7 @@ export default async function HomePage({
               </div>
               <div className="space-y-3">
                 <div className="rounded-lg border border-white/10 bg-black/25 p-3.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-300">
                     {t("mockLblThread")}
                   </p>
                   <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-slate-100">
@@ -109,7 +109,7 @@ export default async function HomePage({
 
       <main className="mx-auto w-full max-w-6xl px-5 pb-24 pt-16 sm:px-6 sm:pb-28 sm:pt-20">
         <section>
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
+          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-gray-600">
             {t("featuresEyebrow")}
           </p>
           <h2 className="mx-auto mt-3 max-w-2xl text-center text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
@@ -130,7 +130,7 @@ export default async function HomePage({
         </section>
 
         <section className="mt-24 sm:mt-28">
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-blue-700">
+          <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-gray-600">
             {t("howEyebrow")}
           </p>
           <h2 className="mx-auto mt-3 max-w-xl text-center text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
@@ -142,7 +142,7 @@ export default async function HomePage({
                 key={step.title}
                 className={`relative ${lightCardClass} text-center`}
               >
-                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-bold text-white shadow-md">
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-zinc-700 to-zinc-900 text-sm font-bold text-white shadow-md">
                   {i + 1}
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-gray-900">
@@ -166,7 +166,7 @@ export default async function HomePage({
             </p>
             <Link
               href="/auth"
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-blue-600 px-8 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+              className="mt-8 inline-flex h-12 items-center justify-center rounded-xl bg-zinc-900 px-8 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800"
             >
               {t("ctaBottomButton")}
             </Link>
