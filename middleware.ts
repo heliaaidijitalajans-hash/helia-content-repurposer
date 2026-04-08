@@ -18,6 +18,18 @@ export async function middleware(request: NextRequest) {
     return await updateSession(request, NextResponse.next());
   }
 
+  // Standalone SaaS shell (no locale prefix) — app/dashboard, app/settings, app/support
+  if (
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/settings" ||
+    pathname.startsWith("/settings/") ||
+    pathname === "/support" ||
+    pathname.startsWith("/support/")
+  ) {
+    return await updateSession(request, NextResponse.next());
+  }
+
   const response = handleI18n(request);
   return await updateSession(request, response);
 }
