@@ -170,6 +170,25 @@
     "dangerDescription": "Hesabınızı silmek kalıcıdır. Bu işlem geri alınamaz.",
     "deleteConfirm": "Hesabınız ve verileriniz kalıcı olarak silinecek. Devam etmek istiyor musunuz?"
   },
+  "dashboardHomePage": {
+    "title": "Dashboard",
+    "subtitle": "Yeni içerik oluştur veya geçmişine göz at",
+    "quickTitle": "Hızlı işlemler",
+    "quickCreateTitle": "İçerik Oluştur",
+    "quickCreateCta": "Başla",
+    "quickVideoTitle": "Video → Metin",
+    "quickVideoCta": "Dönüştür",
+    "quickHistoryTitle": "Geçmiş",
+    "quickHistoryCta": "Görüntüle",
+    "recentTitle": "Son içerikler",
+    "itemTitle": "İçerik #{number}",
+    "typeThread": "Thread",
+    "typeCarousel": "Carousel",
+    "dateToday": "Bugün",
+    "dateYesterday": "Dün",
+    "statsTotalLabel": "Toplam içerik",
+    "statsMonthLabel": "Bu ay"
+  },
   "auth": {
     "title": "Giriş veya kayıt",
     "subtitle": "E-posta ve şifre ile devam edin.",

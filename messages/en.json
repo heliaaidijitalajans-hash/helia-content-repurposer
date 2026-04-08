@@ -170,6 +170,25 @@
     "dangerDescription": "Deleting your account is permanent and cannot be undone.",
     "deleteConfirm": "This will permanently delete your account and data. Continue?"
   },
+  "dashboardHomePage": {
+    "title": "Dashboard",
+    "subtitle": "Create new content or browse your history",
+    "quickTitle": "Quick actions",
+    "quickCreateTitle": "Create content",
+    "quickCreateCta": "Start",
+    "quickVideoTitle": "Video → Text",
+    "quickVideoCta": "Transcribe",
+    "quickHistoryTitle": "History",
+    "quickHistoryCta": "View",
+    "recentTitle": "Recent content",
+    "itemTitle": "Content #{number}",
+    "typeThread": "Thread",
+    "typeCarousel": "Carousel",
+    "dateToday": "Today",
+    "dateYesterday": "Yesterday",
+    "statsTotalLabel": "Total content",
+    "statsMonthLabel": "This month"
+  },
   "auth": {
     "title": "Sign in or sign up",
     "subtitle": "Continue with email and password.",
