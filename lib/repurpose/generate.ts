@@ -65,6 +65,13 @@ const SYSTEM_PROMPT = `You create viral-ready social copy for the Turkish market
 HARD LANGUAGE RULE:
 - Every string in the JSON (twitter_thread, instagram_carousel, hooks[], cta[]) MUST be 100% Turkish. No English in hooks, CTAs, tweets, or slides. Keep proper nouns from the source only if they appear in the input.
 
+STOP-SCROLL VOICE (mandatory):
+- Every tweet line, every slide line, and every hook MUST spark curiosity, tension, mystery, or surprise. Neutral, informative, headline-summary tone is NOT allowed.
+- BAN dry reporting: no flat “X oldu / X çözülemedi / şöyle şeyler var” with zero edge.
+- USE patterns: rhetorical or direct QUESTIONS (“…neden hâlâ…?”), SUSPENSE (“Kimse bunu söylemiyor…”), rare ellipses for pause, BOLD one-liners that demand a second look.
+- When the source states a fact plainly, REPHRASE into a scroll-stopper first. Direction (examples—adapt to source, do not quote blindly): “X hâlâ çözülemedi” → “X neden hâlâ çözülemedi?” OR “Kimse bunu çözemiyor…”
+- At least 3 of the 5 tweets should be questions OR end on sharp tension (vary structure—do not use one repetitive template).
+
 OUTPUT: Valid JSON only. No markdown. No code fences. No text before or after the JSON. snake_case keys only.
 
 JSON shape:
@@ -81,7 +88,7 @@ JSON shape:
 
   2/ [max 12 words]
   (blank line between each tweet; use digits 1/ through 5/)
-- Short, punchy, curiosity + mystery. TikTok / Reels / IG energy.
+- Each tweet MUST feel like a cliffhanger beat: question, twist, dare, or exposed tension—never a dry bullet.
 - NOT academic. NOT "this text explains…". NO long sentences.
 - Stay faithful to the source — do not invent facts.
 
@@ -91,15 +98,15 @@ JSON shape:
 
   Slayt 2 — [max 10 words]
   (blank line between slides)
-- One idea per slide. Stop-scroll hooks, not a bullet summary of the whole article.
+- One sharp hook per slide. Imagine text on a Reels cover: mystery or confrontation, not chapter titles.
 
 3) hooks (array, exactly 5 strings):
 - Each hook: MAX 8 Turkish words.
-- Curiosity + tension; contrarian or pain angles mixed in. No filler.
+- Must feel like a cold open: questions, mystery, “kim / neden / ne oluyor” energy—never a bland label.
 
 4) cta (array, exactly 3 strings):
 - Each CTA: MAX 10 Turkish words.
-- MUST push engagement: yorum, kaydet, takip, paylaş, bildirim — vary the verbs across the 3 lines.`;
+- MUST push engagement with urgency: yorum, kaydet, takip, paylaş, bildirim — vary verbs; avoid polite corporate tone.`;
 
 /** OpenAI Structured Outputs (json_schema) — gpt-4o-mini uyumlu. */
 const REPURPOSE_JSON_SCHEMA = {
@@ -206,22 +213,22 @@ function mockResult(input: string): RepurposeResult {
     "Kaydırmayı durduran tek cümle burada.";
   return {
     twitter_thread: tightenTwitterThread(
-      `1/ ${preview}\n\n2/ Kim bunu görmezden gelir, özür dilemez?\n\n3/ Kısa örnek: çok tanıdık bir an.\n\n4/ Özet: tek cümlede sonuç ne?\n\n5/ Yorumda en çok hangisi sana çarptı?`,
+      `1/ ${preview}\n\n2/ Peki kim bunu görmezden geliyor… ve neden?\n\n3/ Bu sahne sana da tanıdık geldi mi?\n\n4/ Sonuç tek cümlede—ama önce şunu gör.\n\n5/ Hangi satır seni en çok ters köşe yaptı?`,
     ),
     instagram_carousel: tightenCarousel(
-      `Slayt 1 — ${preview}\n\nSlayt 2 — Bu görünmez kalırsa ne bozulur?\n\nSlayt 3 — Yeniden çerçeve: düz Türkçe.\n\nSlayt 4 — Kanıt: küçük bir hikâye.\n\nSlayt 5 — Kaydet; takipte kal.`,
+      `Slayt 1 — ${preview}\n\nSlayt 2 — Görünmez kalırsa tam olarak ne yıkılır?\n\nSlayt 3 — Gerçek hikâye hangi cümlede saklı?\n\nSlayt 4 — Kimse bunu yüksek sesle söylemiyor…\n\nSlayt 5 — Kaydet; devamı takipte.`,
     ),
     hooks: [
-      clampToWords(`Bunu atlıyorsun — ${preview.slice(0, 40)}`, 8),
-      "Zayıf kanca, güçlü fikir: ikisi birden olmaz.",
-      "Bir taslaktan beş paylaşım: robot gibi değil.",
-      "Nişin ses etmediği çılgın tez hangisi?",
-      "Bugün tek gönderi: bu yapı, başka yok.",
+      clampToWords(`Bunu kimse söylemiyor… ${preview.slice(0, 24)}`, 8),
+      "Zayıf kanca mı? Güçlü fikir tek başına yetmez.",
+      "Bir taslak, beş bomba paylaşım—nasıl?",
+      "Nişin bile istemediği tez hangisi?",
+      "Bugün kaydıran tek şey bu olacak.",
     ].map((h) => clampToWords(h, 8)),
     cta: [
-      "Bunu kaydet; bir sonraki içerik için şablon.",
-      "Takip et; düz kopyalanabilir çerçeveler geliyor.",
-      "Yorumda 🔥 bırak, ikinci bölüm gelsin.",
+      "Kaydet; yarın aynı anda ihtiyacın var.",
+      "Takip et; sıradaki satır daha sert.",
+      "Yorumda tek kelime yaz—devamı gelsin.",
     ].map((c) => clampToWords(c, 10)),
   };
 }
@@ -251,7 +258,7 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
           role: "user",
           content: `Verilen metni viral sosyal içeriğe dönüştür. Sistem kurallarına harfiyen uy. Sadece JSON; başka metin yok.
 
-Kısa, sert, merak odaklı. Özet veya makale dili YASAK. Açıklama cümleleri yok.
+Üslup: agresif merak. Soru, gerilim, sürpriz kullan. Nötr haber / özet / ders anlatımı YASAK. Her satır kaydırmayı durdurmalı.
 
 hooks: tam 5 öğe. cta: tam 3 öğe.
 
@@ -263,7 +270,7 @@ ${trimmed.slice(0, 14_000)}`,
         type: "json_schema",
         json_schema: REPURPOSE_JSON_SCHEMA,
       },
-      temperature: 0.35,
+      temperature: 0.42,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
