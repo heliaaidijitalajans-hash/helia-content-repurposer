@@ -13,7 +13,7 @@ export default async function SupabaseTestPage() {
   const result = await testSupabaseConnection();
 
   return (
-    <div className="notranslate mx-auto min-h-screen max-w-lg bg-white px-4 py-16 text-gray-900">
+    <div className="notranslate mx-auto min-h-screen max-w-lg bg-transparent px-4 py-16 text-slate-900">
       <h1 className="text-xl font-semibold text-gray-900">
         {t("title")}
       </h1>

@@ -80,7 +80,7 @@ function ResultOutputCard({
 }) {
   return (
     <div
-      className="animate-repurpose-result rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-md"
+      className="animate-repurpose-result rounded-xl border border-blue-200/70 bg-white/95 p-5 shadow-md shadow-blue-900/10 ring-1 ring-blue-100/40 backdrop-blur-sm transition-shadow duration-300 hover:shadow-lg"
       style={{ animationDelay: `${animationDelayMs}ms` }}
     >
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -90,7 +90,7 @@ function ResultOutputCard({
         <button
           type="button"
           onClick={() => onCopy(copyText)}
-          className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
+          className="shrink-0 rounded-lg border border-blue-200/70 bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-300/70 hover:bg-blue-50/80"
         >
           {copyLabel}
         </button>
@@ -662,7 +662,7 @@ export function RepurposeWorkspace() {
         <div
           role="tablist"
           aria-label={t("workspaceTabsAria")}
-          className="flex flex-col gap-2 sm:flex-row sm:gap-1.5 sm:rounded-2xl sm:border sm:border-gray-200/90 sm:bg-gradient-to-b sm:from-gray-50 sm:to-gray-100/90 sm:p-1.5 sm:shadow-sm"
+          className="flex flex-col gap-2 sm:flex-row sm:gap-1.5 sm:rounded-2xl sm:border sm:border-blue-200/75 sm:bg-gradient-to-b sm:from-blue-50/90 sm:to-sky-100/70 sm:p-1.5 sm:shadow-sm"
         >
           <button
             type="button"
@@ -674,7 +674,7 @@ export function RepurposeWorkspace() {
             onClick={() => setActiveTab("text")}
             className={`flex flex-1 flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 sm:border-0 sm:px-3 sm:py-3 ${
               activeTab === "text"
-                ? "border-gray-200 bg-white shadow-sm sm:shadow-sm"
+                ? "border-blue-200/70 bg-white shadow-sm sm:shadow-sm"
                 : "border-transparent bg-transparent hover:bg-white"
             }`}
           >
@@ -707,7 +707,7 @@ export function RepurposeWorkspace() {
             onClick={() => setActiveTab("video")}
             className={`flex flex-1 flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 sm:border-0 sm:px-3 sm:py-3 ${
               activeTab === "video"
-                ? "border-gray-200 bg-white shadow-sm sm:shadow-sm"
+                ? "border-blue-200/70 bg-white shadow-sm sm:shadow-sm"
                 : "border-transparent bg-transparent hover:bg-white"
             }`}
           >
@@ -739,7 +739,7 @@ export function RepurposeWorkspace() {
             aria-labelledby="tab-text"
             className="grid min-h-[320px] grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start"
           >
-            <div className="flex min-w-0 flex-col rounded-2xl border border-gray-200/90 bg-white p-6 shadow-sm ring-1 ring-gray-100">
+            <div className="flex min-w-0 flex-col rounded-2xl border border-blue-200/75 bg-white/95 p-6 shadow-md shadow-blue-900/10 ring-1 ring-blue-100/50 backdrop-blur-sm">
               <div>
                 <h2 className="text-lg font-bold tracking-tight text-gray-900">
                   {t("inputCardTitle")}
@@ -764,7 +764,7 @@ export function RepurposeWorkspace() {
                 rows={10}
                 disabled={loading}
                 aria-busy={loading}
-                className="mt-5 min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 shadow-inner outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 min-h-40 w-full resize-y rounded-xl border border-blue-200/70 bg-blue-50/45 px-4 py-3 text-sm text-gray-900 shadow-inner outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60"
               />
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
                 <span>{t("poweredBy")}</span>
@@ -801,7 +801,7 @@ export function RepurposeWorkspace() {
                 className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
                   inputCardDragActive
                     ? "border-blue-400 bg-blue-50/80"
-                    : "border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50"
+                    : "border-blue-200/70 bg-blue-50/45 hover:border-blue-300/70 hover:bg-blue-50/85"
                 }`}
               >
                 <p className="text-sm font-medium text-gray-700">
@@ -842,7 +842,7 @@ export function RepurposeWorkspace() {
               </h2>
 
               {!result && !loading ? (
-                <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/40 px-6 py-12 text-center transition-opacity duration-300">
+                <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-blue-200/70 bg-blue-50/40 px-6 py-12 text-center transition-opacity duration-300">
                   <p className="text-base font-semibold text-gray-800">
                     {t("emptyTitle")}
                   </p>
@@ -854,7 +854,7 @@ export function RepurposeWorkspace() {
 
               {loading ? (
                 <div
-                  className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition-opacity duration-300"
+                  className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-blue-200/70 bg-white/95 p-8 shadow-md shadow-blue-900/10 ring-1 ring-blue-100/40 backdrop-blur-sm transition-opacity duration-300"
                   role="status"
                   aria-live="polite"
                 >
@@ -982,10 +982,10 @@ export function RepurposeWorkspace() {
                   onDrop={onTranscribeDrop}
                   className={`relative mt-4 flex min-h-[14rem] flex-col justify-center gap-5 rounded-xl border-2 border-dashed px-4 py-6 transition sm:px-6 ${
                     videoControlsDisabled
-                      ? "cursor-not-allowed border-gray-200 bg-gray-50 opacity-50"
+                      ? "cursor-not-allowed border-blue-200/70 bg-blue-50/60 opacity-50"
                       : dragActive
                         ? "border-blue-500 bg-blue-50"
-                        : "border-gray-300 bg-gray-50"
+                        : "border-blue-200/80 bg-blue-50/70"
                   }`}
                 >
                   <p className="text-center text-sm font-semibold leading-snug text-gray-900">
@@ -999,7 +999,7 @@ export function RepurposeWorkspace() {
                         e.stopPropagation();
                         openTranscribeFilePicker();
                       }}
-                      className="relative z-[9999] inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="relative z-[9999] inline-flex items-center gap-2 rounded-xl border border-blue-200/80 bg-white px-4 py-2.5 text-sm font-medium text-gray-900 shadow-sm transition hover:bg-blue-50/85 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -1126,7 +1126,7 @@ export function RepurposeWorkspace() {
                         value={transcriptionText}
                         onChange={(e) => setTranscriptionText(e.target.value)}
                         rows={10}
-                        className="min-h-[160px] w-full resize-y rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                        className="min-h-[160px] w-full resize-y rounded-xl border border-blue-200/80 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none ring-0 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                       />
                     </div>
                   </div>

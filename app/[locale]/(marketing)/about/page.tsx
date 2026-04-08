@@ -14,22 +14,22 @@ export default async function AboutPage() {
   const t = await getTranslations("aboutPage");
 
   return (
-    <div className="notranslate min-h-screen bg-white text-gray-900">
+    <div className="notranslate min-h-screen bg-transparent text-slate-900">
       <main className="mx-auto max-w-3xl px-4 pb-24 pt-16 sm:px-6 sm:pt-20">
         <header className="text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl sm:leading-tight">
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl sm:leading-tight">
             {t("heroTitle")}
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-500 sm:text-lg">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
             {t("heroSub")}
           </p>
         </header>
 
-        <section className="mt-16 border-t border-gray-100 pt-16 text-center sm:mt-20 sm:pt-20">
-          <h2 className="text-lg font-semibold tracking-tight text-gray-900 sm:text-xl">
+        <section className="mt-16 border-t border-blue-200/50 pt-16 text-center sm:mt-20 sm:pt-20">
+          <h2 className="text-lg font-semibold tracking-tight text-slate-900 sm:text-xl">
             {t("missionTitle")}
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-600">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
             {t("missionText")}
           </p>
         </section>
@@ -61,7 +61,7 @@ export default async function AboutPage() {
                 <h3 className="text-sm font-semibold text-blue-600">
                   {t(title)}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">
                   {t(text)}
                 </p>
               </div>
@@ -69,8 +69,8 @@ export default async function AboutPage() {
           </div>
         </section>
 
-        <section className="mt-16 rounded-2xl border border-blue-100 bg-blue-50/40 px-6 py-12 text-center sm:mt-20 sm:py-14">
-          <p className="text-base font-medium text-gray-900 sm:text-lg">
+        <section className="mt-16 rounded-2xl border border-blue-200/60 bg-blue-50/50 px-6 py-12 text-center shadow-md shadow-blue-900/10 ring-1 ring-blue-100/50 sm:mt-20 sm:py-14">
+          <p className="text-base font-medium text-slate-900 sm:text-lg">
             {t("ctaText")}
           </p>
           <Link

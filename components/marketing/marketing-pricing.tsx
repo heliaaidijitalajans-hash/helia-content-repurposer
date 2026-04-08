@@ -1,16 +1,17 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { PricingCheckoutLink } from "@/components/marketing/pricing-checkout-link";
+import { lightCardClass } from "@/lib/ui/saas-card";
 
 const primaryCtaClass =
   "mt-auto flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-md transition duration-200 hover:scale-[1.02] hover:shadow-lg hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]";
 
 const outlineCtaClass =
-  "mt-auto flex w-full items-center justify-center rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-semibold text-gray-800 shadow-sm transition duration-200 hover:scale-[1.02] hover:border-gray-300 hover:bg-gray-50 hover:shadow-md active:scale-[0.98]";
+  "mt-auto flex w-full items-center justify-center rounded-xl border-2 border-blue-200/80 bg-white/95 px-4 py-3.5 text-sm font-semibold text-slate-800 shadow-sm shadow-blue-900/5 transition duration-200 hover:scale-[1.02] hover:border-blue-300 hover:bg-blue-50/90 hover:shadow-md active:scale-[0.98]";
 
 function CheckItem({ children }: { children: React.ReactNode }) {
   return (
-    <li className="flex gap-2.5 text-sm leading-relaxed text-gray-600">
+    <li className="flex gap-2.5 text-sm leading-relaxed text-slate-600">
       <span className="mt-0.5 shrink-0 text-emerald-500" aria-hidden>
         ✓
       </span>
@@ -36,23 +37,23 @@ function PricingCreditsEquivalent({
 }) {
   return (
     <div
-      className="mt-3 border-t border-gray-200 pt-3 text-sm text-gray-500"
+      className="mt-3 border-t border-blue-200/60 pt-3 text-sm text-slate-500"
       title={hint}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {label}
       </p>
       <p className="mt-2 leading-relaxed">
         <span aria-hidden>🎥 </span>
-        <span className="font-semibold text-gray-700">{videoCredits}</span>
+        <span className="font-semibold text-slate-700">{videoCredits}</span>
         {videoLabel}
       </p>
       <p className="mt-1 leading-relaxed">
         <span aria-hidden>📝 </span>
-        <span className="font-semibold text-gray-700">{textCredits}</span>
+        <span className="font-semibold text-slate-700">{textCredits}</span>
         {textLabel}
       </p>
-      <p className="mt-2 text-xs leading-relaxed text-gray-400">{hint}</p>
+      <p className="mt-2 text-xs leading-relaxed text-slate-400">{hint}</p>
     </div>
   );
 }
@@ -67,21 +68,21 @@ export async function MarketingPricingContent() {
       </p>
 
       <header className="mx-auto mt-6 max-w-2xl text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+        <h1 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
           {t("pricingPageHeroTitle")}
         </h1>
-        <p className="mt-4 text-base leading-relaxed text-gray-500 sm:text-lg">
+        <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
           {t("pricingPageHeroSub")}
         </p>
       </header>
 
       <div className="mx-auto mt-14 grid max-w-[1100px] grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 xl:grid-cols-4 xl:items-stretch">
         {/* Free */}
-        <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-          <h2 className="text-lg font-bold text-gray-900">
+        <article className={`flex h-full flex-col ${lightCardClass}`}>
+          <h2 className="text-lg font-bold text-slate-900">
             {t("pricingPageFreeTitle")}
           </h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
             {t("pricingPageFreePrice")}
           </p>
           <ul className="mt-6 flex flex-1 flex-col gap-3">
@@ -106,11 +107,11 @@ export async function MarketingPricingContent() {
         </article>
 
         {/* Monthly */}
-        <article className="flex h-full flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
-          <h2 className="text-lg font-bold text-gray-900">
+        <article className={`flex h-full flex-col ${lightCardClass}`}>
+          <h2 className="text-lg font-bold text-slate-900">
             {t("pricingPageMonthlyTitle")}
           </h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
             {t("pricingPageMonthlyPrice")}
           </p>
           <ul className="mt-6 flex flex-1 flex-col gap-3">
@@ -135,14 +136,14 @@ export async function MarketingPricingContent() {
         </article>
 
         {/* Pro — highlighted */}
-        <article className="relative flex h-full flex-col rounded-xl border-2 border-blue-500 bg-white p-6 shadow-md ring-4 ring-blue-500/10 transition-shadow hover:shadow-lg xl:z-10 xl:scale-[1.04] xl:shadow-lg">
+        <article className="relative flex h-full flex-col rounded-xl border-2 border-blue-500 bg-white/95 p-6 shadow-xl shadow-blue-900/15 ring-4 ring-blue-500/15 backdrop-blur-sm transition-shadow hover:shadow-lg xl:z-10 xl:scale-[1.04] xl:shadow-xl">
           <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-1 text-xs font-bold text-white shadow-md">
             {t("pricingPageProBadge")}
           </span>
-          <h2 className="mt-2 text-lg font-bold text-gray-900">
+          <h2 className="mt-2 text-lg font-bold text-slate-900">
             {t("pricingPageProTitle")}
           </h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
             {t("pricingPageProPrice")}
           </p>
           <ul className="mt-6 flex flex-1 flex-col gap-3">
@@ -168,14 +169,14 @@ export async function MarketingPricingContent() {
         </article>
 
         {/* Yearly */}
-        <article className="flex h-full flex-col rounded-xl border border-emerald-200/90 bg-gradient-to-b from-emerald-50/40 to-white p-6 shadow-sm ring-1 ring-emerald-100/80 transition-shadow hover:shadow-md">
-          <span className="w-fit rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-800">
+        <article className="flex h-full flex-col rounded-xl border border-indigo-200/80 bg-gradient-to-b from-sky-50/60 via-white/90 to-indigo-50/30 p-6 shadow-md shadow-blue-900/10 ring-1 ring-indigo-100/70 transition-shadow hover:shadow-lg">
+          <span className="w-fit rounded-full bg-indigo-100/90 px-2.5 py-0.5 text-xs font-bold text-indigo-800">
             {t("pricingPageYearlyBadge")}
           </span>
-          <h2 className="mt-3 text-lg font-bold text-gray-900">
+          <h2 className="mt-3 text-lg font-bold text-slate-900">
             {t("pricingPageYearlyTitle")}
           </h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">
             {t("pricingPageYearlyPrice")}
           </p>
           <ul className="mt-6 flex flex-1 flex-col gap-3">
@@ -201,15 +202,15 @@ export async function MarketingPricingContent() {
         </article>
       </div>
 
-      <p className="mx-auto mt-12 max-w-2xl text-center text-sm leading-relaxed text-gray-500">
+      <p className="mx-auto mt-12 max-w-2xl text-center text-sm leading-relaxed text-slate-600">
         {t("pricingPageNote")}
       </p>
 
       <section
-        className="mx-auto mt-14 max-w-3xl border-t border-gray-100 pt-10"
+        className="mx-auto mt-14 max-w-3xl border-t border-blue-200/50 pt-10"
         aria-label={t("pricingPageTrustSectionAria")}
       >
-        <ul className="flex flex-col items-center gap-4 text-sm font-medium text-gray-700 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-10 sm:gap-y-3">
+        <ul className="flex flex-col items-center gap-4 text-sm font-medium text-slate-700 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-10 sm:gap-y-3">
           <li className="flex items-center gap-2">
             <span className="text-emerald-500" aria-hidden>
               ✓
@@ -232,30 +233,30 @@ export async function MarketingPricingContent() {
       </section>
 
       <nav
-        className="mx-auto mt-12 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-gray-100 pt-10 text-sm"
+        className="mx-auto mt-12 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-blue-200/50 pt-10 text-sm"
         aria-label={t("pricingPageLegalNavAria")}
       >
         <Link
           href="/distance-sales"
-          className="text-gray-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
+          className="text-slate-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
         >
           {t("pricingPageLinkDistance")}
         </Link>
         <Link
           href="/privacy-policy"
-          className="text-gray-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
+          className="text-slate-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
         >
           {t("pricingPageLinkPrivacy")}
         </Link>
         <Link
           href="/kvkk"
-          className="text-gray-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
+          className="text-slate-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
         >
           {t("pricingPageLinkKvkk")}
         </Link>
         <Link
           href="/refund-policy"
-          className="text-gray-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
+          className="text-slate-500 underline-offset-2 transition hover:text-blue-600 hover:underline"
         >
           {t("pricingPageLinkRefund")}
         </Link>

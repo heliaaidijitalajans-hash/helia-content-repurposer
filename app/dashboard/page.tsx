@@ -5,7 +5,7 @@ import { lightCardClass } from "@/lib/ui/saas-card";
 
 const statCardClass = `${lightCardClass} shadow-sm`;
 const btnSecondary =
-  "inline-flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-700 sm:w-auto";
+  "inline-flex w-full items-center justify-center rounded-xl border border-blue-200/80 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm shadow-blue-900/5 transition hover:border-blue-300 hover:bg-blue-50/90 hover:text-blue-800 sm:w-auto";
 
 export default async function DashboardPage() {
   const copy = await getDashboardHomePageCopy();
@@ -49,12 +49,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-10 px-0">
-      <header className="flex flex-col gap-6 border-b border-gray-100 pb-8 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-6 border-b border-blue-200/50 pb-8 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
             {copy.title}
           </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-gray-500 sm:text-base">
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
             {copy.subtitle}
           </p>
         </div>
@@ -71,17 +71,17 @@ export default async function DashboardPage() {
           {statItems.map((item) => (
             <li key={item.label}>
               <div className={`${statCardClass} flex h-full flex-col justify-between`}>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   {item.label}
                 </p>
                 <p
-                  className={`mt-3 font-semibold tracking-tight text-gray-900 ${
+                  className={`mt-3 font-semibold tracking-tight text-slate-900 ${
                     item.numeric ? "text-3xl tabular-nums" : "text-2xl"
                   }`}
                 >
                   {item.value}
                 </p>
-                <p className="mt-2 text-xs text-gray-500">{item.hint}</p>
+                <p className="mt-2 text-xs text-slate-500">{item.hint}</p>
               </div>
             </li>
           ))}
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
       <section aria-labelledby="dashboard-quick-title">
         <h2
           id="dashboard-quick-title"
-          className="text-lg font-semibold text-gray-900"
+          className="text-lg font-semibold text-slate-900"
         >
           {copy.quickTitle}
         </h2>
@@ -107,15 +107,15 @@ export default async function DashboardPage() {
       <section aria-labelledby="dashboard-activity-title">
         <h2
           id="dashboard-activity-title"
-          className="text-lg font-semibold text-gray-900"
+          className="text-lg font-semibold text-slate-900"
         >
           {copy.activityTitle}
         </h2>
-        <ul className="mt-4 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white shadow-sm">
+        <ul className="mt-4 divide-y divide-blue-100/80 rounded-xl border border-blue-200/70 bg-white/95 shadow-md shadow-blue-900/10 ring-1 ring-blue-100/40 backdrop-blur-sm">
           {activities.map((text) => (
             <li
               key={text}
-              className="flex items-center gap-3 px-4 py-3.5 text-sm text-gray-800 first:rounded-t-xl last:rounded-b-xl"
+              className="flex items-center gap-3 px-4 py-3.5 text-sm text-slate-800 first:rounded-t-xl last:rounded-b-xl"
             >
               <span
                 className="h-2 w-2 shrink-0 rounded-full bg-blue-600"

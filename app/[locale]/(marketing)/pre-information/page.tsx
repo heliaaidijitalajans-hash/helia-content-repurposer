@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { PreInformationEn } from "@/components/legal/pre-information-en";
 import { PreInformationTr } from "@/components/legal/pre-information-tr";
 import { routing } from "@/i18n/routing";
+import {
+  saasDocumentPageClass,
+  saasDocumentPaperClass,
+} from "@/lib/ui/saas-card";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -25,9 +29,11 @@ export default async function PreInformationPage({ params }: Props) {
   const isTr = locale === routing.defaultLocale;
 
   return (
-    <div className="notranslate bg-white py-16 text-gray-900 sm:py-20">
+    <div className={saasDocumentPageClass}>
       <div className="mx-auto max-w-[900px] px-4 sm:px-6">
-        {isTr ? <PreInformationTr /> : <PreInformationEn />}
+        <article className={saasDocumentPaperClass}>
+          {isTr ? <PreInformationTr /> : <PreInformationEn />}
+        </article>
       </div>
     </div>
   );

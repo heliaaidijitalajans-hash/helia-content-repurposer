@@ -32,14 +32,14 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm transition-opacity duration-200 md:hidden ${
+        className={`fixed inset-0 z-40 bg-blue-950/35 backdrop-blur-sm transition-opacity duration-200 md:hidden ${
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         aria-hidden
         onClick={onNavigate}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-gray-200 bg-white pt-14 shadow-xl transition-transform duration-200 ease-out md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-blue-200/70 bg-gradient-to-b from-white/95 to-blue-50/50 pt-14 shadow-xl shadow-blue-900/10 backdrop-blur-md transition-transform duration-200 ease-out md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
           mobileOpen ? "translate-x-0" : ""
         }`}
         aria-label="Workspace"
@@ -55,8 +55,8 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
                 aria-current={active ? "page" : undefined}
                 className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                   active
-                    ? "bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100"
-                    : "text-gray-900 hover:bg-gray-100 hover:text-blue-600"
+                    ? "bg-blue-100/80 text-blue-700 shadow-md shadow-blue-900/10 ring-1 ring-blue-200/80"
+                    : "text-slate-800 hover:bg-blue-100/40 hover:text-blue-700"
                 } `}
               >
                 <Icon
@@ -71,7 +71,7 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
             );
           })}
         </nav>
-        <div className="border-t border-gray-100 p-3">
+        <div className="border-t border-blue-100/80 p-3">
           <div className={lightCardClass}>
             <p className="text-xs font-medium text-gray-900">Helia AI</p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">

@@ -29,7 +29,7 @@ export function MarketingNavbar() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white text-gray-900">
+    <header className="sticky top-0 z-50 border-b border-blue-200/60 bg-white/85 text-slate-900 shadow-sm shadow-blue-900/5 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
@@ -53,7 +53,7 @@ export function MarketingNavbar() {
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
                     ? "text-blue-600"
-                    : "text-gray-900 hover:text-blue-600"
+                    : "text-slate-800 hover:text-blue-600"
                 }`}
               >
                 {t(key)}
@@ -66,7 +66,7 @@ export function MarketingNavbar() {
           <LanguageSwitcher />
           <Link
             href="/auth"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-100 sm:px-5"
+            className="rounded-lg border border-blue-200/80 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm shadow-blue-900/5 transition hover:bg-blue-50/90 sm:px-5"
           >
             {t("login")}
           </Link>
@@ -79,7 +79,7 @@ export function MarketingNavbar() {
         </div>
       </div>
 
-      <div className="border-t border-gray-100 bg-white px-4 py-2 md:hidden">
+      <div className="border-t border-blue-100/80 bg-blue-50/40 px-4 py-2 backdrop-blur-sm md:hidden">
         <nav
           className="flex max-w-6xl gap-1 overflow-x-auto scrollbar-none sm:mx-auto"
           aria-label="Main mobile"
@@ -93,7 +93,7 @@ export function MarketingNavbar() {
                 className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                   active
                     ? "text-blue-600"
-                    : "text-gray-900 hover:text-blue-600"
+                    : "text-slate-800 hover:text-blue-600"
                 }`}
               >
                 {t(key)}

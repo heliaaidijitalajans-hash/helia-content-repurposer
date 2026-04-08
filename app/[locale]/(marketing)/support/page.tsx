@@ -6,7 +6,7 @@ export default async function MarketingSupportPage() {
   const copy = messages.supportPage;
 
   return (
-    <div className="notranslate min-h-screen bg-white text-gray-900">
+    <div className="notranslate min-h-screen bg-transparent text-slate-900">
       <SupportCenter copy={copy} />
     </div>
   );

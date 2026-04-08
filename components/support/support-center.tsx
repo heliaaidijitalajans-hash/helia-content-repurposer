@@ -18,10 +18,10 @@ export function SupportCenter({ copy }: { copy: SupportPageCopy }) {
   return (
     <main className="mx-auto max-w-[900px] px-4 pb-24 pt-8 sm:px-6 sm:pt-10">
       <header className="text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
           {copy.title}
         </h1>
-        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-gray-500 sm:text-lg">
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg">
           {copy.subtitle}
         </p>
       </header>
@@ -68,9 +68,9 @@ export function SupportCenter({ copy }: { copy: SupportPageCopy }) {
 
       <section
         id="sss"
-        className="mt-16 scroll-mt-24 border-t border-gray-100 pt-16 sm:mt-20 sm:pt-20"
+        className="mt-16 scroll-mt-24 border-t border-blue-200/50 pt-16 sm:mt-20 sm:pt-20"
       >
-        <h2 className="text-center text-xl font-semibold tracking-tight text-gray-900">
+        <h2 className="text-center text-xl font-semibold tracking-tight text-slate-900">
           {copy.faqTitle}
         </h2>
         <div className="mt-8 space-y-3">

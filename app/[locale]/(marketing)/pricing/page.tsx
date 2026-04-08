@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PricingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50/80 to-white text-gray-900">
+    <div className="min-h-screen bg-transparent text-slate-900">
       <div className="mx-auto max-w-[1100px] px-4 py-16 sm:px-6 sm:py-20">
         <MarketingPricingContent />
       </div>

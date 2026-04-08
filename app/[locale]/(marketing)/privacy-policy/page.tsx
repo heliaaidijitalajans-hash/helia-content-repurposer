@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { PrivacyPolicyEn } from "@/components/legal/privacy-policy-en";
 import { PrivacyPolicyTr } from "@/components/legal/privacy-policy-tr";
 import { routing } from "@/i18n/routing";
+import {
+  saasDocumentPageClass,
+  saasDocumentPaperClass,
+} from "@/lib/ui/saas-card";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -25,9 +29,11 @@ export default async function PrivacyPolicyPage({ params }: Props) {
   const isTr = locale === routing.defaultLocale;
 
   return (
-    <div className="notranslate bg-white py-16 text-gray-900 sm:py-20">
+    <div className={saasDocumentPageClass}>
       <div className="mx-auto max-w-[900px] px-4 sm:px-6">
-        {isTr ? <PrivacyPolicyTr /> : <PrivacyPolicyEn />}
+        <article className={saasDocumentPaperClass}>
+          {isTr ? <PrivacyPolicyTr /> : <PrivacyPolicyEn />}
+        </article>
       </div>
     </div>
   );

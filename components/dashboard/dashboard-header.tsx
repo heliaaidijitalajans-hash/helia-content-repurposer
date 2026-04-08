@@ -22,7 +22,7 @@ export function DashboardHeader({ email }: Props) {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white text-gray-900 shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-blue-200/60 bg-white/80 text-slate-900 shadow-sm shadow-blue-900/5 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
         <Link
           href="/dashboard"

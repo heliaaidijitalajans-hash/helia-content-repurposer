@@ -23,10 +23,10 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   }, []);
 
   const linkClass =
-    "rounded-lg px-3 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100 hover:text-blue-600";
+    "rounded-lg px-3 py-2 text-sm font-medium text-slate-800 transition-colors hover:bg-blue-100/50 hover:text-blue-700";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white text-gray-900 shadow-sm">
+    <header className="sticky top-0 z-50 border-b border-blue-200/60 bg-white/80 text-slate-900 shadow-sm shadow-blue-900/5 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           {onMenuClick ? (
@@ -85,7 +85,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             {profileOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 top-full mt-2 w-48 origin-top-right rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                className="absolute right-0 top-full mt-2 w-48 origin-top-right rounded-xl border border-blue-200/80 bg-white/95 py-1 shadow-lg shadow-blue-900/10 backdrop-blur-md"
               >
                 <Link
                   href="/account"

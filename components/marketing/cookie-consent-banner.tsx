@@ -51,7 +51,7 @@ export function CookieConsentBanner({ locale }: Props) {
       role="dialog"
       aria-label="Çerez tercihleri"
       aria-live="polite"
-      className="fixed bottom-0 left-0 right-0 z-[100] rounded-t-lg border-t border-gray-200 bg-white px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(15,23,42,0.12)]"
+      className="fixed bottom-0 left-0 right-0 z-[100] rounded-t-xl border-t border-blue-200/70 bg-white/95 px-6 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_40px_rgba(30,58,138,0.15)] backdrop-blur-xl"
     >
       <div className="mx-auto flex max-w-[1200px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <p className="text-sm leading-relaxed text-gray-700">
@@ -69,7 +69,7 @@ export function CookieConsentBanner({ locale }: Props) {
           <button
             type="button"
             onClick={reject}
-            className="order-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 sm:order-1"
+            className="order-2 rounded-lg border border-blue-200/80 bg-blue-50/80 px-4 py-2.5 text-sm font-medium text-slate-800 shadow-sm transition hover:bg-blue-100/80 sm:order-1"
           >
             Reddet
           </button>

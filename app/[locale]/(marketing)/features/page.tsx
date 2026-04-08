@@ -36,13 +36,13 @@ export default async function FeaturesPage() {
   const t = await getTranslations("marketingPages");
 
   return (
-    <div className="notranslate min-h-screen bg-white text-gray-900">
+    <div className="notranslate min-h-screen bg-transparent text-slate-900">
       <div className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20">
         <header className="mx-auto max-w-2xl text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
             {t("featuresHeroTitle")}
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-gray-500 sm:text-lg">
+          <p className="mt-4 text-base leading-relaxed text-slate-600 sm:text-lg">
             {t("featuresHeroSub")}
           </p>
         </header>
@@ -58,10 +58,10 @@ export default async function FeaturesPage() {
               >
                 <Icon className="h-6 w-6" />
               </div>
-              <h2 className="mt-5 text-lg font-semibold text-gray-900">
+              <h2 className="mt-5 text-lg font-semibold text-slate-900">
                 {t(titleKey)}
               </h2>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-500">
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-600">
                 {t(descKey)}
               </p>
             </li>

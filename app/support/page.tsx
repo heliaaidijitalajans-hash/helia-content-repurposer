@@ -5,7 +5,7 @@ export default async function SupportPage() {
   const copy = await getSupportPageCopy();
 
   return (
-    <div className="notranslate bg-white text-gray-900">
+    <div className="notranslate bg-transparent text-slate-900">
       <SupportCenter copy={copy} />
     </div>
   );
