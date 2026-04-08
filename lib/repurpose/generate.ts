@@ -71,7 +71,7 @@ FIRST STRIKE (instant stop-scroll — non-negotiable):
 - B) instagram_carousel: ONLY the text after “Slayt 1 —”.
 - C) hooks[0]: the FIRST string in the hooks array (must be your strongest line).
 - For A, B, and C: NO question mark “?” anywhere in that line/string — statements only. NO opening with a question. Ban hedging openers for these three (“acaba”, “belki şöyledir” as the opening vibe).
-- Direction (adapt to source; do not copy verbatim): “4000 yıllık yazıyı kimse çözemiyor.” / “Herkes bu konuda yanılıyor.” / “Bu bilgi seni şaşırtacak.”
+- Direction (adapt to source; do not copy verbatim): “4000 yıllık yazıyı kimse çözemiyor…” / “Bilim insanları bile bunu açıklayamıyor…” / “Gerçek sandığından çok farklı…”
 
 STOP-SCROLL VOICE (mandatory):
 - Every tweet line, every slide line, and every hook MUST spark curiosity, tension, mystery, or surprise. Neutral, informative, headline-summary tone is NOT allowed.
@@ -109,9 +109,13 @@ JSON shape:
 
 3) hooks (array, exactly 5 strings):
 - Each hook: MAX 8 Turkish words.
-- hooks[0] MUST satisfy FIRST STRIKE: extreme punch, shock or bold claim, NO “?” — your strongest single line. NO soft openers here (“Belki de…”, “Acaba…”) on hooks[0].
-- PATTERN-BREAKING (mandatory): All five hooks MUST feel like five different writers. Rotate sentence shape: time-span opener, counter-hypothesis (“Belki de…”), split authority, stakes bomb, “truth vs assumption” closer — NEVER the same opening word twice in a row across hooks, and NEVER three hooks sharing the same first word (e.g. not “Bu… / Bu… / Bu…”).
-- BAN parallel clones: if two hooks could be merged by swapping one noun, rewrite one. BAN repetitive scaffolding (“Kimse… / Kimse… / Herkes…”).
+- hooks[0] — POWER OPENER (non-generic, instantly shocking):
+  - MUST satisfy FIRST STRIKE: extreme punch, NO “?”. NO soft openers (“Belki de…”, “Acaba…”).
+  - BAN bland, report-style openers: e.g. “X hala çözülmedi”, “X hâlâ çözülemedi”, “henüz çözülmedi”, “sorun sürüyor”, “durum aynı” — zero edge, FAILS.
+  - MUST include at least TWO of these stems (inflected forms OK): kimse, herkes, bile, şaşırtıyor / şaşırtacak / şaşırtıcı, gerçek. Pack contrast, scale, or authority break — not a plain fact restatement.
+  - Direction (adapt heavily; do NOT copy verbatim): “4000 yıllık yazıyı kimse çözemiyor…”, “Bilim insanları bile bunu açıklayamıyor…”, “Gerçek sandığından çok farklı…”
+- PATTERN-BREAKING (mandatory): hooks[1]–[4] MUST feel like four different writers vs hooks[0]. Rotate sentence shape: time-span, counter-hypothesis (“Belki de…”), split authority, stakes bomb, “truth vs assumption” closer — NEVER the same opening word twice in a row across hooks, and NEVER three hooks sharing the same first word (e.g. not “Bu… / Bu… / Bu…”).
+- BAN parallel clones: if two hooks could be merged by swapping one noun, rewrite one. Do NOT start hooks[1]–[4] with the same first word as hooks[0] (avoid “Kimse… / Kimse…” back-to-back; vary openers across the full list).
 - Emotional triggers — weave across the set (not all in one line): CURIOSITY (mystery, forbidden detail), DISBELIEF (“buna kimse hazır değil”, “inançları yerle bir”), CONTROVERSY (çınarlar ikiye bölündü, yasak tez, çarpıcı çelişki).
 - Direction only (adapt heavily to source; do NOT copy): “4000 yıldır kimse bunu çözemedi…”, “Belki de bu bir dil değil…”, “Bilim insanları bile ikiye bölündü…”, “Bu teori her şeyi değiştirebilir…”, “Gerçek sandığından farklı olabilir…”
 - BAN soft quiz hooks (“merak ettiniz mi”, “biliyor muydunuz”) and bland trivia.
@@ -233,11 +237,11 @@ function mockResult(input: string): RepurposeResult {
       `Slayt 1 — Herkes bu konuda yanılıyor; kanıt aşağıda.\n\nSlayt 2 — Görünmez kalırsa tam olarak ne yıkılır?\n\nSlayt 3 — Gerçek hikâye hangi cümlede saklı?\n\nSlayt 4 — Kimse bunu yüksek sesle söylemiyor…\n\nSlayt 5 — Kaydet; devamı takipte.`,
     ),
     hooks: [
-      "Yıllardır kimse bunu çözemedi…",
+      "Bilim insanları bile şaşırtıyor; gerçek başka.",
       "Belki de bu bir yanılsama…",
-      "Uzmanlar bile ikiye bölündü.",
+      "Uzmanlar tartışıyor; kimse geri adım atmıyor.",
       "Bu bulgu her şeyi değiştirebilir.",
-      "Gerçek sandığından bambaşka olabilir.",
+      "Sandığın hikâye çökmeye başlıyor…",
     ].map((h) => clampToWords(h, 8)),
     cta: [
       "Kaydet; yarın aynı anda ihtiyacın var.",
@@ -274,7 +278,7 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
 
 Üslup: agresif merak. İlk vuruş şart: 1. tweet gövdesi, Slayt 1 metni ve ilk kanca (hooks[0]) şok veya cesur iddia; bu üçünde soru işareti YOK. Sonrasında soru ve gerilim serbest.
 
-Kancalar: beşi de farklı yapı; merak, inanç sarsıntısı, tartışma tetikle. Aynı kalıbı tekrarlama.
+Kancalar: ilki (hooks[0]) jenerik “hâlâ çözülmedi” gibi cümleler değil; kimse/herkes/bile/şaşırt*/gerçek gücünden en az ikisi. Diğer dördü farklı yapı.
 
 hooks: tam 5 öğe. cta: tam 3 öğe.
 
