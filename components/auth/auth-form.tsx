@@ -5,31 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { saasCardClass } from "@/lib/ui/saas-card";
+import { lightCardClass } from "@/lib/ui/saas-card";
 
 const inputClass =
-  "mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400/50 focus:bg-white/[0.07] focus:ring-2 focus:ring-sky-500/25";
+  "mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
 
-const labelClass = "text-sm font-medium text-slate-300";
-
-function AuthBackground() {
-  return (
-    <>
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(99,102,241,0.35),transparent)] opacity-[0.35]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_100%_50%,rgba(59,130,246,0.12),transparent)] opacity-[0.35]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_35%_at_0%_80%,rgba(79,70,229,0.15),transparent)] opacity-[0.35]"
-        aria-hidden
-      />
-    </>
-  );
-}
+const labelClass = "text-sm font-medium text-gray-700";
 
 export function AuthForm() {
   const t = useTranslations("auth");
@@ -104,32 +85,30 @@ export function AuthForm() {
   const busy = loading !== null;
 
   return (
-    <div className="notranslate relative min-h-screen overflow-x-hidden">
-      <AuthBackground />
-
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <div className="notranslate min-h-screen bg-white text-gray-900">
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-[420px]">
           <div className="mb-6 text-center">
             <Link
               href="/"
-              className="text-sm font-semibold tracking-tight text-white/90 transition hover:text-sky-200"
+              className="text-sm font-semibold tracking-tight text-gray-900 transition hover:text-blue-700"
             >
               {tc("brand")} AI
             </Link>
           </div>
 
-          <div className={saasCardClass}>
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
+          <div className={lightCardClass}>
+            <h1 className="text-center text-2xl font-semibold tracking-tight text-gray-900">
               {isLogin ? t("welcomeTitle") : t("signupWelcomeTitle")}
             </h1>
-            <p className="mt-2 text-center text-sm text-slate-400">
+            <p className="mt-2 text-center text-sm text-gray-600">
               {isLogin ? t("loginSubtitle") : t("signupSubtitle")}
             </p>
 
             <div className="mt-8">
               <button
                 type="button"
-                className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/5 text-sm font-semibold text-white opacity-85"
+                className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-gray-300 bg-gray-50 text-sm font-semibold text-gray-600 opacity-90"
                 onClick={(e) => e.preventDefault()}
                 aria-label={t("continueGoogle")}
               >
@@ -140,17 +119,17 @@ export function AuthForm() {
 
             <div className="relative my-8">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/15" />
+                <div className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-xs uppercase tracking-wider">
-                <span className="bg-white/5 px-3 text-slate-500 backdrop-blur-sm">
+                <span className="bg-white px-3 text-gray-500">
                   {t("orDivider")}
                 </span>
               </div>
             </div>
 
             {err === "auth" ? (
-              <p className="mb-4 text-sm text-red-300">{t("errorAuth")}</p>
+              <p className="mb-4 text-sm text-red-600">{t("errorAuth")}</p>
             ) : null}
 
             <div className="space-y-4">
@@ -194,8 +173,8 @@ export function AuthForm() {
               <p
                 className={`mt-4 text-sm ${
                   messageVariant === "info"
-                    ? "text-slate-300"
-                    : "text-red-300"
+                    ? "text-gray-700"
+                    : "text-red-600"
                 }`}
               >
                 {message}
@@ -208,7 +187,7 @@ export function AuthForm() {
               onClick={() =>
                 void (isLogin ? handleLogin() : handleSignup())
               }
-              className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-white text-sm font-semibold text-slate-900 shadow-lg shadow-black/20 transition hover:bg-sky-50 disabled:opacity-50"
+              className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
             >
               {busy
                 ? tc("ellipsis")
@@ -217,13 +196,13 @@ export function AuthForm() {
                   : t("signup")}
             </button>
 
-            <p className="mt-6 text-center text-sm text-slate-400">
+            <p className="mt-6 text-center text-sm text-gray-600">
               {isLogin ? (
                 <>
                   {t("signupPrompt")}{" "}
                   <button
                     type="button"
-                    className="font-semibold text-sky-300 underline-offset-2 transition hover:text-sky-200 hover:underline"
+                    className="font-semibold text-blue-700 underline-offset-2 transition hover:text-blue-800 hover:underline"
                     onClick={() => {
                       setMode("signup");
                       setMessage(null);
@@ -237,7 +216,7 @@ export function AuthForm() {
                   {t("loginPrompt")}{" "}
                   <button
                     type="button"
-                    className="font-semibold text-sky-300 underline-offset-2 transition hover:text-sky-200 hover:underline"
+                    className="font-semibold text-blue-700 underline-offset-2 transition hover:text-blue-800 hover:underline"
                     onClick={() => {
                       setMode("login");
                       setMessage(null);
@@ -250,7 +229,7 @@ export function AuthForm() {
             </p>
           </div>
 
-          <p className="mt-8 text-center text-[11px] leading-relaxed text-slate-500">
+          <p className="mt-8 text-center text-[11px] leading-relaxed text-gray-500">
             {t("terms")}
           </p>
         </div>

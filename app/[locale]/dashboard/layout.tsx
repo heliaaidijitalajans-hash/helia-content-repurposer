@@ -30,21 +30,21 @@ export default async function DashboardLayout({
   const t = await getTranslations("dashboard");
 
   return (
-    <div className="notranslate min-h-screen text-slate-100">
+    <div className="notranslate min-h-screen bg-white text-gray-900">
       <DashboardHeader email={user.email ?? ""} />
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-wider text-sky-300/90">
+          <p className="text-xs font-medium uppercase tracking-wider text-blue-700">
             {t("workspaceEyebrow")}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
             {t("title")}
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-gray-600">
             {t("subtitle")}{" "}
             <Link
               href="/"
-              className="text-sky-300 underline underline-offset-2 hover:text-sky-200"
+              className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800"
             >
               {t("backToHome")}
             </Link>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { saasCardClass } from "@/lib/ui/saas-card";
+import { lightCardClass } from "@/lib/ui/saas-card";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
@@ -32,14 +32,14 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
   return (
     <>
       <div
-        className={`fixed inset-0 z-40 bg-zinc-900/50 backdrop-blur-sm transition-opacity duration-200 md:hidden ${
+        className={`fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm transition-opacity duration-200 md:hidden ${
           mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         aria-hidden
         onClick={onNavigate}
       />
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-zinc-800 bg-zinc-950 pt-14 shadow-2xl shadow-black/40 transition-transform duration-200 ease-out md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-gray-200 bg-white pt-14 shadow-xl transition-transform duration-200 ease-out md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
           mobileOpen ? "translate-x-0" : ""
         }`}
         aria-label="Workspace"
@@ -55,15 +55,15 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
                 aria-current={active ? "page" : undefined}
                 className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                   active
-                    ? "bg-violet-600/15 text-white shadow-sm ring-1 ring-violet-500/25"
-                    : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-100"
+                    ? "bg-blue-50 text-blue-800 shadow-sm ring-1 ring-blue-100"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 } `}
               >
                 <Icon
                   className={`h-5 w-5 shrink-0 transition-colors ${
                     active
-                      ? "text-violet-400"
-                      : "text-zinc-500 group-hover:text-zinc-300"
+                      ? "text-blue-600"
+                      : "text-gray-500 group-hover:text-gray-700"
                   }`}
                 />
                 {label}
@@ -71,10 +71,10 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
             );
           })}
         </nav>
-        <div className="border-t border-zinc-800/80 p-3">
-          <div className={saasCardClass}>
-            <p className="text-xs font-medium text-zinc-200">Helia AI</p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
+        <div className="border-t border-gray-100 p-3">
+          <div className={lightCardClass}>
+            <p className="text-xs font-medium text-gray-900">Helia AI</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
               Pro workspace
             </p>
           </div>

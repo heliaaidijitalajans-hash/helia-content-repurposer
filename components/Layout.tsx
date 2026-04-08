@@ -12,7 +12,7 @@ export function Layout({ children }: DashboardLayoutProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <div className="min-h-screen text-slate-100">
+    <div className="min-h-screen bg-white text-gray-900">
       <Navbar onMenuClick={() => setMobileNavOpen(true)} />
       <div className="flex md:min-h-[calc(100vh-3.5rem)]">
         <Sidebar

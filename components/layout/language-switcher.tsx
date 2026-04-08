@@ -39,16 +39,16 @@ export function LanguageSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 shadow-sm transition hover:bg-white/15"
+        className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-800 shadow-sm transition hover:bg-gray-50"
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={t("language")}
       >
-        <span className="text-slate-400" aria-hidden>
+        <span className="text-gray-500" aria-hidden>
           ◐
         </span>
         {labels[locale] ?? locale}
-        <span className="text-[10px] text-slate-400" aria-hidden>
+        <span className="text-[10px] text-gray-500" aria-hidden>
           ▾
         </span>
       </button>
@@ -56,7 +56,7 @@ export function LanguageSwitcher() {
         <ul
           role="listbox"
           aria-label={t("language")}
-          className="absolute right-0 z-50 mt-2 min-w-[10rem] overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 text-sm shadow-xl shadow-black/30 backdrop-blur-xl"
+          className="absolute right-0 z-50 mt-2 min-w-[10rem] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 text-sm shadow-lg"
         >
           {routing.locales.map((loc) => (
             <li key={loc} role="none">
@@ -64,16 +64,16 @@ export function LanguageSwitcher() {
                 type="button"
                 role="option"
                 aria-selected={loc === locale}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/10 ${
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-gray-100 ${
                   loc === locale
-                    ? "font-semibold text-sky-300"
-                    : "text-slate-200"
+                    ? "font-semibold text-blue-700"
+                    : "text-gray-800"
                 }`}
                 onClick={() => select(loc)}
               >
                 {labels[loc]}
                 {loc === locale ? (
-                  <span className="text-xs text-sky-400">✓</span>
+                  <span className="text-xs text-blue-600">✓</span>
                 ) : null}
               </button>
             </li>

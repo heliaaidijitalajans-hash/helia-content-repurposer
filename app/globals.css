@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: transparent;
-  --foreground: #f8fafc;
+  --background: #ffffff;
+  --foreground: #111827;
 }
 
 @theme inline {
@@ -12,8 +12,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Background and base text come from app/layout.tsx <body> (global gradient). */
 body {
-  background: transparent;
-  color: inherit;
+  background: var(--background);
+  color: var(--foreground);
 }

@@ -1,35 +1,35 @@
 import { getTranslations } from "next-intl/server";
-import { saasCardClass } from "@/lib/ui/saas-card";
+import { lightCardClass } from "@/lib/ui/saas-card";
 
 const cards = [
   {
     titleKey: "featuresCardVideoTitle" as const,
     descKey: "featuresCardVideoDesc" as const,
-    iconWrap: "bg-sky-500/15 text-sky-300 ring-sky-400/25",
+    iconWrap: "bg-sky-100 text-sky-700 ring-sky-200",
     Icon: IconFilm,
   },
   {
     titleKey: "featuresCardViralTitle" as const,
     descKey: "featuresCardViralDesc" as const,
-    iconWrap: "bg-violet-500/15 text-violet-300 ring-violet-400/25",
+    iconWrap: "bg-violet-100 text-violet-700 ring-violet-200",
     Icon: IconSpark,
   },
   {
     titleKey: "featuresCardThreadTitle" as const,
     descKey: "featuresCardThreadDesc" as const,
-    iconWrap: "bg-blue-500/15 text-blue-300 ring-blue-400/25",
+    iconWrap: "bg-blue-100 text-blue-700 ring-blue-200",
     Icon: IconThread,
   },
   {
     titleKey: "featuresCardCarouselTitle" as const,
     descKey: "featuresCardCarouselDesc" as const,
-    iconWrap: "bg-amber-500/15 text-amber-300 ring-amber-400/25",
+    iconWrap: "bg-amber-100 text-amber-800 ring-amber-200",
     Icon: IconCarousel,
   },
   {
     titleKey: "featuresCardHooksTitle" as const,
     descKey: "featuresCardHooksDesc" as const,
-    iconWrap: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/25",
+    iconWrap: "bg-emerald-100 text-emerald-700 ring-emerald-200",
     Icon: IconHooks,
   },
 ];
@@ -38,13 +38,13 @@ export default async function FeaturesPage() {
   const t = await getTranslations("marketingPages");
 
   return (
-    <div className="notranslate min-h-screen text-slate-100">
+    <div className="notranslate min-h-screen bg-white text-gray-900">
       <div className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20">
         <header className="mx-auto max-w-2xl text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
             {t("featuresHeroTitle")}
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-slate-300 sm:text-lg">
+          <p className="mt-4 text-base leading-relaxed text-gray-600 sm:text-lg">
             {t("featuresHeroSub")}
           </p>
         </header>
@@ -53,17 +53,17 @@ export default async function FeaturesPage() {
           {cards.map(({ titleKey, descKey, iconWrap, Icon }) => (
             <li
               key={titleKey}
-              className={`group flex flex-col ${saasCardClass}`}
+              className={`group flex flex-col ${lightCardClass}`}
             >
               <div
                 className={`flex h-12 w-12 items-center justify-center rounded-xl ring-1 transition group-hover:scale-105 ${iconWrap}`}
               >
                 <Icon className="h-6 w-6" />
               </div>
-              <h2 className="mt-5 text-lg font-semibold text-white">
+              <h2 className="mt-5 text-lg font-semibold text-gray-900">
                 {t(titleKey)}
               </h2>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-300">
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-600">
                 {t(descKey)}
               </p>
             </li>
@@ -85,7 +85,7 @@ function IconFilm(props: { className?: string }) {
 function IconSpark(props: { className?: string }) {
   return (
     <svg className={props.className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM16.23 7.75h.008v.008h-.008V7.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
     </svg>
   );
 }

@@ -30,7 +30,7 @@ export default async function RootLayout({
         <meta name="google" content="notranslate" />
       </head>
       <body
-        className="min-h-screen min-h-full flex flex-col bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950 font-sans text-white antialiased"
+        className="min-h-screen min-h-full bg-white font-sans text-gray-900 antialiased"
         suppressHydrationWarning
       >
         {children}

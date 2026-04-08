@@ -25,11 +25,11 @@ export function MarketingNavbar() {
   const locale = useLocale();
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-white/10 shadow-lg shadow-black/20 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white text-gray-900 shadow-sm">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="shrink-0 text-base font-semibold tracking-tight text-white transition hover:text-sky-200"
+          className="shrink-0 text-base font-semibold tracking-tight text-gray-900 transition hover:text-blue-700"
         >
           Helia AI
         </Link>
@@ -46,8 +46,8 @@ export function MarketingNavbar() {
                 href={href}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
-                    ? "bg-white/15 text-white"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    ? "bg-gray-100 text-gray-900"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                 }`}
               >
                 {t(key)}
@@ -60,20 +60,20 @@ export function MarketingNavbar() {
           <LanguageSwitcher />
           <Link
             href="/auth"
-            className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10 sm:px-5"
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-100 sm:px-5"
           >
             {t("login")}
           </Link>
           <Link
             href={{ pathname: "/auth", query: { next: `/${locale}/dashboard` } }}
-            className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-black/25 transition hover:bg-blue-400 sm:px-5"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 sm:px-5"
           >
             {t("ctaPrimary")}
           </Link>
         </div>
       </div>
 
-      <div className="border-t border-white/10 bg-white/5 px-4 py-2 backdrop-blur-md md:hidden">
+      <div className="border-t border-gray-100 bg-gray-50 px-4 py-2 md:hidden">
         <nav
           className="flex max-w-6xl gap-1 overflow-x-auto scrollbar-none sm:mx-auto"
           aria-label="Main mobile"
@@ -86,8 +86,8 @@ export function MarketingNavbar() {
                 href={href}
                 className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                   active
-                    ? "bg-white/15 text-white"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                    ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
+                    : "text-gray-600 hover:bg-white hover:text-gray-900"
                 }`}
               >
                 {t(key)}
