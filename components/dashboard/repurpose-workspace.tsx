@@ -38,6 +38,8 @@ const TRANSCRIBE_MAX_BYTES = 480 * 1024 * 1024;
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_PATH = "/api/subscription-status";
 
+const REPURPOSE_MAX_CHARS = 5000;
+
 function parseSubscriptionStatusPayload(raw: unknown): boolean {
   if (typeof raw !== "object" || raw === null || !("isPro" in raw)) {
     return false;
@@ -57,20 +59,46 @@ function isAllowedMediaFile(file: File): boolean {
   return mime !== "" && TRANSCRIBE_ALLOWED_MIME.has(mime);
 }
 
-function Section({
+function formatHooksForCopy(hooks: string[]): string {
+  return hooks.map((h, i) => `${i + 1}. ${h}`).join("\n");
+}
+
+function ResultOutputCard({
   title,
+  animationDelayMs,
   children,
+  copyText,
+  onCopy,
+  copyLabel,
 }: {
   title: string;
+  animationDelayMs: number;
   children: React.ReactNode;
+  copyText: string;
+  onCopy: (text: string) => void;
+  copyLabel: string;
 }) {
   return (
-    <section className={`notranslate ${lightCardClass}`}>
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-        {title}
-      </h2>
-      <div className="text-sm leading-relaxed text-gray-900">{children}</div>
-    </section>
+    <div
+      className="animate-repurpose-result rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow duration-300 hover:shadow-md"
+      style={{ animationDelay: `${animationDelayMs}ms` }}
+    >
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <h3 className="text-sm font-bold tracking-tight text-gray-900">
+          {title}
+        </h3>
+        <button
+          type="button"
+          onClick={() => onCopy(copyText)}
+          className="shrink-0 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
+        >
+          {copyLabel}
+        </button>
+      </div>
+      <div className="min-w-0 text-sm leading-relaxed text-gray-700">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -176,9 +204,37 @@ export function RepurposeWorkspace() {
     null,
   );
   const [dragActive, setDragActive] = useState(false);
+  const [inputCardDragActive, setInputCardDragActive] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputColumnFileRef = useRef<HTMLInputElement>(null);
   const transcribeDragDepthRef = useRef(0);
+  const inputCardDragDepthRef = useRef(0);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(msg);
+    toastTimerRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 2500);
+  }, []);
+
+  const copyToClipboard = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      try {
+        await navigator.clipboard.writeText(trimmed);
+        showToast(t("copiedToast"));
+      } catch {
+        showToast(t("errorNetwork"));
+      }
+    },
+    [showToast, t],
+  );
 
   const videoUnlocked = FORCE_VIDEO_FEATURE_ENABLED || isPro === true;
 
@@ -270,10 +326,26 @@ export function RepurposeWorkspace() {
     }
   }, [transcribeLoading, transcribeBlocked, isPro]);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "text") {
+      inputCardDragDepthRef.current = 0;
+      setInputCardDragActive(false);
+    }
+  }, [activeTab]);
+
   async function onRepurpose() {
-    console.log("clicked");
     const bodyText = repurposeText.trim();
     if (!bodyText) return;
+    if (bodyText.length > REPURPOSE_MAX_CHARS) {
+      setError(t("maxCharsError", { max: REPURPOSE_MAX_CHARS }));
+      return;
+    }
 
     setError(null);
     setLoading(true);
@@ -338,6 +410,7 @@ export function RepurposeWorkspace() {
     if (!file) {
       setMediaFile(null);
       setTranscribeApiMeta(null);
+      if (inputColumnFileRef.current) inputColumnFileRef.current.value = "";
       return;
     }
     if (!isAllowedMediaFile(file)) {
@@ -347,6 +420,7 @@ export function RepurposeWorkspace() {
       setTranscriptionText("");
       setTranscribeApiMeta(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (inputColumnFileRef.current) inputColumnFileRef.current.value = "";
       return;
     }
     if (file.size > TRANSCRIBE_MAX_BYTES) {
@@ -356,6 +430,7 @@ export function RepurposeWorkspace() {
       setTranscriptionText("");
       setTranscribeApiMeta(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (inputColumnFileRef.current) inputColumnFileRef.current.value = "";
       return;
     }
     setMediaFile(file);
@@ -417,6 +492,51 @@ export function RepurposeWorkspace() {
     const f = e.dataTransfer.files?.[0];
     if (!f) return;
     assignMediaFile(f);
+  }
+
+  function onInputColumnFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const input = e.target;
+    const f = input.files?.[0] ?? null;
+    input.value = "";
+    if (!f) return;
+    assignMediaFile(f);
+    setActiveTab("video");
+    showToast(t("uploadSwitchedToVideo"));
+  }
+
+  function onInputCardDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    inputCardDragDepthRef.current += 1;
+    setInputCardDragActive(true);
+  }
+
+  function onInputCardDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    inputCardDragDepthRef.current -= 1;
+    if (inputCardDragDepthRef.current <= 0) {
+      inputCardDragDepthRef.current = 0;
+      setInputCardDragActive(false);
+    }
+  }
+
+  function onInputCardDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = "copy";
+  }
+
+  function onInputCardDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    inputCardDragDepthRef.current = 0;
+    setInputCardDragActive(false);
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    assignMediaFile(f);
+    setActiveTab("video");
+    showToast(t("uploadSwitchedToVideo"));
   }
 
   async function submitTranscription() {
@@ -542,7 +662,7 @@ export function RepurposeWorkspace() {
         <div
           role="tablist"
           aria-label={t("workspaceTabsAria")}
-          className="flex flex-col gap-2 sm:flex-row sm:gap-1 sm:rounded-xl sm:border sm:border-gray-200 sm:bg-gray-50 sm:p-1 sm:shadow-inner"
+          className="flex flex-col gap-2 sm:flex-row sm:gap-1.5 sm:rounded-2xl sm:border sm:border-gray-200/90 sm:bg-gradient-to-b sm:from-gray-50 sm:to-gray-100/90 sm:p-1.5 sm:shadow-sm"
         >
           <button
             type="button"
@@ -617,113 +737,187 @@ export function RepurposeWorkspace() {
             id="panel-text"
             role="tabpanel"
             aria-labelledby="tab-text"
-            className="flex min-h-[320px] flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-8"
+            className="grid min-h-[320px] grid-cols-1 gap-8 lg:grid-cols-2 lg:items-start"
           >
-            <div className="flex min-w-0 flex-col gap-4">
-              <label
-                htmlFor="repurpose-source"
-                className="text-sm font-medium text-gray-900"
-              >
+            <div className="flex min-w-0 flex-col rounded-2xl border border-gray-200/90 bg-white p-6 shadow-sm ring-1 ring-gray-100">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight text-gray-900">
+                  {t("inputCardTitle")}
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {t("inputCardSubtitle")}
+                </p>
+              </div>
+
+              <label htmlFor="repurpose-source" className="sr-only">
                 {t("sourceLabel")}
               </label>
               <textarea
                 id="repurpose-source"
                 value={repurposeText}
-                onChange={(e) => setRepurposeText(e.target.value)}
-                placeholder={t("placeholder")}
-                rows={14}
+                onChange={(e) =>
+                  setRepurposeText(
+                    e.target.value.slice(0, REPURPOSE_MAX_CHARS),
+                  )
+                }
+                placeholder={t("placeholderPremium")}
+                rows={10}
                 disabled={loading}
                 aria-busy={loading}
-                className="min-h-[280px] w-full resize-y rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 shadow-inner outline-none ring-0 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-5 min-h-40 w-full resize-y rounded-xl border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-900 shadow-inner outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                <span>{t("poweredBy")}</span>
+                <span className="tabular-nums">
+                  {t("charCount", {
+                    current: repurposeText.length,
+                    max: REPURPOSE_MAX_CHARS,
+                  })}
+                </span>
+              </div>
+
+              <input
+                ref={inputColumnFileRef}
+                type="file"
+                accept="audio/*,video/mp4,video/quicktime,.mp3,.wav,.mp4,.m4a,.aac"
+                className="sr-only"
+                tabIndex={-1}
+                onChange={onInputColumnFileChange}
               />
               <div
-                className="pointer-events-auto w-fit"
-                style={{ position: "relative", zIndex: 9999 }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    inputColumnFileRef.current?.click();
+                  }
+                }}
+                onClick={() => inputColumnFileRef.current?.click()}
+                onDragEnter={onInputCardDragEnter}
+                onDragLeave={onInputCardDragLeave}
+                onDragOver={onInputCardDragOver}
+                onDrop={onInputCardDrop}
+                className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition ${
+                  inputCardDragActive
+                    ? "border-blue-400 bg-blue-50/80"
+                    : "border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50"
+                }`}
               >
-                <button
-                  type="button"
-                  disabled={loading || !repurposeText.trim()}
-                  onClick={() => void onRepurpose()}
-                  aria-busy={loading}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {loading ? (
-                    <>
-                      <span
-                        className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                        aria-hidden
-                      />
-                      {t("loading")}
-                    </>
-                  ) : (
-                    t("repurpose")
-                  )}
-                </button>
+                <p className="text-sm font-medium text-gray-700">
+                  {t("uploadOptionalHint")}
+                </p>
               </div>
+
+              <button
+                type="button"
+                disabled={loading || !repurposeText.trim()}
+                onClick={() => void onRepurpose()}
+                aria-busy={loading}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:from-blue-500 hover:to-indigo-500 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+              >
+                {loading ? (
+                  <>
+                    <span
+                      className="size-5 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                      aria-hidden
+                    />
+                    {t("aiGenerating")}
+                  </>
+                ) : (
+                  t("convertCta")
+                )}
+              </button>
+
               {error ? (
-                <p
-                  className="text-sm text-red-600"
-                  role="alert"
-                >
+                <p className="mt-3 text-sm text-red-600" role="alert">
                   {error}
                 </p>
               ) : null}
             </div>
 
             <div className="flex min-w-0 flex-col gap-4">
-              <p className="text-sm font-medium text-gray-900">
+              <h2 className="text-lg font-bold tracking-tight text-gray-900">
                 {t("results")}
-              </p>
+              </h2>
 
               {!result && !loading ? (
-                <div
-                  className={`flex min-h-[200px] flex-1 flex-col items-center justify-center text-center text-sm text-gray-500 ${lightCardClass} border-dashed border-gray-300`}
-                >
-                  <p>{t("emptyHint")}</p>
-                  <p className="mt-2 text-xs text-gray-400">
-                    {t("emptyFormats")}
+                <div className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-gray-50/40 px-6 py-12 text-center transition-opacity duration-300">
+                  <p className="text-base font-semibold text-gray-800">
+                    {t("emptyTitle")}
+                  </p>
+                  <p className="mt-2 text-sm text-gray-500">
+                    {t("emptySubtitle")}
                   </p>
                 </div>
               ) : null}
 
               {loading ? (
                 <div
-                  className={`flex min-h-[200px] flex-1 flex-col items-center justify-center gap-3 text-sm text-gray-500 ${lightCardClass}`}
+                  className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition-opacity duration-300"
                   role="status"
                   aria-live="polite"
                 >
                   <span
-                    className="size-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"
+                    className="size-10 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"
                     aria-hidden
                   />
-                  <span>{t("generating")}</span>
+                  <span className="text-sm font-medium text-gray-600">
+                    {t("aiGenerating")}
+                  </span>
                 </div>
               ) : null}
 
               {result && !loading ? (
                 <div className="flex flex-col gap-4">
-                  <Section title={t("sectionTwitter")}>
-                    <p className="whitespace-pre-wrap">{result.twitter_thread}</p>
-                  </Section>
-                  <Section title={t("sectionCarousel")}>
+                  <ResultOutputCard
+                    title={t("sectionTwitter")}
+                    animationDelayMs={0}
+                    copyText={result.twitter_thread}
+                    onCopy={copyToClipboard}
+                    copyLabel={t("copy")}
+                  >
+                    <p className="whitespace-pre-wrap">
+                      {result.twitter_thread}
+                    </p>
+                  </ResultOutputCard>
+                  <ResultOutputCard
+                    title={t("sectionCarousel")}
+                    animationDelayMs={90}
+                    copyText={result.instagram_carousel}
+                    onCopy={copyToClipboard}
+                    copyLabel={t("copy")}
+                  >
                     <p className="whitespace-pre-wrap">
                       {result.instagram_carousel}
                     </p>
-                  </Section>
-                  <Section title={t("sectionHooks")}>
+                  </ResultOutputCard>
+                  <ResultOutputCard
+                    title={t("sectionHooks")}
+                    animationDelayMs={180}
+                    copyText={formatHooksForCopy(result.hooks)}
+                    onCopy={copyToClipboard}
+                    copyLabel={t("copy")}
+                  >
                     <ul className="list-disc space-y-2 pl-4">
                       {result.hooks.map((hook, i) => (
                         <li key={i}>{hook}</li>
                       ))}
                     </ul>
-                  </Section>
-                  <Section title={t("sectionCta")}>
+                  </ResultOutputCard>
+                  <ResultOutputCard
+                    title={t("sectionCta")}
+                    animationDelayMs={270}
+                    copyText={result.cta.join("\n\n")}
+                    onCopy={copyToClipboard}
+                    copyLabel={t("copy")}
+                  >
                     <ul className="list-disc space-y-2 pl-4">
                       {result.cta.map((line, i) => (
                         <li key={i}>{line}</li>
                       ))}
                     </ul>
-                  </Section>
+                  </ResultOutputCard>
                 </div>
               ) : null}
             </div>
@@ -942,6 +1136,15 @@ export function RepurposeWorkspace() {
           </div>
         )}
       </div>
+
+      {toast ? (
+        <div
+          role="status"
+          className="animate-repurpose-result fixed bottom-28 left-1/2 z-[220] max-w-[min(90vw,20rem)] -translate-x-1/2 rounded-lg bg-gray-900 px-5 py-2.5 text-center text-sm font-medium text-white shadow-xl"
+        >
+          {toast}
+        </div>
+      ) : null}
     </div>
   );
 }
