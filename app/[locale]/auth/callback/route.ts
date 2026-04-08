@@ -10,7 +10,7 @@ export async function GET(
   const { locale } = await context.params;
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? `/${locale}/dashboard`;
+  const next = searchParams.get("next") ?? "/dashboard";
   const { url, anonKey, isConfigured } = getPublicSupabaseConfig();
 
   if (code && isConfigured) {

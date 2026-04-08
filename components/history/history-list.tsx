@@ -33,7 +33,7 @@ export function HistoryList({
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-6 py-16 text-center">
         <p className="text-base font-medium text-gray-900">{copy.emptyTitle}</p>
         <Link
-          href="/dashboard/content"
+          href="/generate"
           className="mt-6 inline-flex rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
         >
           {copy.emptyCta}
@@ -68,7 +68,7 @@ export function HistoryList({
                 </div>
                 <div className="flex shrink-0 flex-col gap-2 sm:items-end">
                   <Link
-                    href="/dashboard/content"
+                    href="/generate"
                     className="inline-flex justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 sm:min-w-[7.5rem]"
                   >
                     {copy.view}

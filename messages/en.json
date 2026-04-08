@@ -187,7 +187,8 @@
     "dateToday": "Today",
     "dateYesterday": "Yesterday",
     "statsTotalLabel": "Total content",
-    "statsMonthLabel": "This month"
+    "statsMonthLabel": "This month",
+    "accountSettingsCta": "Account settings"
   },
   "auth": {
     "title": "Sign in or sign up",

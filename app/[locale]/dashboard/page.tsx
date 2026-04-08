@@ -1,5 +1,5 @@
-import { RepurposeWorkspace } from "@/components/dashboard/repurpose-workspace";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
-  return <RepurposeWorkspace />;
+export default function LocaleDashboardRedirectPage() {
+  redirect("/dashboard");
 }

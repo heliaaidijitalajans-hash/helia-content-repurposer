@@ -68,7 +68,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
               Dashboard
             </Link>
             <Link href="/account" className={linkClass}>
-              Account
+              Hesabım
             </Link>
             <Link href="/support" className={linkClass}>
               Support

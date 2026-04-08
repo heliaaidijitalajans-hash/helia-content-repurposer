@@ -7,7 +7,7 @@ export default function TestPage() {
         Transcription is file-upload only. Use the dashboard Video tab.
       </p>
       <Link
-        href="/tr/dashboard"
+        href="/dashboard"
         className="mt-4 inline-block font-medium text-blue-700 underline hover:text-blue-800"
       >
         Dashboard

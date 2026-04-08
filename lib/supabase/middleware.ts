@@ -53,7 +53,7 @@ export async function updateSession(
   if (isDashboardRoute && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `/${locale}/auth`;
-    redirectUrl.searchParams.set("next", pathname);
+    redirectUrl.searchParams.set("next", "/dashboard");
     const redirectResponse = NextResponse.redirect(redirectUrl);
     copySetCookies(supabaseResponse, redirectResponse);
     return redirectResponse;

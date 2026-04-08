@@ -18,12 +18,14 @@ export async function middleware(request: NextRequest) {
     return await updateSession(request, NextResponse.next());
   }
 
-  // Standalone SaaS shell (no locale prefix) — app/dashboard, app/settings, app/support
+  // Standalone SaaS shell (no locale prefix) — dashboard, generate, account, history, settings, support
   if (
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
     pathname === "/history" ||
     pathname.startsWith("/history/") ||
+    pathname === "/generate" ||
+    pathname.startsWith("/generate/") ||
     pathname === "/account" ||
     pathname.startsWith("/account/") ||
     pathname === "/settings" ||

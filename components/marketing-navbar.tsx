@@ -65,7 +65,7 @@ export function MarketingNavbar() {
             {t("login")}
           </Link>
           <Link
-            href={{ pathname: "/auth", query: { next: `/${locale}/dashboard` } }}
+            href={{ pathname: "/auth", query: { next: "/dashboard" } }}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:px-5"
           >
             {t("ctaPrimary")}

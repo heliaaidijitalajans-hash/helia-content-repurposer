@@ -36,7 +36,7 @@ export default async function HomePage({
     { title: t("step3Title"), body: t("step3Body") },
   ];
 
-  const authNextDashboard = `/${locale}/dashboard`;
+  const authNextDashboard = "/dashboard";
 
   return (
     <div className="notranslate overflow-x-hidden bg-white text-gray-900">

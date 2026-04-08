@@ -187,7 +187,8 @@
     "dateToday": "Bugün",
     "dateYesterday": "Dün",
     "statsTotalLabel": "Toplam içerik",
-    "statsMonthLabel": "Bu ay"
+    "statsMonthLabel": "Bu ay",
+    "accountSettingsCta": "Hesap Ayarları"
   },
   "auth": {
     "title": "Giriş veya kayıt",

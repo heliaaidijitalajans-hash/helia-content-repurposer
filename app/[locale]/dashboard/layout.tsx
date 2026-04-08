@@ -1,10 +1,7 @@
-import { getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
 import { redirect } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 
-export default async function DashboardLayout({
+export default async function LocaleDashboardLayout({
   children,
   params,
 }: Readonly<{
@@ -19,39 +16,10 @@ export default async function DashboardLayout({
 
   if (!user) {
     return redirect({
-      href: {
-        pathname: "/auth",
-        query: { next: `/${locale}/dashboard` },
-      },
+      href: { pathname: "/auth", query: { next: "/dashboard" } },
       locale,
     });
   }
 
-  const t = await getTranslations("dashboard");
-
-  return (
-    <div className="notranslate min-h-screen bg-white text-gray-900">
-      <DashboardHeader email={user.email ?? ""} />
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-            {t("workspaceEyebrow")}
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
-            {t("title")}
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {t("subtitle")}{" "}
-            <Link
-              href="/"
-              className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
-            >
-              {t("backToHome")}
-            </Link>
-          </p>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
+  return <>{children}</>;
 }

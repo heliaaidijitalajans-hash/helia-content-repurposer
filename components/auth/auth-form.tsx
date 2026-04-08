@@ -3,7 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Link, useRouter } from "@/i18n/navigation";
+import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
@@ -16,9 +16,8 @@ export function AuthForm() {
   const t = useTranslations("auth");
   const tc = useTranslations("common");
   const locale = useLocale();
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? `/${locale}/dashboard`;
+  const next = searchParams.get("next") ?? "/dashboard";
   const err = searchParams.get("error");
 
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -44,8 +43,7 @@ export function AuthForm() {
         setMessage(error.message);
         return;
       }
-      router.push(next);
-      router.refresh();
+      window.location.assign(next);
     } finally {
       setLoading(null);
     }
@@ -70,8 +68,7 @@ export function AuthForm() {
         return;
       }
       if (data.session) {
-        router.push(next);
-        router.refresh();
+        window.location.assign(next);
         return;
       }
       setMessageVariant("info");

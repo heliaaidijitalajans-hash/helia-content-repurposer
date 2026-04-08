@@ -24,14 +24,14 @@ export default async function DashboardPage() {
     {
       title: copy.quickCreateTitle,
       cta: copy.quickCreateCta,
-      href: "/dashboard/content" as const,
+      href: "/generate" as const,
       accent: "from-violet-500 to-indigo-600",
       Icon: IconPen,
     },
     {
       title: copy.quickVideoTitle,
       cta: copy.quickVideoCta,
-      href: "/dashboard/content" as const,
+      href: "/generate" as const,
       accent: "from-emerald-500 to-teal-600",
       Icon: IconFilm,
     },
@@ -46,13 +46,21 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-10">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
-          {copy.title}
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 sm:text-base">
-          {copy.subtitle}
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
+            {copy.title}
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500 sm:text-base">
+            {copy.subtitle}
+          </p>
+        </div>
+        <Link
+          href="/account"
+          className="inline-flex shrink-0 items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
+        >
+          {copy.accountSettingsCta}
+        </Link>
       </header>
 
       <section aria-labelledby="dashboard-quick-heading">
