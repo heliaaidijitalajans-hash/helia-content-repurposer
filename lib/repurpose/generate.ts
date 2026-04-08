@@ -102,7 +102,10 @@ JSON shape:
 
 3) hooks (array, exactly 5 strings):
 - Each hook: MAX 8 Turkish words.
-- Must feel like a cold open: questions, mystery, “kim / neden / ne oluyor” energy—never a bland label.
+- BOLD and DRAMATIC: open with a strong CLAIM, then curiosity—not a polite or neutral question. BAN soft quiz hooks (“merak ettiniz mi”, “biliyor muydunuz”) and bland “nedir / kimdir” trivia.
+- USE opener patterns often (adapt to source; vary them—do not copy-paste): “Kimse bilmiyor…”, “Herkes bunu yanlış biliyor…”, “Belki de gerçek şu…”, “Bu seni şaşırtacak…”, “Kimse bunu söylemiyor…”, “İşte herkesin kaçırdığı şey…”.
+- Ellipsis “…” is allowed for drama when it fits the word limit.
+- At least 4 of 5 hooks must BEGIN with a declarative dramatic opener (e.g. Kimse…, Herkes…, Belki…). At most ONE hook may end with “?”.
 
 4) cta (array, exactly 3 strings):
 - Each CTA: MAX 10 Turkish words.
@@ -219,11 +222,11 @@ function mockResult(input: string): RepurposeResult {
       `Slayt 1 — ${preview}\n\nSlayt 2 — Görünmez kalırsa tam olarak ne yıkılır?\n\nSlayt 3 — Gerçek hikâye hangi cümlede saklı?\n\nSlayt 4 — Kimse bunu yüksek sesle söylemiyor…\n\nSlayt 5 — Kaydet; devamı takipte.`,
     ),
     hooks: [
-      clampToWords(`Bunu kimse söylemiyor… ${preview.slice(0, 24)}`, 8),
-      "Zayıf kanca mı? Güçlü fikir tek başına yetmez.",
-      "Bir taslak, beş bomba paylaşım—nasıl?",
-      "Nişin bile istemediği tez hangisi?",
-      "Bugün kaydıran tek şey bu olacak.",
+      clampToWords(`Kimse bilmiyor… ${preview.slice(0, 18)}`, 8),
+      "Herkes bunu yanlış biliyor; dur bir dinle.",
+      "Belki de gerçek şu: her şey değişir.",
+      "Bu seni şaşırtacak; hazır mısın?",
+      "Kimse yüzüne vurmuyor; ben vuruyorum.",
     ].map((h) => clampToWords(h, 8)),
     cta: [
       "Kaydet; yarın aynı anda ihtiyacın var.",
@@ -259,6 +262,8 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
           content: `Verilen metni viral sosyal içeriğe dönüştür. Sistem kurallarına harfiyen uy. Sadece JSON; başka metin yok.
 
 Üslup: agresif merak. Soru, gerilim, sürpriz kullan. Nötr haber / özet / ders anlatımı YASAK. Her satır kaydırmayı durdurmalı.
+
+Kancalar: cesur bildiri + merak. Nötr soru değil. “Kimse bilmiyor…”, “Herkes yanlış biliyor…” gibi güçlü açılışlar.
 
 hooks: tam 5 öğe. cta: tam 3 öğe.
 
