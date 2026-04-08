@@ -5,6 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
 import { createClient } from "@/lib/supabase/client";
+import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
+import {
+  uploadToSupabaseStorageXHR,
+  uploadsObjectPath,
+} from "@/lib/transcribe/supabase-storage-upload-xhr";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
@@ -29,8 +34,13 @@ const TRANSCRIBE_ALLOWED_MIME = new Set([
   "audio/x-aac",
   "video/mp4",
 ]);
-/** OpenAI transkripsiyon için gövde üst sınırı (~25 MB). */
-const TRANSCRIBE_MAX_BYTES = 25 * 1024 * 1024;
+/** Depoya yükleme üst sınırı (Supabase bucket ~500 MB; tarayıcı belleği sınırlı olabilir). */
+const TRANSCRIBE_MAX_BYTES = 480 * 1024 * 1024;
+
+const NEXT_PUBLIC_SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+const NEXT_PUBLIC_SUPABASE_ANON_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";
 
 /** `FORCE_VIDEO_FEATURE_ENABLED` kapalıyken `/api/subscription-status` */
 const SUBSCRIPTION_STATUS_PATH = "/api/subscription-status";
@@ -174,6 +184,10 @@ export function RepurposeWorkspace() {
   const [transcribeApiMeta, setTranscribeApiMeta] = useState<string | null>(
     null,
   );
+  /** 0–100 yükleme; null = yükleme yok veya API aşaması */
+  const [transcribeUploadPercent, setTranscribeUploadPercent] = useState<
+    number | null
+  >(null);
   const [dragActive, setDragActive] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -426,22 +440,74 @@ export function RepurposeWorkspace() {
       return;
     }
 
+    if (!NEXT_PUBLIC_SUPABASE_URL || !NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      setTranscribeError(t("transcribeErrorMissingAnon"));
+      return;
+    }
+
     setTranscribeError(null);
     setTranscribeApiMeta(null);
     setTranscribeLoading(true);
     setTranscribeReady(false);
     setTranscriptionText("");
+    setTranscribeUploadPercent(0);
 
-    const formData = new FormData();
-    formData.append("file", file);
+    const supabase = createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.user?.id || !session.access_token) {
+      setTranscribeUploadPercent(null);
+      setTranscribeLoading(false);
+      setTranscribeError(t("transcribeErrorAuth"));
+      return;
+    }
+
+    const objectPath = uploadsObjectPath(session.user.id, file);
+    console.log("[transcribe] Storage yüklemesi", UPLOADS_BUCKET, objectPath);
+
+    try {
+      await uploadToSupabaseStorageXHR({
+        projectUrl: NEXT_PUBLIC_SUPABASE_URL,
+        anonKey: NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        accessToken: session.access_token,
+        bucket: UPLOADS_BUCKET,
+        objectPath,
+        file,
+        onProgress: (r) =>
+          setTranscribeUploadPercent(Math.min(100, Math.round(r * 100))),
+      });
+    } catch (e) {
+      console.log("[transcribe] Storage yükleme hata", e);
+      setTranscribeUploadPercent(null);
+      setTranscribeLoading(false);
+      setTranscribeError(
+        e instanceof Error ? e.message : t("transcribeErrorGeneric"),
+      );
+      return;
+    }
+
+    setTranscribeUploadPercent(null);
+    const { data: pub } = supabase.storage
+      .from(UPLOADS_BUCKET)
+      .getPublicUrl(objectPath);
+    const fileUrl = pub.publicUrl;
+    console.log("[transcribe] public URL", fileUrl);
 
     try {
       const res = await fetch("/api/transcribe", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileUrl }),
       });
       const raw = await res.text();
-      let data: { success?: boolean; error?: string } = {};
+      let data: {
+        success?: boolean;
+        text?: string;
+        id?: string;
+        message?: string;
+        error?: string;
+      } = {};
       try {
         data = raw.trim() ? (JSON.parse(raw) as typeof data) : {};
       } catch (e) {
@@ -450,10 +516,16 @@ export function RepurposeWorkspace() {
         return;
       }
 
-      if (res.ok && data.success === true) {
-        setTranscriptionText("");
+      console.log("[transcribe] API yanıtı", res.status, data);
+
+      if (res.ok && data.success === true && typeof data.text === "string") {
+        setTranscriptionText(data.text);
         setTranscribeReady(true);
-        setTranscribeApiMeta(t("transcribeUploadOkDebug"));
+        setTranscribeApiMeta(
+          typeof data.id === "string"
+            ? t("transcribeApiSaved", { id: data.id })
+            : (data.message ?? null),
+        );
         void refreshUsage();
         return;
       }
@@ -467,6 +539,7 @@ export function RepurposeWorkspace() {
       setTranscribeError(t("errorNetwork"));
     } finally {
       setTranscribeLoading(false);
+      setTranscribeUploadPercent(null);
     }
   }
 
@@ -797,7 +870,11 @@ export function RepurposeWorkspace() {
                               className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
                               aria-hidden
                             />
-                            {t("transcribeProcessingDirect")}
+                            {transcribeUploadPercent !== null
+                              ? t("transcribeUploadingPct", {
+                                  pct: transcribeUploadPercent,
+                                })
+                              : t("transcribeTranscribingStep")}
                           </>
                         ) : (
                           t("transcribeSubmit")
@@ -812,21 +889,42 @@ export function RepurposeWorkspace() {
                   ) : null}
                   {transcribeLoading ? (
                     <div
-                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
+                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
                       role="status"
                       aria-live="polite"
-                      aria-label={t("transcribeProcessingDirect")}
+                      aria-label={
+                        transcribeUploadPercent !== null
+                          ? t("transcribeUploadingPct", {
+                              pct: transcribeUploadPercent,
+                            })
+                          : t("transcribeTranscribingStep")
+                      }
                     >
                       <span
                         className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
                         aria-hidden
                       />
                       <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                        {t("transcribeProcessingDirect")}
+                        {transcribeUploadPercent !== null
+                          ? t("transcribeUploadingPct", {
+                              pct: transcribeUploadPercent,
+                            })
+                          : t("transcribeTranscribingStep")}
                       </p>
-                      <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                        {t("processingVideoHint")}
-                      </p>
+                      {transcribeUploadPercent !== null ? (
+                        <div className="h-2 w-full max-w-[14rem] overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                          <div
+                            className="h-full rounded-full bg-violet-600 transition-[width] duration-150 dark:bg-violet-400"
+                            style={{
+                              width: `${transcribeUploadPercent}%`,
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                          {t("processingVideoHint")}
+                        </p>
+                      )}
                     </div>
                   ) : null}
                 </div>
