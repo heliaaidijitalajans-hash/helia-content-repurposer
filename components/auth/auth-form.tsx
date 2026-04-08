@@ -6,6 +6,33 @@ import { useState } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+const glassCard =
+  "rounded-xl border border-white/15 bg-white/[0.08] shadow-xl shadow-black/30 backdrop-blur-2xl ring-1 ring-white/10";
+
+const inputClass =
+  "mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400/50 focus:bg-white/[0.07] focus:ring-2 focus:ring-sky-500/25";
+
+const labelClass = "text-sm font-medium text-slate-300";
+
+function AuthBackground() {
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(99,102,241,0.35),transparent)] opacity-[0.35]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_100%_50%,rgba(59,130,246,0.12),transparent)] opacity-[0.35]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_35%_at_0%_80%,rgba(79,70,229,0.15),transparent)] opacity-[0.35]"
+        aria-hidden
+      />
+    </>
+  );
+}
+
 export function AuthForm() {
   const t = useTranslations("auth");
   const tc = useTranslations("common");
@@ -15,6 +42,7 @@ export function AuthForm() {
   const next = searchParams.get("next") ?? `/${locale}/dashboard`;
   const err = searchParams.get("error");
 
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState<"login" | "signup" | null>(null);
@@ -74,104 +102,184 @@ export function AuthForm() {
     }
   }
 
+  const isLogin = mode === "login";
+  const busy = loading !== null;
+
   return (
-    <div className="notranslate flex min-h-screen flex-col items-center justify-center bg-zinc-50 px-4 dark:bg-zinc-950">
-      <div className="w-full max-w-[400px]">
-        <div className="mb-8 text-center">
-          <Link
-            href="/"
-            className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
-          >
-            {tc("brand")}
-          </Link>
-          <h1 className="mt-6 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-            {t("title")}
-          </h1>
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            {t("subtitle")}
+    <div className="notranslate relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#0a1628] via-slate-950 to-[#020617] text-white">
+      <AuthBackground />
+
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[420px]">
+          <div className="mb-6 text-center">
+            <Link
+              href="/"
+              className="text-sm font-semibold tracking-tight text-white/90 transition hover:text-sky-200"
+            >
+              {tc("brand")} AI
+            </Link>
+          </div>
+
+          <div className={`${glassCard} p-8 sm:p-9`}>
+            <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
+              {isLogin ? t("welcomeTitle") : t("signupWelcomeTitle")}
+            </h1>
+            <p className="mt-2 text-center text-sm text-slate-400">
+              {isLogin ? t("loginSubtitle") : t("signupSubtitle")}
+            </p>
+
+            <div className="mt-8">
+              <button
+                type="button"
+                className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-white/20 bg-white/5 text-sm font-semibold text-white opacity-85"
+                onClick={(e) => e.preventDefault()}
+                aria-label={t("continueGoogle")}
+              >
+                <GoogleMark className="h-5 w-5 shrink-0" />
+                {t("continueGoogle")}
+              </button>
+            </div>
+
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/15" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase tracking-wider">
+                <span className="bg-white/5 px-3 text-slate-500 backdrop-blur-sm">
+                  {t("orDivider")}
+                </span>
+              </div>
+            </div>
+
+            {err === "auth" ? (
+              <p className="mb-4 text-sm text-red-300">{t("errorAuth")}</p>
+            ) : null}
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className={labelClass}>
+                  {t("emailLabel")}
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@email.com"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className={labelClass}>
+                  {t("passwordLabel")}
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete={
+                    isLogin ? "current-password" : "new-password"
+                  }
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            {message ? (
+              <p
+                className={`mt-4 text-sm ${
+                  messageVariant === "info"
+                    ? "text-slate-300"
+                    : "text-red-300"
+                }`}
+              >
+                {message}
+              </p>
+            ) : null}
+
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                void (isLogin ? handleLogin() : handleSignup())
+              }
+              className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-white text-sm font-semibold text-slate-900 shadow-lg shadow-black/20 transition hover:bg-sky-50 disabled:opacity-50"
+            >
+              {busy
+                ? tc("ellipsis")
+                : isLogin
+                  ? t("loginButton")
+                  : t("signup")}
+            </button>
+
+            <p className="mt-6 text-center text-sm text-slate-400">
+              {isLogin ? (
+                <>
+                  {t("signupPrompt")}{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-sky-300 underline-offset-2 transition hover:text-sky-200 hover:underline"
+                    onClick={() => {
+                      setMode("signup");
+                      setMessage(null);
+                    }}
+                  >
+                    {t("signupCta")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {t("loginPrompt")}{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-sky-300 underline-offset-2 transition hover:text-sky-200 hover:underline"
+                    onClick={() => {
+                      setMode("login");
+                      setMessage(null);
+                    }}
+                  >
+                    {t("loginCta")}
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
+
+          <p className="mt-8 text-center text-[11px] leading-relaxed text-slate-500">
+            {t("terms")}
           </p>
         </div>
-
-        <div className="space-y-4 rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
-          {err === "auth" ? (
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {t("errorAuth")}
-            </p>
-          ) : null}
-
-          <div>
-            <label
-              htmlFor="email"
-              className="text-xs font-medium uppercase tracking-wide text-zinc-500"
-            >
-              {t("emailLabel")}
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-zinc-200/80 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="password"
-              className="text-xs font-medium uppercase tracking-wide text-zinc-500"
-            >
-              {t("passwordLabel")}
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 w-full rounded-xl border border-zinc-200/80 bg-white px-3 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
-            />
-          </div>
-
-          {message ? (
-            <p
-              className={`text-sm ${
-                messageVariant === "info"
-                  ? "text-zinc-600 dark:text-zinc-300"
-                  : "text-red-600 dark:text-red-400"
-              }`}
-            >
-              {message}
-            </p>
-          ) : null}
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              disabled={loading !== null}
-              onClick={() => void handleLogin()}
-              className="flex h-11 flex-1 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-sm font-semibold text-zinc-900 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-50 dark:hover:bg-zinc-800"
-            >
-              {loading === "login" ? tc("ellipsis") : t("login")}
-            </button>
-            <button
-              type="button"
-              disabled={loading !== null}
-              onClick={() => void handleSignup()}
-              className="flex h-11 flex-1 items-center justify-center rounded-xl bg-zinc-900 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
-            >
-              {loading === "signup" ? tc("ellipsis") : t("signup")}
-            </button>
-          </div>
-        </div>
-
-        <p className="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-          {t("terms")}
-        </p>
       </div>
     </div>
+  );
+}
+
+function GoogleMark({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.2 1.2-.9 2.2-1.9 2.9l3 2.3c1.7-1.6 2.7-4 2.7-6.8 0-.7-.1-1.3-.2-1.9H12z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 22c2.7 0 5-0.9 6.6-2.4l-3-2.3c-.8.6-1.9 1-3.6 1-2.8 0-5.1-1.9-5.9-4.4l-3.1 2.4C4.9 19.9 8.2 22 12 22z"
+      />
+      <path
+        fill="#4A90E2"
+        d="M6.1 13.9c-.2-.6-.3-1.2-.3-1.9s.1-1.3.3-1.9L3 7.7C2.3 9.1 2 10.5 2 12s.3 2.9.9 4.3l3.2-2.4z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M12 5.8c1.6 0 2.7.7 3.3 1.3l2.4-2.4C16.9 3.3 14.7 2 12 2 8.2 2 4.9 4.1 3.1 7.7l3.1 2.4C6.9 7.7 9.2 5.8 12 5.8z"
+      />
+    </svg>
   );
 }
