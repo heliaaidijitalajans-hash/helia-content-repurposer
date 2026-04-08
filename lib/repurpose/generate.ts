@@ -1,28 +1,105 @@
 import type { RepurposeResult } from "./types";
 import { getOpenAIServerClient } from "./openai-client";
 
-const SYSTEM_PROMPT = `You are a viral content expert. You turn source material into scroll-stopping social assets.
+function clampToWords(s: string, maxWords: number): string {
+  const parts = s
+    .trim()
+    .split(/\s+/u)
+    .filter((w) => w.length > 0);
+  if (parts.length <= maxWords) return parts.join(" ");
+  return parts.slice(0, maxWords).join(" ");
+}
 
-Voice & rules:
-- No fluff. Short sentences. Simple words. High engagement.
-- Stay true to the source—do not invent facts or stats.
-- Return JSON only. No markdown. No text before or after the JSON.
+/** "1/ gövde" formatı — en fazla 5 tweet, gövde en fazla maxWords kelime. */
+function tightenTwitterThread(raw: string, maxTweets = 5, maxWords = 12): string {
+  let blocks = raw
+    .split(/\n\s*\n/u)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
-Output shape (snake_case keys only):
+  if (blocks.length < 2) {
+    const numbered = raw
+      .split(/\n+/u)
+      .map((l) => l.trim())
+      .filter((l) => /^\d+\s*[/.)]/u.test(l));
+    if (numbered.length >= 2) blocks = numbered;
+  }
+
+  blocks = blocks.slice(0, maxTweets);
+  if (blocks.length === 0) return raw.trim();
+
+  return blocks
+    .map((part, i) => {
+      const body = part.replace(/^\d+\s*[/.)]\s*/u, "").trim();
+      return `${i + 1}/ ${clampToWords(body, maxWords)}`;
+    })
+    .join("\n\n");
+}
+
+/** Slaytlar — çift satır sonu ile ayrılmış bloklar veya Slayt/Slide başlığı. */
+function tightenCarousel(raw: string, maxSlides = 5, maxWords = 10): string {
+  let chunks = raw
+    .split(/\n\s*\n/u)
+    .map((c) => c.trim())
+    .filter(Boolean);
+
+  if (chunks.length < 2) {
+    chunks = raw
+      .split(/\n+/u)
+      .map((c) => c.trim())
+      .filter(Boolean)
+      .slice(0, maxSlides);
+  }
+
+  return chunks.slice(0, maxSlides).map((slide, i) => {
+    const withoutLabel = slide
+      .replace(/^(?:Slide|Slayt)\s*\d+\s*[—:\-–—]\s*/iu, "")
+      .trim();
+    const body = clampToWords(withoutLabel || slide, maxWords);
+    return `Slayt ${i + 1} — ${body}`;
+  }).join("\n\n");
+}
+
+const SYSTEM_PROMPT = `You create viral-ready social copy for the Turkish market. You are NOT writing articles or summaries.
+
+HARD LANGUAGE RULE:
+- Every string in the JSON (twitter_thread, instagram_carousel, hooks[], cta[]) MUST be 100% Turkish. No English in hooks, CTAs, tweets, or slides. Keep proper nouns from the source only if they appear in the input.
+
+OUTPUT: Valid JSON only. No markdown. No code fences. No text before or after the JSON. snake_case keys only.
+
+JSON shape:
 {
   "twitter_thread": string,
   "instagram_carousel": string,
-  "hooks": string[],
-  "cta": string[]
+  "hooks": string[5],
+  "cta": string[3]
 }
 
-1) twitter_thread — One string: a Twitter/X thread that feels viral. Short, punchy lines. Number tweets (1/, 2/, …) or clear line breaks. Strong hook in tweet 1. Last tweet invites replies or saves. Aim ≤280 chars per tweet where possible.
+1) twitter_thread (one string):
+- EXACTLY 5 tweets. Format STRICTLY:
+  1/ [max 12 Turkish words]
 
-2) instagram_carousel — One string: carousel in slide format. Label each slide (e.g. "Slide 1 — …"). Tight copy per slide; easy to read on a phone.
+  2/ [max 12 words]
+  (blank line between each tweet; use digits 1/ through 5/)
+- Short, punchy, curiosity + mystery. TikTok / Reels / IG energy.
+- NOT academic. NOT "this text explains…". NO long sentences.
+- Stay faithful to the source — do not invent facts.
 
-3) hooks — Exactly 5 strings. Attention-grabbing one-liners. Five different angles (curiosity, pain, benefit, contrarian, story).
+2) instagram_carousel (one string):
+- EXACTLY 5 slides. Each slide ONE line after the label:
+  Slayt 1 — [max 10 Turkish words]
 
-4) cta — Exactly 3 strings. Clear calls to action. Varied (save, follow, comment, DM, link-ready).`;
+  Slayt 2 — [max 10 words]
+  (blank line between slides)
+- One idea per slide. Stop-scroll hooks, not a bullet summary of the whole article.
+
+3) hooks (array, exactly 5 strings):
+- Each hook: MAX 8 Turkish words.
+- Curiosity + tension; contrarian or pain angles mixed in. No filler.
+
+4) cta (array, exactly 3 strings):
+- Each CTA: MAX 10 Turkish words.
+- MUST push engagement: yorum, kaydet, takip, paylaş, bildirim — vary the verbs across the 3 lines.`;
 
 /** OpenAI Structured Outputs (json_schema) — gpt-4o-mini uyumlu. */
 const REPURPOSE_JSON_SCHEMA = {
@@ -108,36 +185,44 @@ function normalize(raw: unknown): RepurposeResult {
   const hooksTrimmed = hooks.length ? hooks : [];
   const ctaTrimmed = cta.length ? cta : [];
 
+  const tw = twitter_thread.trim();
+  const ig = instagram_carousel.trim();
+
   return {
-    twitter_thread: twitter_thread.trim() || "(Twitter thread could not be generated.)",
-    instagram_carousel:
-      instagram_carousel.trim() || "(Instagram carousel could not be generated.)",
+    twitter_thread: tw ? tightenTwitterThread(tw) : "(Thread oluşturulamadı.)",
+    instagram_carousel: ig ? tightenCarousel(ig) : "(Carousel oluşturulamadı.)",
     hooks: hooksTrimmed.length
-      ? hooksTrimmed.slice(0, 5)
-      : ["(No hooks generated.)"],
+      ? hooksTrimmed.slice(0, 5).map((h) => clampToWords(h, 8))
+      : ["(Kanca üretilemedi.)"],
     cta: ctaTrimmed.length
-      ? ctaTrimmed.slice(0, 3)
-      : ["(No CTAs generated.)"],
+      ? ctaTrimmed.slice(0, 3).map((c) => clampToWords(c, 10))
+      : ["(CTA üretilemedi.)"],
   };
 }
 
 function mockResult(input: string): RepurposeResult {
-  const preview = input.trim().slice(0, 120) + (input.length > 120 ? "…" : "");
+  const preview =
+    clampToWords(input.trim(), 12) ||
+    "Kaydırmayı durduran tek cümle burada.";
   return {
-    twitter_thread: `1/ ${preview || "Your core idea in one sharp line."}\n\n2/ The tension: what changes when someone ignores this?\n\n3/ One concrete example your audience recognizes.\n\n4/ The takeaway in a sentence.\n\n5/ What should they do next? Reply with your biggest blocker.`,
-    instagram_carousel: `Slide 1 — Hook:\n${preview || "Stop the scroll with one line."}\n\nSlide 2 — Problem:\nWhat breaks if this stays invisible?\n\nSlide 3 — Insight:\nThe reframe in plain language.\n\nSlide 4 — Proof:\nOutcome, story, or metric.\n\nSlide 5 — CTA:\nSave + follow for the framework.`,
+    twitter_thread: tightenTwitterThread(
+      `1/ ${preview}\n\n2/ Kim bunu görmezden gelir, özür dilemez?\n\n3/ Kısa örnek: çok tanıdık bir an.\n\n4/ Özet: tek cümlede sonuç ne?\n\n5/ Yorumda en çok hangisi sana çarptı?`,
+    ),
+    instagram_carousel: tightenCarousel(
+      `Slayt 1 — ${preview}\n\nSlayt 2 — Bu görünmez kalırsa ne bozulur?\n\nSlayt 3 — Yeniden çerçeve: düz Türkçe.\n\nSlayt 4 — Kanıt: küçük bir hikâye.\n\nSlayt 5 — Kaydet; takipte kal.`,
+    ),
     hooks: [
-      `You’ve been overlooking this — ${preview.slice(0, 40)}…`,
-      "Most posts die here: weak hook, strong idea.",
-      "Turn one draft into five assets (without sounding robotic).",
-      "The contrarian take your niche avoids saying out loud.",
-      "If you only read one thread today, make it this structure.",
-    ],
+      clampToWords(`Bunu atlıyorsun — ${preview.slice(0, 40)}`, 8),
+      "Zayıf kanca, güçlü fikir: ikisi birden olmaz.",
+      "Bir taslaktan beş paylaşım: robot gibi değil.",
+      "Nişin ses etmediği çılgın tez hangisi?",
+      "Bugün tek gönderi: bu yapı, başka yok.",
+    ].map((h) => clampToWords(h, 8)),
     cta: [
-      "Save this for your next launch.",
-      "Follow for frameworks you can paste into drafts.",
-      "Drop a 🔥 if you want a part 2.",
-    ],
+      "Bunu kaydet; bir sonraki içerik için şablon.",
+      "Takip et; düz kopyalanabilir çerçeveler geliyor.",
+      "Yorumda 🔥 bırak, ikinci bölüm gelsin.",
+    ].map((c) => clampToWords(c, 10)),
   };
 }
 
@@ -164,11 +249,13 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Transform this content per your rules. JSON only.
+          content: `Verilen metni viral sosyal içeriğe dönüştür. Sistem kurallarına harfiyen uy. Sadece JSON; başka metin yok.
 
-hooks must have exactly 5 items. cta must have exactly 3 items.
+Kısa, sert, merak odaklı. Özet veya makale dili YASAK. Açıklama cümleleri yok.
 
-Text:
+hooks: tam 5 öğe. cta: tam 3 öğe.
+
+Metin:
 ${trimmed.slice(0, 14_000)}`,
         },
       ],
@@ -176,7 +263,7 @@ ${trimmed.slice(0, 14_000)}`,
         type: "json_schema",
         json_schema: REPURPOSE_JSON_SCHEMA,
       },
-      temperature: 0.6,
+      temperature: 0.35,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
