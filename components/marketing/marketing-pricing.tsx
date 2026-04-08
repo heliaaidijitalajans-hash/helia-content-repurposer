@@ -1,6 +1,6 @@
-import NextLink from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { PricingCheckoutLink } from "@/components/marketing/pricing-checkout-link";
 
 const primaryCtaClass =
   "mt-auto flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3.5 text-sm font-semibold text-white shadow-md transition duration-200 hover:scale-[1.02] hover:shadow-lg hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98]";
@@ -97,9 +97,12 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <Link href="/auth" className={`${outlineCtaClass} pt-6`}>
+          <PricingCheckoutLink
+            href="/checkout?plan=free"
+            className={`${outlineCtaClass} pt-6`}
+          >
             {t("pricingPageFreeCta")}
-          </Link>
+          </PricingCheckoutLink>
         </article>
 
         {/* Monthly */}
@@ -123,9 +126,12 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <NextLink href="/account" className={`${primaryCtaClass} pt-6`}>
+          <PricingCheckoutLink
+            href="/checkout?plan=monthly"
+            className={`${primaryCtaClass} pt-6`}
+          >
             {t("pricingPageMonthlyCta")}
-          </NextLink>
+          </PricingCheckoutLink>
         </article>
 
         {/* Pro — highlighted */}
@@ -153,9 +159,12 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <NextLink href="/account" className={`${primaryCtaClass} pt-6`}>
+          <PricingCheckoutLink
+            href="/checkout?plan=pro"
+            className={`${primaryCtaClass} pt-6`}
+          >
             {t("pricingPageProCta")}
-          </NextLink>
+          </PricingCheckoutLink>
         </article>
 
         {/* Yearly */}
@@ -183,9 +192,12 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <NextLink href="/account" className={`${primaryCtaClass} pt-6`}>
+          <PricingCheckoutLink
+            href="/checkout?plan=yearly"
+            className={`${primaryCtaClass} pt-6`}
+          >
             {t("pricingPageYearlyCta")}
-          </NextLink>
+          </PricingCheckoutLink>
         </article>
       </div>
 

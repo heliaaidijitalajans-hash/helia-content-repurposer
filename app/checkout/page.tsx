@@ -1,5 +1,6 @@
 import { CheckoutDemoForm } from "@/components/checkout/checkout-demo-form";
 import { getStandaloneLocale } from "@/lib/account/load-copy";
+import { requireSession } from "@/lib/standalone/require-session";
 import { createClient } from "@/lib/supabase/server";
 
 type Props = {
@@ -7,7 +8,14 @@ type Props = {
 };
 
 export default async function CheckoutPage({ searchParams }: Props) {
-  const { plan } = await searchParams;
+  const sp = await searchParams;
+  const plan = sp.plan;
+  const query =
+    typeof plan === "string" && plan.length > 0
+      ? `?plan=${encodeURIComponent(plan)}`
+      : "";
+  await requireSession(`/checkout${query}`);
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -24,6 +32,6 @@ export default async function CheckoutPage({ searchParams }: Props) {
   };
 
   return (
-    <CheckoutDemoForm email={email} planKey={plan} legal={legal} />
+    <CheckoutDemoForm email={email} planKey={sp.plan} legal={legal} />
   );
 }
