@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { generateRepurpose } from "@/lib/repurpose/generate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,50 +8,22 @@ export const maxDuration = 300;
 export async function POST(req: Request): Promise<Response> {
   try {
     const body = (await req.json()) as { text?: unknown };
-    const text =
-      typeof body?.text === "string" ? body.text : String(body?.text ?? "");
+    const { text: rawText } = body;
+    const text = typeof rawText === "string" ? rawText : "";
 
     if (!text.trim()) {
-      return Response.json({ error: "No input" }, { status: 400 });
+      throw new Error("Text is empty");
     }
 
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
-      return Response.json(
-        { error: "OpenAI API key is not configured" },
-        { status: 500 },
-      );
-    }
+    const inputText = text.trim();
+    console.log("INPUT TEXT:", inputText);
 
-    const openai = new OpenAI({
-      apiKey,
-    });
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: `Rewrite this content:\n${text}`,
-        },
-      ],
-    });
-
-    const output = completion.choices?.[0]?.message?.content;
-
-    if (!output || !String(output).trim()) {
-      return Response.json({ error: "No output" }, { status: 500 });
-    }
-
-    const trimmed = String(output).trim();
-
-    return Response.json({
-      twitter_thread: trimmed,
-      instagram_carousel: trimmed,
-      hooks: [trimmed],
-      cta: [trimmed],
-    });
+    const result = await generateRepurpose(inputText);
+    return Response.json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === "Text is empty") {
+      return Response.json({ error: "Text is empty" }, { status: 400 });
+    }
     console.error("ERROR:", error);
     return Response.json({ error: "Server error" }, { status: 500 });
   }

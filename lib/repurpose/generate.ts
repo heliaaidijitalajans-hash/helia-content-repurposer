@@ -168,7 +168,8 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
 
 hooks must have exactly 5 items. cta must have exactly 3 items.
 
-Source (max ~14k chars):\n\n${trimmed.slice(0, 14_000)}`,
+Text:
+${trimmed.slice(0, 14_000)}`,
         },
       ],
       response_format: {
