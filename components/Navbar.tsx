@@ -67,8 +67,8 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             <Link href="/dashboard" className={linkClass}>
               Dashboard
             </Link>
-            <Link href="/settings" className={linkClass}>
-              Settings
+            <Link href="/account" className={linkClass}>
+              Account
             </Link>
             <Link href="/support" className={linkClass}>
               Support
@@ -92,7 +92,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 className="absolute right-0 top-full mt-2 w-48 origin-top-right rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
               >
                 <Link
-                  href="/settings"
+                  href="/account"
                   className="block px-4 py-2.5 text-sm text-gray-800 transition hover:bg-gray-50"
                   role="menuitem"
                   onClick={() => setProfileOpen(false)}

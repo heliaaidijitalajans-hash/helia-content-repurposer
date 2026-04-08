@@ -7,8 +7,8 @@ import { lightCardClass } from "@/lib/ui/saas-card";
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
   { href: "/dashboard/content", label: "Content Generator", icon: IconSpark, exact: false },
-  { href: "/dashboard/history", label: "History", icon: IconClock, exact: false },
-  { href: "/settings", label: "Settings", icon: IconGear, exact: false },
+  { href: "/history", label: "History", icon: IconClock, exact: false },
+  { href: "/account", label: "Account", icon: IconGear, exact: false },
   { href: "/support", label: "Support", icon: IconLifebuoy, exact: false },
 ] as const;
 

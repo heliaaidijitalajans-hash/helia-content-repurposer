@@ -22,6 +22,10 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
+    pathname === "/history" ||
+    pathname.startsWith("/history/") ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/") ||
     pathname === "/settings" ||
     pathname.startsWith("/settings/") ||
     pathname === "/support" ||

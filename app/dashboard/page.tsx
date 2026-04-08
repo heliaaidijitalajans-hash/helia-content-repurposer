@@ -19,7 +19,7 @@ const cards = [
   {
     title: "Recent Outputs",
     description: "Pick up where you left off with your latest generations.",
-    href: "/dashboard/history",
+    href: "/history",
     accent: "from-amber-500 to-orange-600",
     icon: IconStack,
   },
