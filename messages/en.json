@@ -23,6 +23,18 @@
     "ctaPrimary": "Start free"
   },
   "marketingPages": {
+    "featuresHeroTitle": "One tool, every content format",
+    "featuresHeroSub": "Turn video, text, and audio into viral-ready posts in one flow — ship without switching tools.",
+    "featuresCardVideoTitle": "Video → Text",
+    "featuresCardVideoDesc": "Transcribe audio and video fast, then move the text straight into viral generation.",
+    "featuresCardViralTitle": "Viral content generation",
+    "featuresCardViralDesc": "Produce threads, carousels, and hooks from a single source with a consistent voice.",
+    "featuresCardThreadTitle": "Twitter thread generator",
+    "featuresCardThreadDesc": "Break big ideas into numbered, readable tweet sequences ready to post.",
+    "featuresCardCarouselTitle": "Carousel generator",
+    "featuresCardCarouselDesc": "Create slide-by-slide titles and body copy for Instagram-style carousels.",
+    "featuresCardHooksTitle": "Hooks & CTAs",
+    "featuresCardHooksDesc": "Scroll-stopping openers and clear calls-to-action that drive engagement.",
     "featuresTitle": "Features",
     "featuresSub": "More coming soon.",
     "examplesTitle": "Examples",

@@ -23,6 +23,18 @@
     "ctaPrimary": "Ücretsiz Başla"
   },
   "marketingPages": {
+    "featuresHeroTitle": "Tek araç, tüm içerik formatları",
+    "featuresHeroSub": "Video, metin ve sesi tek akışta viral paylaşımlara dönüştürün — araç değiştirmeden yayınlayın.",
+    "featuresCardVideoTitle": "Video → Metin",
+    "featuresCardVideoDesc": "Ses ve videoyu hızlıca transkribe edin; çıkan metni doğrudan viral üretime taşıyın.",
+    "featuresCardViralTitle": "Viral içerik üretimi",
+    "featuresCardViralDesc": "Tek kaynak üzerinden tutarlı tonla thread, carousel ve kancalar üretin.",
+    "featuresCardThreadTitle": "Twitter thread generator",
+    "featuresCardThreadDesc": "Uzun fikirleri numaralı, akıcı tweet dizilerine bölün; okuması kolay, paylaşımı hazır.",
+    "featuresCardCarouselTitle": "Carousel generator",
+    "featuresCardCarouselDesc": "Instagram ve benzeri platformlar için slayt slayt başlık ve gövde metni oluşturun.",
+    "featuresCardHooksTitle": "Hooks & CTA oluşturma",
+    "featuresCardHooksDesc": "Dikkat durduran açılışlar ve net harekete geçirici mesajlarla etkileşimi artırın.",
     "featuresTitle": "Özellikler",
     "featuresSub": "Yakında.",
     "examplesTitle": "Örnekler",
