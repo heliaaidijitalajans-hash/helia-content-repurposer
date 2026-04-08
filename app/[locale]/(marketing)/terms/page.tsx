@@ -1,16 +1,33 @@
-import { getTranslations } from "next-intl/server";
+import type { Metadata } from "next";
+import { TermsOfServiceEn } from "@/components/legal/terms-of-service-en";
+import { TermsOfServiceTr } from "@/components/legal/terms-of-service-tr";
+import { routing } from "@/i18n/routing";
 
-export default async function TermsPage() {
-  const t = await getTranslations("legalPages");
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const isTr = locale === routing.defaultLocale;
+  return {
+    title: isTr
+      ? "Kullanım Şartları | Helia AI"
+      : "Terms of Service | Helia AI",
+    description: isTr
+      ? "Helia AI platformu kullanım şartları."
+      : "Helia AI platform terms of service.",
+  };
+}
+
+export default async function TermsPage({ params }: Props) {
+  const { locale } = await params;
+  const isTr = locale === routing.defaultLocale;
+
   return (
-    <div className="notranslate bg-white py-16 text-gray-900">
-      <div className="mx-auto max-w-2xl px-4 sm:px-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("termsTitle")}
-        </h1>
-        <p className="mt-4 text-sm leading-relaxed text-gray-600">
-          {t("termsBody")}
-        </p>
+    <div className="notranslate bg-white py-16 text-gray-900 sm:py-20">
+      <div className="mx-auto max-w-[900px] px-4 sm:px-6">
+        {isTr ? <TermsOfServiceTr /> : <TermsOfServiceEn />}
       </div>
     </div>
   );
