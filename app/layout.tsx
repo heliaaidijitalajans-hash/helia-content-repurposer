@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { CookieConsentBanner } from "@/components/marketing/cookie-consent-banner";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export default async function RootLayout({
         <div className="flex min-h-screen flex-col">
           <div className="flex-1">{children}</div>
           <MarketingFooter />
+          <CookieConsentBanner locale={locale} />
         </div>
       </body>
     </html>
