@@ -42,7 +42,7 @@
     "pricingTitle": "Fiyatlandırma",
     "pricingSub": "Yakında.",
     "supportTitle": "Destek",
-    "supportSub": "Yakında."
+    "supportSub": "Herhangi bir sorunuz mu var? Size yardımcı olmaktan mutluluk duyarız."
   },
   "home": {
     "heroBrand": "Helia AI",
@@ -101,6 +101,32 @@
     "whyEffectiveText": "Sosyal medyaya hazır içerikler",
     "ctaText": "Hemen dene ve içerik üretimini hızlandır",
     "ctaButton": "Ücretsiz Başla"
+  },
+  "supportPage": {
+    "title": "Destek",
+    "subtitle": "Herhangi bir sorunuz mu var? Size yardımcı olmaktan mutluluk duyarız.",
+    "contactSectionLabel": "İletişim",
+    "emailCardTitle": "E-posta",
+    "emailCardText": "Bize e-posta gönderin",
+    "whatsappCardTitle": "WhatsApp",
+    "whatsappCardText": "Hızlı destek için yazın",
+    "whatsappPhoneDisplay": "0501 110 2818",
+    "formTitle": "Bize yazın",
+    "formEmailLabel": "E-posta",
+    "formMessageLabel": "Mesaj",
+    "formSubmit": "Gönder",
+    "formMailSubject": "Helia AI — Destek",
+    "faqTitle": "Sık Sorulan Sorular",
+    "faq1Q": "Helia AI ne yapar?",
+    "faq1A": "Helia AI, video, ses veya metin içeriklerinizi alır ve bunları sosyal medya için hazır içeriklere dönüştürür.",
+    "faq2Q": "Hangi formatları destekliyor?",
+    "faq2A": "Thread, carousel, hook ve CTA gibi farklı içerik formatlarını destekler.",
+    "faq3Q": "Ücretsiz kullanabilir miyim?",
+    "faq3A": "Evet, ücretsiz plan ile başlayabilirsiniz.",
+    "faq4Q": "İçerikler ne kadar sürede hazırlanır?",
+    "faq4A": "Genellikle birkaç saniye içinde sonuç alırsınız.",
+    "faq5Q": "Verilerim güvende mi?",
+    "faq5A": "Evet, kullanıcı verileri güvenli şekilde saklanır."
   },
   "auth": {
     "title": "Giriş veya kayıt",

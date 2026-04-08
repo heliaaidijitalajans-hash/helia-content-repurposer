@@ -42,7 +42,7 @@
     "pricingTitle": "Pricing",
     "pricingSub": "More coming soon.",
     "supportTitle": "Support",
-    "supportSub": "More coming soon."
+    "supportSub": "Have a question? We’re happy to help."
   },
   "home": {
     "heroBrand": "Helia AI",
@@ -101,6 +101,32 @@
     "whyEffectiveText": "Social-ready output",
     "ctaText": "Try it now and speed up your content workflow",
     "ctaButton": "Start free"
+  },
+  "supportPage": {
+    "title": "Support",
+    "subtitle": "Have a question? We’re happy to help.",
+    "contactSectionLabel": "Contact",
+    "emailCardTitle": "Email",
+    "emailCardText": "Send us an email",
+    "whatsappCardTitle": "WhatsApp",
+    "whatsappCardText": "Message us for quick help",
+    "whatsappPhoneDisplay": "+90 501 110 2818",
+    "formTitle": "Write to us",
+    "formEmailLabel": "Email",
+    "formMessageLabel": "Message",
+    "formSubmit": "Send",
+    "formMailSubject": "Helia AI — Support",
+    "faqTitle": "Frequently asked questions",
+    "faq1Q": "What does Helia AI do?",
+    "faq1A": "Helia AI takes your video, audio, or text and turns it into social-ready content.",
+    "faq2Q": "Which formats are supported?",
+    "faq2A": "We support multiple output types, including threads, carousels, hooks, and CTAs.",
+    "faq3Q": "Can I use it for free?",
+    "faq3A": "Yes, you can start on the free plan.",
+    "faq4Q": "How fast is content generated?",
+    "faq4A": "You usually get results within a few seconds.",
+    "faq5Q": "Is my data safe?",
+    "faq5A": "Yes — we store user data securely."
   },
   "auth": {
     "title": "Sign in or sign up",
