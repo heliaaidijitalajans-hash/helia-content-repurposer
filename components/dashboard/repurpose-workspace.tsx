@@ -9,6 +9,9 @@ import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
+import { billedMinutesFromDurationSeconds } from "@/lib/credits/billing-minutes";
+import { INSUFFICIENT_CREDITS_CODE } from "@/lib/credits/constants";
+import { getMediaDurationSecondsFromFile } from "@/lib/media/duration-from-file";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
@@ -192,6 +195,10 @@ export function RepurposeWorkspace() {
     limit: number;
     transcribeUsed: number;
     transcribeLimit: number;
+    textCredits: number;
+    videoCredits: number;
+    creditsLow: boolean;
+    isPro: boolean;
   } | null>(null);
 
   const [mediaFile, setMediaFile] = useState<File | null>(null);
@@ -239,10 +246,10 @@ export function RepurposeWorkspace() {
   const videoUnlocked = FORCE_VIDEO_FEATURE_ENABLED || isPro === true;
 
   const transcribeBlocked =
-    !FORCE_VIDEO_FEATURE_ENABLED &&
     videoUnlocked &&
     usage != null &&
-    usage.transcribeUsed >= usage.transcribeLimit;
+    !usage.isPro &&
+    usage.videoCredits < 1;
   const videoControlsDisabled =
     !videoUnlocked || transcribeLoading || transcribeBlocked;
 
@@ -279,14 +286,21 @@ export function RepurposeWorkspace() {
         limit?: number;
         transcribeUsed?: number;
         transcribeLimit?: number;
+        textCredits?: number;
+        videoCredits?: number;
+        creditsLow?: boolean;
+        isPro?: boolean;
       };
       if (typeof j.used === "number" && typeof j.limit === "number") {
         setUsage({
           used: j.used,
           limit: j.limit,
           transcribeUsed: j.transcribeUsed ?? 0,
-          transcribeLimit:
-            j.transcribeLimit ?? FREE_TRANSCRIBE_LIMIT,
+          transcribeLimit: j.transcribeLimit ?? FREE_TRANSCRIBE_LIMIT,
+          textCredits: typeof j.textCredits === "number" ? j.textCredits : 0,
+          videoCredits: typeof j.videoCredits === "number" ? j.videoCredits : 0,
+          creditsLow: j.creditsLow === true,
+          isPro: j.isPro === true,
         });
       }
     } catch {
@@ -347,6 +361,11 @@ export function RepurposeWorkspace() {
       return;
     }
 
+    if (usage && !usage.isPro && usage.textCredits < 1) {
+      setError(t("creditInsufficient"));
+      return;
+    }
+
     setError(null);
     setLoading(true);
     setResult(null);
@@ -362,7 +381,7 @@ export function RepurposeWorkspace() {
       const res = await fetch(apiOriginUrl("/api/repurpose"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
+        credentials: "include",
         body: JSON.stringify({ text: bodyText }),
       });
 
@@ -371,6 +390,18 @@ export function RepurposeWorkspace() {
       };
 
       if (!res.ok) {
+        if (res.status === 401) {
+          setError(t("transcribeErrorAuth"));
+          return;
+        }
+        if (
+          res.status === 403 &&
+          data.error === INSUFFICIENT_CREDITS_CODE
+        ) {
+          setError(t("creditInsufficient"));
+          void refreshUsage();
+          return;
+        }
         if (res.status === 403) {
           setError(
             typeof data.error === "string"
@@ -559,6 +590,30 @@ export function RepurposeWorkspace() {
     setTranscribeReady(false);
     setTranscriptionText("");
 
+    let durationSeconds: number;
+    try {
+      durationSeconds = await getMediaDurationSecondsFromFile(file);
+    } catch {
+      setTranscribeLoading(false);
+      setTranscribeError(t("creditDurationUnknown"));
+      return;
+    }
+
+    let billedMinutes: number;
+    try {
+      billedMinutes = billedMinutesFromDurationSeconds(durationSeconds);
+    } catch {
+      setTranscribeLoading(false);
+      setTranscribeError(t("creditDurationUnknown"));
+      return;
+    }
+
+    if (usage && !usage.isPro && usage.videoCredits < billedMinutes) {
+      setTranscribeLoading(false);
+      setTranscribeError(t("creditInsufficient"));
+      return;
+    }
+
     const supabase = createClient();
     const {
       data: { session },
@@ -596,7 +651,8 @@ export function RepurposeWorkspace() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: fileUrl }),
+        credentials: "include",
+        body: JSON.stringify({ url: fileUrl, durationSeconds }),
       });
       const raw = await res.text();
       let parsed: {
@@ -623,6 +679,23 @@ export function RepurposeWorkspace() {
         return;
       }
 
+      if (res.status === 401) {
+        setTranscribeError(t("transcribeErrorAuth"));
+        return;
+      }
+      if (
+        res.status === 403 &&
+        parsed.error === INSUFFICIENT_CREDITS_CODE
+      ) {
+        setTranscribeError(t("creditInsufficient"));
+        void refreshUsage();
+        return;
+      }
+      if (res.status === 400 && parsed.error === "DURATION_REQUIRED") {
+        setTranscribeError(t("creditDurationUnknown"));
+        return;
+      }
+
       const err =
         typeof parsed.error === "object" && parsed.error?.message
           ? parsed.error.message
@@ -646,15 +719,35 @@ export function RepurposeWorkspace() {
     <div className="notranslate flex flex-col gap-8">
       <div className="flex flex-col gap-4">
         {usage ? (
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
-            <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
-            {videoUnlocked ? (
-              <span>
-                {t("videoQuota", {
-                  used: usage.transcribeUsed,
-                  limit: usage.transcribeLimit,
-                })}
-              </span>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
+              <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
+              {usage.isPro ? (
+                <span className="font-medium text-blue-700">
+                  {t("creditsUnlimitedPro")}
+                </span>
+              ) : (
+                <>
+                  <span>
+                    {t("creditLineText", { remaining: usage.textCredits })}
+                  </span>
+                  {videoUnlocked ? (
+                    <span>
+                      {t("creditLineVideo", {
+                        remaining: usage.videoCredits,
+                      })}
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </div>
+            {usage.creditsLow && !usage.isPro ? (
+              <div
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900"
+                role="status"
+              >
+                {t("creditLowWarning")}
+              </div>
             ) : null}
           </div>
         ) : null}
@@ -811,7 +904,11 @@ export function RepurposeWorkspace() {
 
               <button
                 type="button"
-                disabled={loading || !repurposeText.trim()}
+                disabled={
+                  loading ||
+                  !repurposeText.trim() ||
+                  (!!usage && !usage.isPro && usage.textCredits < 1)
+                }
                 onClick={() => void onRepurpose()}
                 aria-busy={loading}
                 className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:from-blue-500 hover:to-indigo-500 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
@@ -1081,7 +1178,7 @@ export function RepurposeWorkspace() {
                     role="status"
                   >
                     <p className="text-sm font-medium leading-relaxed text-amber-900">
-                      {t("transcribeUpgrade")}
+                      {t("creditInsufficient")}
                     </p>
                   </div>
                 ) : null}

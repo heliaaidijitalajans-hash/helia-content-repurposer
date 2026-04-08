@@ -1,3 +1,12 @@
+import { billedMinutesFromDurationSeconds } from "@/lib/credits/billing-minutes";
+import { INSUFFICIENT_CREDITS_CODE } from "@/lib/credits/constants";
+import {
+  rpcRefundVideoCredits,
+  rpcReserveVideoCredits,
+} from "@/lib/credits/server-rpc";
+import { checkUserProSubscription } from "@/lib/subscription/plan";
+import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
 import { getServiceSupabaseUrl } from "@/lib/supabase/admin";
 import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
 
@@ -23,7 +32,10 @@ function isAllowedStorageUrl(urlString: string): boolean {
 }
 
 export async function POST(req: Request) {
-  let body: { url?: unknown };
+  let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
+  let reservedVideoMinutes = 0;
+
+  let body: { url?: unknown; durationSeconds?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -49,8 +61,71 @@ export async function POST(req: Request) {
     });
   }
 
+  const { isConfigured } = getPublicSupabaseConfig();
+  if (isConfigured) {
+    try {
+      supabase = await createClient();
+    } catch (e) {
+      console.warn("[api/transcribe] Supabase client:", e);
+      return new Response(
+        JSON.stringify({ error: "Server configuration" }),
+        { status: 503, headers: { "Content-Type": "application/json" } },
+      );
+    }
+  }
+
+  if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const isPro = await checkUserProSubscription(supabase);
+    if (!isPro) {
+      const rawDur = body.durationSeconds;
+      if (typeof rawDur !== "number" || !Number.isFinite(rawDur)) {
+        return new Response(
+          JSON.stringify({ error: "DURATION_REQUIRED" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      let minutes: number;
+      try {
+        minutes = billedMinutesFromDurationSeconds(rawDur);
+      } catch {
+        return new Response(JSON.stringify({ error: "Invalid duration" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      const reserve = await rpcReserveVideoCredits(supabase, minutes);
+      if (!reserve?.ok) {
+        return new Response(
+          JSON.stringify({ error: INSUFFICIENT_CREDITS_CODE }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+      reservedVideoMinutes = minutes;
+    }
+  }
+
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY missing" }), {
       status: 503,
       headers: { "Content-Type": "application/json" },
@@ -62,6 +137,9 @@ export async function POST(req: Request) {
     audioRes = await fetch(url, { redirect: "follow" });
   } catch (e) {
     console.error("[api/transcribe] fetch url:", e);
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
     return new Response(JSON.stringify({ error: "Download failed" }), {
       status: 502,
       headers: { "Content-Type": "application/json" },
@@ -69,6 +147,9 @@ export async function POST(req: Request) {
   }
 
   if (!audioRes.ok) {
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
     return new Response(
       JSON.stringify({ error: `Download failed: ${audioRes.status}` }),
       { status: 502, headers: { "Content-Type": "application/json" } },
@@ -79,6 +160,9 @@ export async function POST(req: Request) {
   if (len) {
     const n = parseInt(len, 10);
     if (Number.isFinite(n) && n > MAX_BYTES) {
+      if (reservedVideoMinutes > 0 && supabase) {
+        await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+      }
       return new Response(JSON.stringify({ error: "File too large for OpenAI" }), {
         status: 413,
         headers: { "Content-Type": "application/json" },
@@ -88,6 +172,9 @@ export async function POST(req: Request) {
 
   const buffer = await audioRes.arrayBuffer();
   if (buffer.byteLength > MAX_BYTES) {
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
     return new Response(JSON.stringify({ error: "File too large for OpenAI" }), {
       status: 413,
       headers: { "Content-Type": "application/json" },
@@ -109,6 +196,9 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("[api/transcribe] OpenAI fetch:", e);
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
     return new Response(JSON.stringify({ error: "OpenAI request failed" }), {
       status: 502,
       headers: { "Content-Type": "application/json" },
@@ -119,10 +209,19 @@ export async function POST(req: Request) {
   try {
     result = await openaiRes.json();
   } catch {
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
     return new Response(JSON.stringify({ error: "OpenAI invalid JSON" }), {
       status: 502,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  if (!openaiRes.ok) {
+    if (reservedVideoMinutes > 0 && supabase) {
+      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    }
   }
 
   return new Response(JSON.stringify(result), {
