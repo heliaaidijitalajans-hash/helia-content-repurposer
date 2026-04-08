@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { KvkkNoticeEn } from "@/components/legal/kvkk-notice-en";
-import { KvkkNoticeTr } from "@/components/legal/kvkk-notice-tr";
+import { DistanceSalesEn } from "@/components/legal/distance-sales-en";
+import { DistanceSalesTr } from "@/components/legal/distance-sales-tr";
 import { routing } from "@/i18n/routing";
 
 type Props = {
@@ -12,22 +12,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const isTr = locale === routing.defaultLocale;
   return {
     title: isTr
-      ? "KVKK Aydınlatma Metni | Helia AI"
-      : "KVKK privacy notice | Helia AI",
+      ? "Mesafeli Satış Sözleşmesi | Helia AI"
+      : "Distance Sales Agreement | Helia AI",
     description: isTr
-      ? "Helia AI KVKK aydınlatma metni ve kişisel verilerin işlenmesi."
-      : "Helia AI KVKK (Turkish DPA law) privacy notice.",
+      ? "Helia AI mesafeli satış sözleşmesi (SaaS abonelik)."
+      : "Helia AI distance sales agreement (SaaS subscription).",
   };
 }
 
-export default async function KvkkPage({ params }: Props) {
+export default async function DistanceSalesPage({ params }: Props) {
   const { locale } = await params;
   const isTr = locale === routing.defaultLocale;
 
   return (
     <div className="notranslate bg-white py-16 text-gray-900 sm:py-20">
       <div className="mx-auto max-w-[900px] px-4 sm:px-6">
-        {isTr ? <KvkkNoticeTr /> : <KvkkNoticeEn />}
+        {isTr ? <DistanceSalesTr /> : <DistanceSalesEn />}
       </div>
     </div>
   );

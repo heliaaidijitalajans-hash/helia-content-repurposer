@@ -1,17 +1,11 @@
-import { getTranslations } from "next-intl/server";
+import { redirect } from "next/navigation";
 
-export default async function CookiesPage() {
-  const t = await getTranslations("legalPages");
-  return (
-    <div className="notranslate bg-white py-16 text-gray-900">
-      <div className="mx-auto max-w-2xl px-4 sm:px-6">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("cookiesTitle")}
-        </h1>
-        <p className="mt-4 text-sm leading-relaxed text-gray-600">
-          {t("cookiesBody")}
-        </p>
-      </div>
-    </div>
-  );
+type Props = {
+  params: Promise<{ locale: string }>;
+};
+
+/** Legacy URL; full policy lives at /cookie-policy. */
+export default async function CookiesPage({ params }: Props) {
+  const { locale } = await params;
+  redirect(`/${locale}/cookie-policy`);
 }

@@ -80,12 +80,27 @@ export async function MarketingFooter() {
                 </Link>
               </li>
               <li>
-                <Link href={`${lp}/privacy`} className={linkClass}>
+                <Link href={`${lp}/distance-sales`} className={linkClass}>
+                  {t.linkDistanceSales}
+                </Link>
+              </li>
+              <li>
+                <Link href={`${lp}/pre-information`} className={linkClass}>
+                  {t.linkPreInformation}
+                </Link>
+              </li>
+              <li>
+                <Link href={`${lp}/refund-policy`} className={linkClass}>
+                  {t.linkRefundPolicy}
+                </Link>
+              </li>
+              <li>
+                <Link href={`${lp}/privacy-policy`} className={linkClass}>
                   {t.linkPrivacy}
                 </Link>
               </li>
               <li>
-                <Link href={`${lp}/cookies`} className={linkClass}>
+                <Link href={`${lp}/cookie-policy`} className={linkClass}>
                   {t.linkCookies}
                 </Link>
               </li>
