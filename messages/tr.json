@@ -39,8 +39,9 @@
     "linkPrivacy": "Gizlilik Politikası",
     "linkCookies": "Çerez Politikası",
     "linkKvkk": "KVKK",
-    "paymentsSecure": "Tüm ödemeler güvenli şekilde işlenir.",
-    "paymentBadges": "Visa • Mastercard • AMEX",
+    "paymentsSectionTitle": "Güvenli Ödeme",
+    "paymentsSectionSubtitle": "Tüm ödemeler güvenli altyapı ile işlenir.",
+    "paymentsLogosAriaLabel": "Visa, Mastercard, American Express ve Discover logoları",
     "copyright": "© 2026 Helia AI. Tüm hakları saklıdır."
   },
   "legalPages": {

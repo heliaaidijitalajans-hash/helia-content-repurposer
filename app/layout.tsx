@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,7 +34,10 @@ export default async function RootLayout({
         className="min-h-screen min-h-full bg-white font-sans text-gray-900 antialiased"
         suppressHydrationWarning
       >
-        {children}
+        <div className="flex min-h-screen flex-col">
+          <div className="flex-1">{children}</div>
+          <MarketingFooter />
+        </div>
       </body>
     </html>
   );

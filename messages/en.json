@@ -39,8 +39,9 @@
     "linkPrivacy": "Privacy policy",
     "linkCookies": "Cookie policy",
     "linkKvkk": "Personal data (KVKK)",
-    "paymentsSecure": "All payments are processed securely.",
-    "paymentBadges": "Visa • Mastercard • AMEX",
+    "paymentsSectionTitle": "Secure payments",
+    "paymentsSectionSubtitle": "All payments are processed with secure infrastructure.",
+    "paymentsLogosAriaLabel": "Visa, Mastercard, American Express, and Discover logos",
     "copyright": "© 2026 Helia AI. All rights reserved."
   },
   "legalPages": {
