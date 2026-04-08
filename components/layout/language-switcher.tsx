@@ -39,16 +39,16 @@ export function LanguageSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200/90 bg-white/80 px-3 py-1.5 text-xs font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:bg-zinc-800"
+        className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-slate-200 shadow-sm transition hover:bg-white/15"
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={t("language")}
       >
-        <span className="text-zinc-400" aria-hidden>
+        <span className="text-slate-400" aria-hidden>
           ◐
         </span>
         {labels[locale] ?? locale}
-        <span className="text-[10px] text-zinc-400" aria-hidden>
+        <span className="text-[10px] text-slate-400" aria-hidden>
           ▾
         </span>
       </button>
@@ -56,7 +56,7 @@ export function LanguageSwitcher() {
         <ul
           role="listbox"
           aria-label={t("language")}
-          className="absolute right-0 z-50 mt-2 min-w-[10rem] overflow-hidden rounded-xl border border-zinc-200/90 bg-white py-1 text-sm shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+          className="absolute right-0 z-50 mt-2 min-w-[10rem] overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 py-1 text-sm shadow-xl shadow-black/30 backdrop-blur-xl"
         >
           {routing.locales.map((loc) => (
             <li key={loc} role="none">
@@ -64,16 +64,16 @@ export function LanguageSwitcher() {
                 type="button"
                 role="option"
                 aria-selected={loc === locale}
-                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+                className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-white/10 ${
                   loc === locale
-                    ? "font-semibold text-violet-600 dark:text-violet-400"
-                    : "text-zinc-700 dark:text-zinc-200"
+                    ? "font-semibold text-sky-300"
+                    : "text-slate-200"
                 }`}
                 onClick={() => select(loc)}
               >
                 {labels[loc]}
                 {loc === locale ? (
-                  <span className="text-xs text-violet-500">✓</span>
+                  <span className="text-xs text-sky-400">✓</span>
                 ) : null}
               </button>
             </li>

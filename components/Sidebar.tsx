@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { saasCardClass } from "@/lib/ui/saas-card";
 
 const items = [
   { href: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
@@ -71,7 +72,7 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
           })}
         </nav>
         <div className="border-t border-zinc-800/80 p-3">
-          <div className="rounded-xl bg-zinc-900/80 px-3 py-2.5 ring-1 ring-zinc-800">
+          <div className={saasCardClass}>
             <p className="text-xs font-medium text-zinc-200">Helia AI</p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
               Pro workspace

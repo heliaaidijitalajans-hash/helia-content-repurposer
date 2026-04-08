@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { saasCardClass } from "@/lib/ui/saas-card";
 
 const cards = [
   {
@@ -28,10 +29,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
+        <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
           Dashboard
         </h1>
-        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-zinc-500 sm:text-base">
+        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-base">
           Welcome back. Choose a workflow to create or revisit your content.
         </p>
       </div>
@@ -42,20 +43,20 @@ export default function DashboardPage() {
             <li key={title}>
               <Link
                 href={href}
-                className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-sm shadow-zinc-200/40 transition duration-300 hover:-translate-y-0.5 hover:border-violet-200/80 hover:shadow-lg hover:shadow-violet-200/25"
+                className={`group relative flex h-full flex-col overflow-hidden ${saasCardClass}`}
               >
                 <div
                   className={`mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${accent} text-white shadow-md transition group-hover:scale-105`}
                 >
                   <Icon className="h-5 w-5" />
                 </div>
-                <h2 className="text-lg font-semibold text-zinc-900">
+                <h2 className="text-lg font-semibold text-white">
                   {title}
                 </h2>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-500">
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-400">
                   {description}
                 </p>
-                <span className="mt-4 inline-flex items-center text-sm font-medium text-violet-600 transition group-hover:gap-1">
+                <span className="mt-4 inline-flex items-center text-sm font-medium text-sky-300 transition group-hover:gap-1">
                   Open
                   <svg
                     className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5"

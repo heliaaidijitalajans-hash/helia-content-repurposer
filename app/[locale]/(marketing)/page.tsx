@@ -1,8 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-
-const glassCard =
-  "rounded-xl border border-white/15 bg-white/[0.07] shadow-lg shadow-black/25 backdrop-blur-xl";
+import { saasCardClass } from "@/lib/ui/saas-card";
 
 export default async function HomePage({
   params,
@@ -36,7 +34,7 @@ export default async function HomePage({
   const authNextDashboard = `/${locale}/dashboard`;
 
   return (
-    <div className="notranslate relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#0a1628] via-slate-950 to-[#020617] text-white">
+    <div className="notranslate relative min-h-screen overflow-x-hidden">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_55%_at_50%_-10%,rgba(99,102,241,0.35),transparent)] opacity-[0.35]"
         aria-hidden
@@ -80,9 +78,7 @@ export default async function HomePage({
           </div>
 
           {/* Mockup */}
-          <div
-            className={`${glassCard} p-5 sm:p-6 ring-1 ring-white/10 transition duration-300 hover:ring-white/20 hover:shadow-xl`}
-          >
+          <div className={saasCardClass}>
             <div className="mb-4 flex items-center justify-between gap-3">
               <span className="text-xs font-medium text-slate-400">
                 {t("mockTitle")}
@@ -131,7 +127,7 @@ export default async function HomePage({
             {features.map((item) => (
               <li
                 key={item.title}
-                className={`${glassCard} group p-6 transition duration-300 hover:border-white/25 hover:bg-white/[0.1] hover:shadow-xl`}
+                className={`group ${saasCardClass}`}
               >
                 <h3 className="text-base font-semibold text-white">
                   {item.title}
@@ -155,7 +151,7 @@ export default async function HomePage({
             {steps.map((step, i) => (
               <li
                 key={step.title}
-                className={`relative ${glassCard} p-6 text-center transition duration-300 hover:border-white/25 hover:shadow-xl`}
+                className={`relative ${saasCardClass} text-center`}
               >
                 <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-sky-500/90 to-indigo-600 text-sm font-bold text-white shadow-lg">
                   {i + 1}
@@ -173,7 +169,7 @@ export default async function HomePage({
 
         <section className="mt-24 sm:mt-28">
           <div
-            className={`mx-auto max-w-2xl ${glassCard} px-8 py-12 text-center ring-1 ring-white/10 sm:px-10 sm:py-14`}
+            className={`mx-auto max-w-2xl ${saasCardClass} text-center`}
           >
             <h2 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">
               {t("ctaBottomTitle")}

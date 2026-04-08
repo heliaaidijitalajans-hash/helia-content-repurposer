@@ -5,9 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
-
-const glassCard =
-  "rounded-xl border border-white/15 bg-white/[0.08] shadow-xl shadow-black/30 backdrop-blur-2xl ring-1 ring-white/10";
+import { saasCardClass } from "@/lib/ui/saas-card";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-white/15 bg-white/5 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400/50 focus:bg-white/[0.07] focus:ring-2 focus:ring-sky-500/25";
@@ -106,7 +104,7 @@ export function AuthForm() {
   const busy = loading !== null;
 
   return (
-    <div className="notranslate relative min-h-screen overflow-x-hidden bg-gradient-to-br from-[#0a1628] via-slate-950 to-[#020617] text-white">
+    <div className="notranslate relative min-h-screen overflow-x-hidden">
       <AuthBackground />
 
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-12">
@@ -120,7 +118,7 @@ export function AuthForm() {
             </Link>
           </div>
 
-          <div className={`${glassCard} p-8 sm:p-9`}>
+          <div className={saasCardClass}>
             <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
               {isLogin ? t("welcomeTitle") : t("signupWelcomeTitle")}
             </h1>

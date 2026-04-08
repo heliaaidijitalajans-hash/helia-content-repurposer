@@ -22,23 +22,23 @@ export function DashboardHeader({ email }: Props) {
   }
 
   return (
-    <header className="border-b border-zinc-200/80 bg-white/80 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/80">
+    <header className="border-b border-white/10 bg-white/10 shadow-lg shadow-black/15 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
         <Link
           href="/dashboard"
-          className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
+          className="text-sm font-semibold tracking-tight text-white transition hover:text-sky-200"
         >
           {tc("brand")}
         </Link>
         <div className="flex items-center gap-3 sm:gap-4">
           <LanguageSwitcher />
-          <span className="hidden max-w-[200px] truncate text-xs text-zinc-500 sm:inline">
+          <span className="hidden max-w-[200px] truncate text-xs text-slate-400 sm:inline">
             {email}
           </span>
           <button
             type="button"
             onClick={() => void signOut()}
-            className="rounded-lg border border-zinc-200/80 px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="rounded-lg border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
           >
             {t("signOut")}
           </button>

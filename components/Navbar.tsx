@@ -22,17 +22,17 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   }, []);
 
   const linkClass =
-    "rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900";
+    "rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white";
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-md shadow-zinc-900/5">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-white/10 shadow-lg shadow-black/20 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           {onMenuClick ? (
             <button
               type="button"
               aria-label="Open menu"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 md:hidden"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-200 transition hover:bg-white/10 md:hidden"
               onClick={onMenuClick}
             >
               <svg
@@ -53,7 +53,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           ) : null}
           <Link
             href="/dashboard"
-            className="truncate text-base font-semibold tracking-tight text-zinc-900 transition hover:text-violet-600"
+            className="truncate text-base font-semibold tracking-tight text-white transition hover:text-sky-200"
           >
             Helia AI
           </Link>
@@ -89,11 +89,11 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             {profileOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 top-full mt-2 w-48 origin-top-right rounded-xl border border-zinc-200 bg-white py-1 shadow-lg shadow-zinc-900/10"
+                className="absolute right-0 top-full mt-2 w-48 origin-top-right rounded-xl border border-white/10 bg-slate-900/95 py-1 shadow-xl shadow-black/40 backdrop-blur-xl"
               >
                 <Link
                   href="/settings"
-                  className="block px-4 py-2.5 text-sm text-zinc-700 transition hover:bg-zinc-50"
+                  className="block px-4 py-2.5 text-sm text-slate-200 transition hover:bg-white/10"
                   role="menuitem"
                   onClick={() => setProfileOpen(false)}
                 >
@@ -101,17 +101,17 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 </Link>
                 <Link
                   href="/support"
-                  className="block px-4 py-2.5 text-sm text-zinc-700 transition hover:bg-zinc-50"
+                  className="block px-4 py-2.5 text-sm text-slate-200 transition hover:bg-white/10"
                   role="menuitem"
                   onClick={() => setProfileOpen(false)}
                 >
                   Help &amp; support
                 </Link>
-                <hr className="my-1 border-zinc-100" />
+                <hr className="my-1 border-white/10" />
                 <button
                   type="button"
                   role="menuitem"
-                  className="w-full px-4 py-2.5 text-left text-sm text-red-600 transition hover:bg-red-50"
+                  className="w-full px-4 py-2.5 text-left text-sm text-red-300 transition hover:bg-red-500/10"
                   onClick={() => setProfileOpen(false)}
                 >
                   Sign out

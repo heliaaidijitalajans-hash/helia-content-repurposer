@@ -1,34 +1,35 @@
 import { getTranslations } from "next-intl/server";
+import { saasCardClass } from "@/lib/ui/saas-card";
 
 const cards = [
   {
     titleKey: "featuresCardVideoTitle" as const,
     descKey: "featuresCardVideoDesc" as const,
-    iconWrap: "bg-sky-50 text-sky-600 ring-sky-100",
+    iconWrap: "bg-sky-500/15 text-sky-300 ring-sky-400/25",
     Icon: IconFilm,
   },
   {
     titleKey: "featuresCardViralTitle" as const,
     descKey: "featuresCardViralDesc" as const,
-    iconWrap: "bg-violet-50 text-violet-600 ring-violet-100",
+    iconWrap: "bg-violet-500/15 text-violet-300 ring-violet-400/25",
     Icon: IconSpark,
   },
   {
     titleKey: "featuresCardThreadTitle" as const,
     descKey: "featuresCardThreadDesc" as const,
-    iconWrap: "bg-blue-50 text-blue-600 ring-blue-100",
+    iconWrap: "bg-blue-500/15 text-blue-300 ring-blue-400/25",
     Icon: IconThread,
   },
   {
     titleKey: "featuresCardCarouselTitle" as const,
     descKey: "featuresCardCarouselDesc" as const,
-    iconWrap: "bg-amber-50 text-amber-600 ring-amber-100",
+    iconWrap: "bg-amber-500/15 text-amber-300 ring-amber-400/25",
     Icon: IconCarousel,
   },
   {
     titleKey: "featuresCardHooksTitle" as const,
     descKey: "featuresCardHooksDesc" as const,
-    iconWrap: "bg-emerald-50 text-emerald-600 ring-emerald-100",
+    iconWrap: "bg-emerald-500/15 text-emerald-300 ring-emerald-400/25",
     Icon: IconHooks,
   },
 ];
@@ -37,13 +38,13 @@ export default async function FeaturesPage() {
   const t = await getTranslations("marketingPages");
 
   return (
-    <div className="notranslate min-h-screen bg-zinc-50">
+    <div className="notranslate min-h-screen text-slate-100">
       <div className="mx-auto max-w-6xl px-4 pb-20 pt-16 sm:px-6 sm:pt-20">
         <header className="mx-auto max-w-2xl text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
+          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
             {t("featuresHeroTitle")}
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-zinc-600 sm:text-lg">
+          <p className="mt-4 text-base leading-relaxed text-slate-300 sm:text-lg">
             {t("featuresHeroSub")}
           </p>
         </header>
@@ -52,17 +53,17 @@ export default async function FeaturesPage() {
           {cards.map(({ titleKey, descKey, iconWrap, Icon }) => (
             <li
               key={titleKey}
-              className="group flex flex-col rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
+              className={`group flex flex-col ${saasCardClass}`}
             >
               <div
                 className={`flex h-12 w-12 items-center justify-center rounded-xl ring-1 transition group-hover:scale-105 ${iconWrap}`}
               >
                 <Icon className="h-6 w-6" />
               </div>
-              <h2 className="mt-5 text-lg font-semibold text-zinc-900">
+              <h2 className="mt-5 text-lg font-semibold text-white">
                 {t(titleKey)}
               </h2>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-600">
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-300">
                 {t(descKey)}
               </p>
             </li>

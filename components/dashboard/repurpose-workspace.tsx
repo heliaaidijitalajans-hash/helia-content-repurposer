@@ -10,6 +10,7 @@ import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
+import { saasCardClass } from "@/lib/ui/saas-card";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set([
   "mp3",
@@ -64,13 +65,11 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="notranslate rounded-2xl border border-zinc-200/80 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+    <section className={`notranslate ${saasCardClass}`}>
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
         {title}
       </h2>
-      <div className="text-sm leading-relaxed text-zinc-800 dark:text-zinc-200">
-        {children}
-      </div>
+      <div className="text-sm leading-relaxed text-slate-100">{children}</div>
     </section>
   );
 }
@@ -527,7 +526,7 @@ export function RepurposeWorkspace() {
     <div className="notranslate flex flex-col gap-8">
       <div className="flex flex-col gap-4">
         {usage ? (
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-400">
             <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
             {videoUnlocked ? (
               <span>
@@ -543,7 +542,7 @@ export function RepurposeWorkspace() {
         <div
           role="tablist"
           aria-label={t("workspaceTabsAria")}
-          className="flex flex-col gap-2 sm:flex-row sm:gap-1 sm:rounded-xl sm:border sm:border-zinc-200/90 sm:bg-zinc-100/90 sm:p-1 sm:shadow-inner dark:sm:border-zinc-800 dark:sm:bg-zinc-900/70"
+          className="flex flex-col gap-2 sm:flex-row sm:gap-1 sm:rounded-xl sm:border sm:border-white/10 sm:bg-white/5 sm:p-1 sm:shadow-inner sm:backdrop-blur-md"
         >
           <button
             type="button"
@@ -553,17 +552,17 @@ export function RepurposeWorkspace() {
             aria-controls="panel-text"
             tabIndex={activeTab === "text" ? 0 : -1}
             onClick={() => setActiveTab("text")}
-            className={`flex flex-1 flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 sm:border-0 sm:px-3 sm:py-3 ${
+            className={`flex flex-1 flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 sm:border-0 sm:px-3 sm:py-3 ${
               activeTab === "text"
-                ? "border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-800 sm:shadow-sm"
-                : "border-transparent bg-zinc-50/80 hover:border-zinc-200/80 hover:bg-white/90 dark:border-transparent dark:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/80"
+                ? "border-white/15 bg-white/15 shadow-sm backdrop-blur-sm sm:shadow-sm"
+                : "border-transparent bg-white/5 hover:border-white/10 hover:bg-white/10"
             }`}
           >
             <span
               className={`text-sm font-semibold leading-snug sm:text-base ${
                 activeTab === "text"
-                  ? "text-zinc-900 dark:text-white"
-                  : "text-zinc-700 dark:text-zinc-200"
+                  ? "text-white"
+                  : "text-slate-300"
               }`}
             >
               {t("toolTitleText")}
@@ -571,8 +570,8 @@ export function RepurposeWorkspace() {
             <span
               className={`text-xs font-normal leading-relaxed ${
                 activeTab === "text"
-                  ? "text-zinc-500 dark:text-zinc-400"
-                  : "text-zinc-500 dark:text-zinc-500"
+                  ? "text-slate-400"
+                  : "text-slate-500"
               }`}
             >
               {t("toolDescText")}
@@ -586,17 +585,17 @@ export function RepurposeWorkspace() {
             aria-controls="panel-video"
             tabIndex={activeTab === "video" ? 0 : -1}
             onClick={() => setActiveTab("video")}
-            className={`flex flex-1 flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/40 sm:border-0 sm:px-3 sm:py-3 ${
+            className={`flex flex-1 flex-col gap-1 rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/40 sm:border-0 sm:px-3 sm:py-3 ${
               activeTab === "video"
-                ? "border-zinc-200/90 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-800 sm:shadow-sm"
-                : "border-transparent bg-zinc-50/80 hover:border-zinc-200/80 hover:bg-white/90 dark:border-transparent dark:bg-zinc-900/40 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/80"
+                ? "border-white/15 bg-white/15 shadow-sm backdrop-blur-sm sm:shadow-sm"
+                : "border-transparent bg-white/5 hover:border-white/10 hover:bg-white/10"
             }`}
           >
             <span
               className={`text-sm font-semibold leading-snug sm:text-base ${
                 activeTab === "video"
-                  ? "text-zinc-900 dark:text-white"
-                  : "text-zinc-700 dark:text-zinc-200"
+                  ? "text-white"
+                  : "text-slate-300"
               }`}
             >
               {t("toolTitleVideo")}
@@ -604,8 +603,8 @@ export function RepurposeWorkspace() {
             <span
               className={`text-xs font-normal leading-relaxed ${
                 activeTab === "video"
-                  ? "text-zinc-500 dark:text-zinc-400"
-                  : "text-zinc-500 dark:text-zinc-500"
+                  ? "text-slate-400"
+                  : "text-slate-500"
               }`}
             >
               {t("toolDescVideo")}
@@ -623,7 +622,7 @@ export function RepurposeWorkspace() {
             <div className="flex min-w-0 flex-col gap-4">
               <label
                 htmlFor="repurpose-source"
-                className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                className="text-sm font-medium text-slate-300"
               >
                 {t("sourceLabel")}
               </label>
@@ -635,7 +634,7 @@ export function RepurposeWorkspace() {
                 rows={14}
                 disabled={loading}
                 aria-busy={loading}
-                className="min-h-[280px] w-full resize-y rounded-2xl border border-zinc-200/80 bg-white px-4 py-3 text-sm text-zinc-900 shadow-inner outline-none ring-0 placeholder:text-zinc-400 focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                className="min-h-[280px] w-full resize-y rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-100 shadow-inner outline-none ring-0 placeholder:text-slate-500 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-500/25 disabled:cursor-not-allowed disabled:opacity-60"
               />
               <div
                 className="pointer-events-auto w-fit"
@@ -646,12 +645,12 @@ export function RepurposeWorkspace() {
                   disabled={loading || !repurposeText.trim()}
                   onClick={() => void onRepurpose()}
                   aria-busy={loading}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {loading ? (
                     <>
                       <span
-                        className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
+                        className="size-4 shrink-0 animate-spin rounded-full border-2 border-slate-300/40 border-t-slate-900"
                         aria-hidden
                       />
                       {t("loading")}
@@ -663,7 +662,7 @@ export function RepurposeWorkspace() {
               </div>
               {error ? (
                 <p
-                  className="text-sm text-red-600 dark:text-red-400"
+                  className="text-sm text-red-300"
                   role="alert"
                 >
                   {error}
@@ -672,14 +671,16 @@ export function RepurposeWorkspace() {
             </div>
 
             <div className="flex min-w-0 flex-col gap-4">
-              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <p className="text-sm font-medium text-slate-300">
                 {t("results")}
               </p>
 
               {!result && !loading ? (
-                <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200/80 bg-zinc-50/50 py-20 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400">
+                <div
+                  className={`flex min-h-[200px] flex-1 flex-col items-center justify-center text-center text-sm text-slate-400 ${saasCardClass} border-dashed`}
+                >
                   <p>{t("emptyHint")}</p>
-                  <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+                  <p className="mt-2 text-xs text-slate-500">
                     {t("emptyFormats")}
                   </p>
                 </div>
@@ -687,12 +688,12 @@ export function RepurposeWorkspace() {
 
               {loading ? (
                 <div
-                  className="flex min-h-[200px] flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 py-16 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/30 dark:text-zinc-400"
+                  className={`flex min-h-[200px] flex-1 flex-col items-center justify-center gap-3 text-sm text-slate-400 ${saasCardClass}`}
                   role="status"
                   aria-live="polite"
                 >
                   <span
-                    className="size-8 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
+                    className="size-8 animate-spin rounded-full border-2 border-sky-400/30 border-t-sky-300"
                     aria-hidden
                   />
                   <span>{t("generating")}</span>
@@ -736,39 +737,36 @@ export function RepurposeWorkspace() {
           >
             {!FORCE_VIDEO_FEATURE_ENABLED && isPro === null ? (
               <div
-                className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-zinc-200/80 bg-zinc-50/50 px-6 py-16 dark:border-zinc-800 dark:bg-zinc-900/30"
+                className={`flex min-h-[280px] flex-col items-center justify-center gap-3 ${saasCardClass}`}
                 role="status"
                 aria-live="polite"
                 aria-busy="true"
               >
                 <span
-                  className="size-8 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
+                  className="size-8 animate-spin rounded-full border-2 border-sky-400/30 border-t-sky-300"
                   aria-hidden
                 />
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="text-sm text-slate-400">
                   {t("subscriptionLoading")}
                 </p>
               </div>
             ) : !FORCE_VIDEO_FEATURE_ENABLED && isPro === false ? (
               <div
-                className="flex min-h-[280px] flex-col items-center justify-center rounded-2xl border border-zinc-200/80 bg-white px-6 py-12 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
+                className={`flex min-h-[280px] flex-col items-center justify-center text-center ${saasCardClass}`}
                 role="status"
               >
-                <p className="max-w-md text-sm font-semibold leading-relaxed text-zinc-900 dark:text-zinc-100">
+                <p className="max-w-md text-sm font-semibold leading-relaxed text-slate-100">
                   {t("videoUpgradeMessage")}
                 </p>
               </div>
             ) : (
-              <div
-                className="rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50"
-                aria-busy={transcribeLoading}
-              >
-                <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <div className={saasCardClass} aria-busy={transcribeLoading}>
+                <p className="text-sm font-medium text-slate-300">
                   {t("transcribeLabel")}
                 </p>
                 <p
                   id="transcribe-formats-hint"
-                  className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400"
+                  className="mt-0.5 text-xs text-slate-400"
                 >
                   {t("transcribeHint")}
                 </p>
@@ -790,13 +788,13 @@ export function RepurposeWorkspace() {
                   onDrop={onTranscribeDrop}
                   className={`relative mt-4 flex min-h-[14rem] flex-col justify-center gap-5 rounded-2xl border-2 border-dashed px-4 py-6 transition sm:px-6 ${
                     videoControlsDisabled
-                      ? "cursor-not-allowed border-zinc-200/60 bg-zinc-50/30 opacity-50 dark:border-zinc-800 dark:bg-zinc-900/20"
+                      ? "cursor-not-allowed border-white/10 bg-white/5 opacity-50"
                       : dragActive
-                        ? "border-violet-500 bg-violet-50/70 dark:border-violet-400 dark:bg-violet-950/40"
-                        : "border-zinc-200/90 bg-gradient-to-b from-zinc-50/90 to-white dark:border-zinc-700 dark:from-zinc-900/50 dark:to-zinc-900/30"
+                        ? "border-sky-400 bg-sky-500/15"
+                        : "border-white/20 bg-white/5"
                   }`}
                 >
-                  <p className="text-center text-sm font-semibold leading-snug text-zinc-800 dark:text-zinc-100">
+                  <p className="text-center text-sm font-semibold leading-snug text-slate-100">
                     {t("transcribeHybridDropzoneTitle")}
                   </p>
                   <div className="flex flex-col items-center gap-3">
@@ -807,7 +805,7 @@ export function RepurposeWorkspace() {
                         e.stopPropagation();
                         openTranscribeFilePicker();
                       }}
-                      className="relative z-[9999] inline-flex items-center gap-2 rounded-xl border border-zinc-200/90 bg-white/90 px-4 py-2.5 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-violet-300/80 hover:bg-violet-50/50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-600 dark:bg-zinc-900/80 dark:text-zinc-200 dark:hover:border-violet-500/40 dark:hover:bg-violet-950/30"
+                      className="relative z-[9999] inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-medium text-slate-200 shadow-sm backdrop-blur-sm transition hover:border-white/25 hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -817,7 +815,7 @@ export function RepurposeWorkspace() {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="size-5 text-violet-600 dark:text-violet-400"
+                        className="size-5 text-sky-300"
                         aria-hidden
                       >
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -826,7 +824,7 @@ export function RepurposeWorkspace() {
                       </svg>
                       {t("transcribeHybridPickFile")}
                     </button>
-                    <p className="max-w-md text-center text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                    <p className="max-w-md text-center text-xs leading-relaxed text-slate-400">
                       {t("transcribeFileHint")}
                     </p>
                     <div
@@ -842,12 +840,12 @@ export function RepurposeWorkspace() {
                           !isAllowedMediaFile(mediaFile)
                         }
                         onClick={() => void submitTranscription()}
-                        className="inline-flex h-11 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-zinc-900 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white sm:w-auto sm:min-w-[12rem]"
+                        className="inline-flex h-11 w-full max-w-xs items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:min-w-[12rem]"
                       >
                         {transcribeLoading ? (
                           <>
                             <span
-                              className="size-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-zinc-900/30 dark:border-t-zinc-900"
+                              className="size-4 shrink-0 animate-spin rounded-full border-2 border-slate-300/40 border-t-slate-900"
                               aria-hidden
                             />
                             {t("transcribeTranscribingStep")}
@@ -859,25 +857,25 @@ export function RepurposeWorkspace() {
                     </div>
                   </div>
                   {mediaFile ? (
-                    <p className="text-center text-xs font-medium text-violet-700 dark:text-violet-300">
+                    <p className="text-center text-xs font-medium text-sky-300">
                       {t("transcribeSelected", { name: mediaFile.name })}
                     </p>
                   ) : null}
                   {transcribeLoading ? (
                     <div
-                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-2 rounded-2xl bg-white/92 px-4 text-center backdrop-blur-sm dark:bg-zinc-900/92"
+                      className="absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-2 rounded-2xl bg-slate-950/85 px-4 text-center backdrop-blur-md"
                       role="status"
                       aria-live="polite"
                       aria-label={t("transcribeTranscribingStep")}
                     >
                       <span
-                        className="size-9 shrink-0 animate-spin rounded-full border-2 border-violet-200 border-t-violet-600 dark:border-violet-900 dark:border-t-violet-400"
+                        className="size-9 shrink-0 animate-spin rounded-full border-2 border-sky-400/30 border-t-sky-300"
                         aria-hidden
                       />
-                      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                      <p className="text-sm font-medium text-slate-100">
                         {t("transcribeTranscribingStep")}
                       </p>
-                      <p className="max-w-[16rem] text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                      <p className="max-w-[16rem] text-xs leading-relaxed text-slate-400">
                         {t("processingVideoHint")}
                       </p>
                     </div>
@@ -885,20 +883,20 @@ export function RepurposeWorkspace() {
                 </div>
                 {transcribeBlocked && !transcribeReady ? (
                   <div
-                    className="mt-3 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 dark:border-amber-900/45 dark:bg-amber-950/40"
+                    className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2.5 backdrop-blur-sm"
                     role="status"
                   >
-                    <p className="text-sm font-medium leading-relaxed text-amber-950 dark:text-amber-100">
+                    <p className="text-sm font-medium leading-relaxed text-amber-100">
                       {t("transcribeUpgrade")}
                     </p>
                   </div>
                 ) : null}
                 {transcribeError ? (
                   <div
-                    className="mt-3 rounded-xl border border-red-200/90 bg-red-50/90 px-3 py-2.5 dark:border-red-900/45 dark:bg-red-950/40"
+                    className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2.5 backdrop-blur-sm"
                     role="alert"
                   >
-                    <p className="text-sm leading-relaxed text-red-800 dark:text-red-200">
+                    <p className="text-sm leading-relaxed text-red-200">
                       {transcribeError}
                     </p>
                   </div>
@@ -906,26 +904,26 @@ export function RepurposeWorkspace() {
                 {transcribeReady ? (
                   <div className="mt-3 flex flex-col gap-3">
                     {transcribeApiMeta ? (
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      <p className="text-xs text-slate-400">
                         {transcribeApiMeta}
                       </p>
                     ) : null}
                     <div
-                      className="rounded-xl border border-emerald-200/90 bg-emerald-50/90 px-3 py-2.5 dark:border-emerald-900/45 dark:bg-emerald-950/40"
+                      className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2.5 backdrop-blur-sm"
                       role="status"
                       aria-live="polite"
                     >
-                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-200">
                         {t("transcribeSuccessTitle")}
                       </p>
-                      <p className="mt-1 text-sm leading-relaxed text-emerald-900 dark:text-emerald-100">
+                      <p className="mt-1 text-sm leading-relaxed text-emerald-100">
                         {t("transcribeSuccessBody")}
                       </p>
                     </div>
                     <div className="flex flex-col gap-2">
                       <label
                         htmlFor="transcription-output"
-                        className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+                        className="text-sm font-medium text-slate-300"
                       >
                         {t("transcriptionOutputLabel")}
                       </label>
@@ -934,7 +932,7 @@ export function RepurposeWorkspace() {
                         value={transcriptionText}
                         onChange={(e) => setTranscriptionText(e.target.value)}
                         rows={10}
-                        className="min-h-[160px] w-full resize-y rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-3 py-2.5 text-sm text-zinc-900 outline-none ring-0 focus:border-violet-400/80 focus:ring-2 focus:ring-violet-500/20 dark:border-zinc-700 dark:bg-zinc-950/50 dark:text-zinc-100"
+                        className="min-h-[160px] w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-slate-100 outline-none ring-0 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-500/25"
                       />
                     </div>
                   </div>
