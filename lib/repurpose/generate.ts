@@ -109,10 +109,14 @@ JSON shape:
 
 3) hooks (array, exactly 5 strings):
 - Each hook: MAX 8 Turkish words.
-- hooks[0] MUST satisfy FIRST STRIKE: extreme punch, shock or bold claim, NO “?” — your strongest single line. hooks[1]–[4]: BOLD and DRAMATIC; BAN soft quiz hooks (“merak ettiniz mi”, “biliyor muydunuz”) and bland trivia.
-- For hooks[1]–[4] USE patterns often (adapt; vary): “Kimse bilmiyor…”, “Herkes bunu yanlış biliyor…”, “Belki de gerçek şu…”, “Bu seni şaşırtacak…”, “Kimse bunu söylemiyor…”, “İşte herkesin kaçırdığı şey…”.
+- hooks[0] MUST satisfy FIRST STRIKE: extreme punch, shock or bold claim, NO “?” — your strongest single line. NO soft openers here (“Belki de…”, “Acaba…”) on hooks[0].
+- PATTERN-BREAKING (mandatory): All five hooks MUST feel like five different writers. Rotate sentence shape: time-span opener, counter-hypothesis (“Belki de…”), split authority, stakes bomb, “truth vs assumption” closer — NEVER the same opening word twice in a row across hooks, and NEVER three hooks sharing the same first word (e.g. not “Bu… / Bu… / Bu…”).
+- BAN parallel clones: if two hooks could be merged by swapping one noun, rewrite one. BAN repetitive scaffolding (“Kimse… / Kimse… / Herkes…”).
+- Emotional triggers — weave across the set (not all in one line): CURIOSITY (mystery, forbidden detail), DISBELIEF (“buna kimse hazır değil”, “inançları yerle bir”), CONTROVERSY (çınarlar ikiye bölündü, yasak tez, çarpıcı çelişki).
+- Direction only (adapt heavily to source; do NOT copy): “4000 yıldır kimse bunu çözemedi…”, “Belki de bu bir dil değil…”, “Bilim insanları bile ikiye bölündü…”, “Bu teori her şeyi değiştirebilir…”, “Gerçek sandığından farklı olabilir…”
+- BAN soft quiz hooks (“merak ettiniz mi”, “biliyor muydunuz”) and bland trivia.
 - Ellipsis “…” is allowed for drama when it fits the word limit.
-- hooks[1]–[4]: at least 3 must BEGIN with a declarative dramatic opener. Among hooks[1]–[4] only, at most ONE may end with “?”.
+- Among hooks[1]–[4] only, at most ONE may end with “?”.
 
 4) cta (array, exactly 3 strings):
 - Each CTA: MAX 10 Turkish words.
@@ -229,11 +233,11 @@ function mockResult(input: string): RepurposeResult {
       `Slayt 1 — Herkes bu konuda yanılıyor; kanıt aşağıda.\n\nSlayt 2 — Görünmez kalırsa tam olarak ne yıkılır?\n\nSlayt 3 — Gerçek hikâye hangi cümlede saklı?\n\nSlayt 4 — Kimse bunu yüksek sesle söylemiyor…\n\nSlayt 5 — Kaydet; devamı takipte.`,
     ),
     hooks: [
-      "Bu bilgi seni şaşırtacak.",
-      "Herkes bunu yanlış biliyor; dur bir dinle.",
-      "Belki de gerçek şu: her şey değişir.",
-      "Bu seni şaşırtacak; hazır mısın?",
-      "Kimse yüzüne vurmuyor; ben vuruyorum.",
+      "Yıllardır kimse bunu çözemedi…",
+      "Belki de bu bir yanılsama…",
+      "Uzmanlar bile ikiye bölündü.",
+      "Bu bulgu her şeyi değiştirebilir.",
+      "Gerçek sandığından bambaşka olabilir.",
     ].map((h) => clampToWords(h, 8)),
     cta: [
       "Kaydet; yarın aynı anda ihtiyacın var.",
@@ -269,6 +273,8 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
           content: `Verilen metni viral sosyal içeriğe dönüştür. Sistem kurallarına harfiyen uy. Sadece JSON; başka metin yok.
 
 Üslup: agresif merak. İlk vuruş şart: 1. tweet gövdesi, Slayt 1 metni ve ilk kanca (hooks[0]) şok veya cesur iddia; bu üçünde soru işareti YOK. Sonrasında soru ve gerilim serbest.
+
+Kancalar: beşi de farklı yapı; merak, inanç sarsıntısı, tartışma tetikle. Aynı kalıbı tekrarlama.
 
 hooks: tam 5 öğe. cta: tam 3 öğe.
 
