@@ -65,12 +65,19 @@ const SYSTEM_PROMPT = `You create viral-ready social copy for the Turkish market
 HARD LANGUAGE RULE:
 - Every string in the JSON (twitter_thread, instagram_carousel, hooks[], cta[]) MUST be 100% Turkish. No English in hooks, CTAs, tweets, or slides. Keep proper nouns from the source only if they appear in the input.
 
+FIRST STRIKE (instant stop-scroll — non-negotiable):
+- These THREE openings must hit like “Wait, what?” (“Bekle, ne?”) in Turkish — shock, contrast, or a bold declarative claim. NO soft setup.
+- A) twitter_thread: ONLY the body of tweet “1/” (the first tweet line after “1/”).
+- B) instagram_carousel: ONLY the text after “Slayt 1 —”.
+- C) hooks[0]: the FIRST string in the hooks array (must be your strongest line).
+- For A, B, and C: NO question mark “?” anywhere in that line/string — statements only. NO opening with a question. Ban hedging openers for these three (“acaba”, “belki şöyledir” as the opening vibe).
+- Direction (adapt to source; do not copy verbatim): “4000 yıllık yazıyı kimse çözemiyor.” / “Herkes bu konuda yanılıyor.” / “Bu bilgi seni şaşırtacak.”
+
 STOP-SCROLL VOICE (mandatory):
 - Every tweet line, every slide line, and every hook MUST spark curiosity, tension, mystery, or surprise. Neutral, informative, headline-summary tone is NOT allowed.
 - BAN dry reporting: no flat “X oldu / X çözülemedi / şöyle şeyler var” with zero edge.
-- USE patterns: rhetorical or direct QUESTIONS (“…neden hâlâ…?”), SUSPENSE (“Kimse bunu söylemiyor…”), rare ellipses for pause, BOLD one-liners that demand a second look.
-- When the source states a fact plainly, REPHRASE into a scroll-stopper first. Direction (examples—adapt to source, do not quote blindly): “X hâlâ çözülemedi” → “X neden hâlâ çözülemedi?” OR “Kimse bunu çözemiyor…”
-- At least 3 of the 5 tweets should be questions OR end on sharp tension (vary structure—do not use one repetitive template).
+- After FIRST STRIKE: use questions, suspense (“Kimse bunu söylemiyor…”), ellipses, twists freely — but tweet 1/, Slayt 1 — body, and hooks[0] stay statement-only per FIRST STRIKE.
+- When the source states a fact plainly, REPHRASE into a scroll-stopper. Among tweets “2/” through “5/”, at least TWO should be questions OR end on sharp tension (vary rhythm).
 
 OUTPUT: Valid JSON only. No markdown. No code fences. No text before or after the JSON. snake_case keys only.
 
@@ -88,7 +95,7 @@ JSON shape:
 
   2/ [max 12 words]
   (blank line between each tweet; use digits 1/ through 5/)
-- Each tweet MUST feel like a cliffhanger beat: question, twist, dare, or exposed tension—never a dry bullet.
+- Tweet “1/” MUST satisfy FIRST STRIKE (shock/bold claim, no “?” in that line). Tweets “2/”–“5/”: cliffhanger beats — questions, twists, dares, tension — but never a dry bullet.
 - NOT academic. NOT "this text explains…". NO long sentences.
 - Stay faithful to the source — do not invent facts.
 
@@ -98,14 +105,14 @@ JSON shape:
 
   Slayt 2 — [max 10 words]
   (blank line between slides)
-- One sharp hook per slide. Imagine text on a Reels cover: mystery or confrontation, not chapter titles.
+- “Slayt 1 —” line MUST satisfy FIRST STRIKE (no “?” on slide 1). Slides 2–5: sharp hooks like Reels covers; questions allowed.
 
 3) hooks (array, exactly 5 strings):
 - Each hook: MAX 8 Turkish words.
-- BOLD and DRAMATIC: open with a strong CLAIM, then curiosity—not a polite or neutral question. BAN soft quiz hooks (“merak ettiniz mi”, “biliyor muydunuz”) and bland “nedir / kimdir” trivia.
-- USE opener patterns often (adapt to source; vary them—do not copy-paste): “Kimse bilmiyor…”, “Herkes bunu yanlış biliyor…”, “Belki de gerçek şu…”, “Bu seni şaşırtacak…”, “Kimse bunu söylemiyor…”, “İşte herkesin kaçırdığı şey…”.
+- hooks[0] MUST satisfy FIRST STRIKE: extreme punch, shock or bold claim, NO “?” — your strongest single line. hooks[1]–[4]: BOLD and DRAMATIC; BAN soft quiz hooks (“merak ettiniz mi”, “biliyor muydunuz”) and bland trivia.
+- For hooks[1]–[4] USE patterns often (adapt; vary): “Kimse bilmiyor…”, “Herkes bunu yanlış biliyor…”, “Belki de gerçek şu…”, “Bu seni şaşırtacak…”, “Kimse bunu söylemiyor…”, “İşte herkesin kaçırdığı şey…”.
 - Ellipsis “…” is allowed for drama when it fits the word limit.
-- At least 4 of 5 hooks must BEGIN with a declarative dramatic opener (e.g. Kimse…, Herkes…, Belki…). At most ONE hook may end with “?”.
+- hooks[1]–[4]: at least 3 must BEGIN with a declarative dramatic opener. Among hooks[1]–[4] only, at most ONE may end with “?”.
 
 4) cta (array, exactly 3 strings):
 - Each CTA: MAX 10 Turkish words.
@@ -216,13 +223,13 @@ function mockResult(input: string): RepurposeResult {
     "Kaydırmayı durduran tek cümle burada.";
   return {
     twitter_thread: tightenTwitterThread(
-      `1/ ${preview}\n\n2/ Peki kim bunu görmezden geliyor… ve neden?\n\n3/ Bu sahne sana da tanıdık geldi mi?\n\n4/ Sonuç tek cümlede—ama önce şunu gör.\n\n5/ Hangi satır seni en çok ters köşe yaptı?`,
+      `1/ Bu bilgi seni şaşırtacak; peşi geliyor.\n\n2/ Peki kim bunu görmezden geliyor… ve neden?\n\n3/ Bu sahne sana da tanıdık geldi mi?\n\n4/ Sonuç tek cümlede—ama önce şunu gör.\n\n5/ Hangi satır seni en çok ters köşe yaptı?`,
     ),
     instagram_carousel: tightenCarousel(
-      `Slayt 1 — ${preview}\n\nSlayt 2 — Görünmez kalırsa tam olarak ne yıkılır?\n\nSlayt 3 — Gerçek hikâye hangi cümlede saklı?\n\nSlayt 4 — Kimse bunu yüksek sesle söylemiyor…\n\nSlayt 5 — Kaydet; devamı takipte.`,
+      `Slayt 1 — Herkes bu konuda yanılıyor; kanıt aşağıda.\n\nSlayt 2 — Görünmez kalırsa tam olarak ne yıkılır?\n\nSlayt 3 — Gerçek hikâye hangi cümlede saklı?\n\nSlayt 4 — Kimse bunu yüksek sesle söylemiyor…\n\nSlayt 5 — Kaydet; devamı takipte.`,
     ),
     hooks: [
-      clampToWords(`Kimse bilmiyor… ${preview.slice(0, 18)}`, 8),
+      "Bu bilgi seni şaşırtacak.",
       "Herkes bunu yanlış biliyor; dur bir dinle.",
       "Belki de gerçek şu: her şey değişir.",
       "Bu seni şaşırtacak; hazır mısın?",
@@ -261,9 +268,7 @@ export async function generateRepurpose(input: string): Promise<RepurposeResult>
           role: "user",
           content: `Verilen metni viral sosyal içeriğe dönüştür. Sistem kurallarına harfiyen uy. Sadece JSON; başka metin yok.
 
-Üslup: agresif merak. Soru, gerilim, sürpriz kullan. Nötr haber / özet / ders anlatımı YASAK. Her satır kaydırmayı durdurmalı.
-
-Kancalar: cesur bildiri + merak. Nötr soru değil. “Kimse bilmiyor…”, “Herkes yanlış biliyor…” gibi güçlü açılışlar.
+Üslup: agresif merak. İlk vuruş şart: 1. tweet gövdesi, Slayt 1 metni ve ilk kanca (hooks[0]) şok veya cesur iddia; bu üçünde soru işareti YOK. Sonrasında soru ve gerilim serbest.
 
 hooks: tam 5 öğe. cta: tam 3 öğe.
 
