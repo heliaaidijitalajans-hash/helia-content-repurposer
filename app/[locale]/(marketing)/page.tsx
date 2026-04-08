@@ -2,6 +2,11 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
+const btnPrimary =
+  "inline-flex h-12 items-center justify-center rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700";
+const btnSecondary =
+  "inline-flex h-12 items-center justify-center rounded-lg border border-gray-300 px-5 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-100";
+
 export default async function HomePage({
   params,
 }: {
@@ -33,11 +38,6 @@ export default async function HomePage({
 
   const authNextDashboard = `/${locale}/dashboard`;
 
-  const btnPrimary =
-    "inline-flex h-12 items-center justify-center rounded-xl border border-gray-900 bg-white px-6 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50";
-  const btnSecondary =
-    "inline-flex h-12 items-center justify-center rounded-xl border border-gray-300 bg-white px-6 text-sm font-semibold text-gray-900 transition hover:bg-gray-50";
-
   return (
     <div className="notranslate overflow-x-hidden bg-white text-gray-900">
       <section className="border-b border-gray-100 bg-white">
@@ -47,10 +47,12 @@ export default async function HomePage({
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
                 {t("heroEyebrow")}
               </p>
-              <h1 className="mt-4 text-4xl font-semibold leading-[1.12] tracking-tight sm:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
-                {t("heroHeadline")}
+              <h1 className="mt-4 text-4xl font-semibold leading-[1.12] tracking-tight text-gray-900 sm:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
+                {t("heroHeadlineBefore")}
+                <span className="text-blue-600">{t("heroHeadlineHighlight")}</span>
+                {t("heroHeadlineAfter")}
               </h1>
-              <p className="mt-5 max-w-xl text-lg leading-relaxed text-gray-600 sm:text-xl">
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-gray-500 sm:text-xl">
                 {t("heroSub")}
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
@@ -83,7 +85,7 @@ export default async function HomePage({
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                     {t("mockLblThread")}
                   </p>
-                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-gray-800">
+                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-gray-900">
                     {t("mockThread")}
                   </p>
                 </div>
@@ -91,7 +93,7 @@ export default async function HomePage({
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                     {t("mockLblCarousel")}
                   </p>
-                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-gray-800">
+                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-gray-900">
                     {t("mockSlide")}
                   </p>
                 </div>
@@ -99,7 +101,7 @@ export default async function HomePage({
                   <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
                     {t("mockLblHooks")}
                   </p>
-                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-gray-800">
+                  <p className="mt-2 whitespace-pre-line text-xs leading-relaxed text-gray-900">
                     {t("mockHooks")}
                   </p>
                 </div>
@@ -109,7 +111,7 @@ export default async function HomePage({
         </div>
       </section>
 
-      <main className="mx-auto w-full max-w-6xl px-5 pb-24 pt-16 sm:px-6 sm:pb-28 sm:pt-20">
+      <main className="mx-auto w-full max-w-6xl bg-white px-5 pb-24 pt-16 sm:px-6 sm:pb-28 sm:pt-20">
         <section>
           <p className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-gray-500">
             {t("featuresEyebrow")}
@@ -123,7 +125,7 @@ export default async function HomePage({
                 <h3 className="text-base font-semibold text-gray-900">
                   {item.title}
                 </h3>
-                <p className="mt-3 text-sm leading-relaxed text-gray-600 transition group-hover:text-gray-800">
+                <p className="mt-3 text-sm leading-relaxed text-gray-500 transition group-hover:text-gray-600">
                   {item.body}
                 </p>
               </li>
@@ -144,13 +146,13 @@ export default async function HomePage({
                 key={step.title}
                 className={`relative ${lightCardClass} text-center`}
               >
-                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-900 bg-white text-sm font-bold text-gray-900">
+                <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border-2 border-blue-600 bg-white text-sm font-bold text-blue-600">
                   {i + 1}
                 </span>
                 <h3 className="mt-4 text-base font-semibold text-gray-900">
                   {step.title}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                <p className="mt-2 text-sm leading-relaxed text-gray-500">
                   {step.body}
                 </p>
               </li>
@@ -163,13 +165,10 @@ export default async function HomePage({
             <h2 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
               {t("ctaBottomTitle")}
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-gray-600 sm:text-base">
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-gray-500 sm:text-base">
               {t("ctaBottomSub")}
             </p>
-            <Link
-              href="/auth"
-              className="mt-8 inline-flex h-12 items-center justify-center rounded-xl border border-gray-900 bg-white px-8 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
-            >
+            <Link href="/auth" className={`mt-8 ${btnPrimary} px-8`}>
               {t("ctaBottomButton")}
             </Link>
           </div>

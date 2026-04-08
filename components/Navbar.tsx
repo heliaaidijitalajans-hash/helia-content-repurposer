@@ -22,7 +22,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
   }, []);
 
   const linkClass =
-    "rounded-lg px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900";
+    "rounded-lg px-3 py-2 text-sm font-medium text-gray-900 transition-colors hover:bg-gray-100 hover:text-blue-600";
 
   return (
     <header className="sticky top-0 z-50 border-b border-gray-200 bg-white text-gray-900 shadow-sm">
@@ -53,7 +53,7 @@ export function Navbar({ onMenuClick }: NavbarProps) {
           ) : null}
           <Link
             href="/dashboard"
-            className="truncate text-base font-semibold tracking-tight text-gray-900 transition hover:text-blue-700"
+            className="truncate text-base font-semibold tracking-tight text-gray-900 transition hover:text-blue-600"
           >
             Helia AI
           </Link>

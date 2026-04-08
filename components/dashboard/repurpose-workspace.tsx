@@ -69,7 +69,7 @@ function Section({
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
         {title}
       </h2>
-      <div className="text-sm leading-relaxed text-gray-800">{children}</div>
+      <div className="text-sm leading-relaxed text-gray-900">{children}</div>
     </section>
   );
 }
@@ -562,7 +562,7 @@ export function RepurposeWorkspace() {
               className={`text-sm font-semibold leading-snug sm:text-base ${
                 activeTab === "text"
                   ? "text-gray-900"
-                  : "text-gray-600"
+                  : "text-gray-500"
               }`}
             >
               {t("toolTitleText")}
@@ -595,7 +595,7 @@ export function RepurposeWorkspace() {
               className={`text-sm font-semibold leading-snug sm:text-base ${
                 activeTab === "video"
                   ? "text-gray-900"
-                  : "text-gray-600"
+                  : "text-gray-500"
               }`}
             >
               {t("toolTitleVideo")}
@@ -622,7 +622,7 @@ export function RepurposeWorkspace() {
             <div className="flex min-w-0 flex-col gap-4">
               <label
                 htmlFor="repurpose-source"
-                className="text-sm font-medium text-gray-700"
+                className="text-sm font-medium text-gray-900"
               >
                 {t("sourceLabel")}
               </label>
@@ -671,7 +671,7 @@ export function RepurposeWorkspace() {
             </div>
 
             <div className="flex min-w-0 flex-col gap-4">
-              <p className="text-sm font-medium text-gray-700">
+              <p className="text-sm font-medium text-gray-900">
                 {t("results")}
               </p>
 
@@ -746,7 +746,7 @@ export function RepurposeWorkspace() {
                   className="size-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"
                   aria-hidden
                 />
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-500">
                   {t("subscriptionLoading")}
                 </p>
               </div>
@@ -755,13 +755,13 @@ export function RepurposeWorkspace() {
                 className={`flex min-h-[280px] flex-col items-center justify-center text-center ${lightCardClass}`}
                 role="status"
               >
-                <p className="max-w-md text-sm font-semibold leading-relaxed text-gray-800">
+                <p className="max-w-md text-sm font-semibold leading-relaxed text-gray-900">
                   {t("videoUpgradeMessage")}
                 </p>
               </div>
             ) : (
               <div className={lightCardClass} aria-busy={transcribeLoading}>
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-gray-900">
                   {t("transcribeLabel")}
                 </p>
                 <p
@@ -794,7 +794,7 @@ export function RepurposeWorkspace() {
                         : "border-gray-300 bg-gray-50"
                   }`}
                 >
-                  <p className="text-center text-sm font-semibold leading-snug text-gray-800">
+                  <p className="text-center text-sm font-semibold leading-snug text-gray-900">
                     {t("transcribeHybridDropzoneTitle")}
                   </p>
                   <div className="flex flex-col items-center gap-3">
@@ -824,7 +824,7 @@ export function RepurposeWorkspace() {
                       </svg>
                       {t("transcribeHybridPickFile")}
                     </button>
-                    <p className="max-w-md text-center text-xs leading-relaxed text-gray-600">
+                    <p className="max-w-md text-center text-xs leading-relaxed text-gray-500">
                       {t("transcribeFileHint")}
                     </p>
                     <div
@@ -857,7 +857,7 @@ export function RepurposeWorkspace() {
                     </div>
                   </div>
                   {mediaFile ? (
-                    <p className="text-center text-xs font-medium text-blue-700">
+                    <p className="text-center text-xs font-medium text-blue-600">
                       {t("transcribeSelected", { name: mediaFile.name })}
                     </p>
                   ) : null}
@@ -875,7 +875,7 @@ export function RepurposeWorkspace() {
                       <p className="text-sm font-medium text-gray-900">
                         {t("transcribeTranscribingStep")}
                       </p>
-                      <p className="max-w-[16rem] text-xs leading-relaxed text-gray-600">
+                      <p className="max-w-[16rem] text-xs leading-relaxed text-gray-500">
                         {t("processingVideoHint")}
                       </p>
                     </div>
@@ -923,7 +923,7 @@ export function RepurposeWorkspace() {
                     <div className="flex flex-col gap-2">
                       <label
                         htmlFor="transcription-output"
-                        className="text-sm font-medium text-gray-700"
+                        className="text-sm font-medium text-gray-900"
                       >
                         {t("transcriptionOutputLabel")}
                       </label>

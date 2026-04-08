@@ -29,7 +29,7 @@ export function MarketingNavbar() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link
           href="/"
-          className="shrink-0 text-base font-semibold tracking-tight text-gray-900 transition hover:text-zinc-600"
+          className="shrink-0 text-base font-semibold tracking-tight text-gray-900 transition hover:text-blue-600"
         >
           Helia AI
         </Link>
@@ -46,8 +46,8 @@ export function MarketingNavbar() {
                 href={href}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    ? "text-blue-600"
+                    : "text-gray-900 hover:text-blue-600"
                 }`}
               >
                 {t(key)}
@@ -66,7 +66,7 @@ export function MarketingNavbar() {
           </Link>
           <Link
             href={{ pathname: "/auth", query: { next: `/${locale}/dashboard` } }}
-            className="rounded-lg border border-gray-900 bg-white px-4 py-2 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 sm:px-5"
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:px-5"
           >
             {t("ctaPrimary")}
           </Link>
@@ -86,8 +86,8 @@ export function MarketingNavbar() {
                 href={href}
                 className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                   active
-                    ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-200"
-                    : "text-gray-600 hover:bg-white hover:text-gray-900"
+                    ? "text-blue-600"
+                    : "text-gray-900 hover:text-blue-600"
                 }`}
               >
                 {t(key)}

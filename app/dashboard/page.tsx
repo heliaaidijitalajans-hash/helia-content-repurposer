@@ -32,7 +32,7 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
           Dashboard
         </h1>
-        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-gray-600 sm:text-base">
+        <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-gray-500 sm:text-base">
           Welcome back. Choose a workflow to create or revisit your content.
         </p>
       </div>
@@ -53,10 +53,10 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-gray-900">
                   {title}
                 </h2>
-                <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-600">
+                <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-500">
                   {description}
                 </p>
-                <span className="mt-4 inline-flex items-center text-sm font-medium text-blue-700 transition group-hover:gap-1">
+                <span className="mt-4 inline-flex items-center text-sm font-medium text-blue-600 transition group-hover:gap-1">
                   Open
                   <svg
                     className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-0.5"

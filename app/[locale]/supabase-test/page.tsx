@@ -17,7 +17,7 @@ export default async function SupabaseTestPage() {
       <h1 className="text-xl font-semibold text-gray-900">
         {t("title")}
       </h1>
-      <p className="mt-2 text-sm text-gray-600">
+      <p className="mt-2 text-sm text-gray-500">
         {t("introBeforeUrl")}{" "}
         <code className="rounded bg-gray-100 px-1 py-0.5 text-xs text-gray-800">
           NEXT_PUBLIC_SUPABASE_URL
@@ -75,7 +75,7 @@ export default async function SupabaseTestPage() {
         {t("jsonLabel")}{" "}
         <Link
           href="/api/supabase/test"
-          className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800"
+          className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
         >
           /api/supabase/test
         </Link>

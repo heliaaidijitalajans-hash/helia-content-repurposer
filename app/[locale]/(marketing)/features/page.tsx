@@ -1,35 +1,33 @@
 import { getTranslations } from "next-intl/server";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
+const iconWrap =
+  "bg-blue-50 text-blue-600 ring-1 ring-blue-100 transition group-hover:scale-105";
+
 const cards = [
   {
     titleKey: "featuresCardVideoTitle" as const,
     descKey: "featuresCardVideoDesc" as const,
-    iconWrap: "bg-sky-100 text-sky-700 ring-sky-200",
     Icon: IconFilm,
   },
   {
     titleKey: "featuresCardViralTitle" as const,
     descKey: "featuresCardViralDesc" as const,
-    iconWrap: "bg-violet-100 text-violet-700 ring-violet-200",
     Icon: IconSpark,
   },
   {
     titleKey: "featuresCardThreadTitle" as const,
     descKey: "featuresCardThreadDesc" as const,
-    iconWrap: "bg-blue-100 text-blue-700 ring-blue-200",
     Icon: IconThread,
   },
   {
     titleKey: "featuresCardCarouselTitle" as const,
     descKey: "featuresCardCarouselDesc" as const,
-    iconWrap: "bg-amber-100 text-amber-800 ring-amber-200",
     Icon: IconCarousel,
   },
   {
     titleKey: "featuresCardHooksTitle" as const,
     descKey: "featuresCardHooksDesc" as const,
-    iconWrap: "bg-emerald-100 text-emerald-700 ring-emerald-200",
     Icon: IconHooks,
   },
 ];
@@ -44,26 +42,26 @@ export default async function FeaturesPage() {
           <h1 className="text-3xl font-semibold tracking-tight text-gray-900 sm:text-4xl">
             {t("featuresHeroTitle")}
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-gray-600 sm:text-lg">
+          <p className="mt-4 text-base leading-relaxed text-gray-500 sm:text-lg">
             {t("featuresHeroSub")}
           </p>
         </header>
 
         <ul className="mt-14 grid gap-6 sm:grid-cols-2 lg:mt-16 lg:grid-cols-3">
-          {cards.map(({ titleKey, descKey, iconWrap, Icon }) => (
+          {cards.map(({ titleKey, descKey, Icon }) => (
             <li
               key={titleKey}
               className={`group flex flex-col ${lightCardClass}`}
             >
               <div
-                className={`flex h-12 w-12 items-center justify-center rounded-xl ring-1 transition group-hover:scale-105 ${iconWrap}`}
+                className={`flex h-12 w-12 items-center justify-center rounded-xl ${iconWrap}`}
               >
                 <Icon className="h-6 w-6" />
               </div>
               <h2 className="mt-5 text-lg font-semibold text-gray-900">
                 {t(titleKey)}
               </h2>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-600">
+              <p className="mt-2 flex-1 text-sm leading-relaxed text-gray-500">
                 {t(descKey)}
               </p>
             </li>

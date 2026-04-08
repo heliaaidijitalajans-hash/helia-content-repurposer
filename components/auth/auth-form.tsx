@@ -10,7 +10,7 @@ import { lightCardClass } from "@/lib/ui/saas-card";
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
 
-const labelClass = "text-sm font-medium text-gray-700";
+const labelClass = "text-sm font-medium text-gray-900";
 
 export function AuthForm() {
   const t = useTranslations("auth");
@@ -91,7 +91,7 @@ export function AuthForm() {
           <div className="mb-6 text-center">
             <Link
               href="/"
-              className="text-sm font-semibold tracking-tight text-gray-900 transition hover:text-blue-700"
+              className="text-sm font-semibold tracking-tight text-gray-900 transition hover:text-blue-600"
             >
               {tc("brand")} AI
             </Link>
@@ -202,7 +202,7 @@ export function AuthForm() {
                   {t("signupPrompt")}{" "}
                   <button
                     type="button"
-                    className="font-semibold text-blue-700 underline-offset-2 transition hover:text-blue-800 hover:underline"
+                    className="font-semibold text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline"
                     onClick={() => {
                       setMode("signup");
                       setMessage(null);
@@ -216,7 +216,7 @@ export function AuthForm() {
                   {t("loginPrompt")}{" "}
                   <button
                     type="button"
-                    className="font-semibold text-blue-700 underline-offset-2 transition hover:text-blue-800 hover:underline"
+                    className="font-semibold text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline"
                     onClick={() => {
                       setMode("login");
                       setMessage(null);

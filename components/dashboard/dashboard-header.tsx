@@ -26,7 +26,7 @@ export function DashboardHeader({ email }: Props) {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4">
         <Link
           href="/dashboard"
-          className="text-sm font-semibold tracking-tight text-gray-900 transition hover:text-blue-700"
+          className="text-sm font-semibold tracking-tight text-gray-900 transition hover:text-blue-600"
         >
           {tc("brand")}
         </Link>

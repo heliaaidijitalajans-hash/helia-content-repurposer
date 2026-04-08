@@ -47,7 +47,9 @@
   "home": {
     "heroBrand": "Helia AI",
     "heroEyebrow": "Turn content into viral formats",
-    "heroHeadline": "Turn your content into viral-ready formats in seconds",
+    "heroHeadlineBefore": "Turn your content into ",
+    "heroHeadlineHighlight": "viral",
+    "heroHeadlineAfter": "-ready formats in seconds",
     "heroSub": "Take video, audio, or text → generate threads, carousels, and hooks",
     "ctaFree": "Start free",
     "ctaDemo": "View demo",

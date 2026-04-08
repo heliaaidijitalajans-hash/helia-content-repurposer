@@ -8,7 +8,7 @@ import { lightCardClass, lightDangerCardClass } from "@/lib/ui/saas-card";
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-sm outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
 
-const labelClass = "text-sm font-medium text-gray-700";
+const labelClass = "text-sm font-medium text-gray-900";
 
 function Card({
   title,
@@ -23,7 +23,7 @@ function Card({
     <section className={lightCardClass}>
       <h2 className="text-base font-semibold text-gray-900">{title}</h2>
       {description ? (
-        <p className="mt-1 text-sm text-gray-600">{description}</p>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
       ) : null}
       <div className="mt-5">{children}</div>
     </section>
@@ -80,7 +80,7 @@ export function SettingsView() {
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900 sm:text-3xl">
           Settings
         </h1>
-        <p className="mt-1.5 text-sm text-gray-600 sm:text-base">
+        <p className="mt-1.5 text-sm text-gray-500 sm:text-base">
           Manage your profile, plan, and account.
         </p>
       </div>

@@ -34,17 +34,17 @@ export default async function DashboardLayout({
       <DashboardHeader email={user.email ?? ""} />
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-wider text-blue-700">
+          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
             {t("workspaceEyebrow")}
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
             {t("title")}
           </h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-gray-500">
             {t("subtitle")}{" "}
             <Link
               href="/"
-              className="font-medium text-blue-700 underline underline-offset-2 hover:text-blue-800"
+              className="font-medium text-blue-600 underline underline-offset-2 hover:text-blue-700"
             >
               {t("backToHome")}
             </Link>

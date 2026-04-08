@@ -9,7 +9,7 @@ export default async function PricingPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
           {t("pricingTitle")}
         </h1>
-        <p className="mt-3 text-sm text-gray-600">{t("pricingSub")}</p>
+        <p className="mt-3 text-sm text-gray-500">{t("pricingSub")}</p>
       </div>
     </div>
   );

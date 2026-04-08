@@ -47,7 +47,9 @@
   "home": {
     "heroBrand": "Helia AI",
     "heroEyebrow": "İçeriği viral formata dönüştür",
-    "heroHeadline": "İçeriğini saniyeler içinde viral formata dönüştür",
+    "heroHeadlineBefore": "İçeriğini saniyeler içinde ",
+    "heroHeadlineHighlight": "viral",
+    "heroHeadlineAfter": " formata dönüştür",
     "heroSub": "Video, ses veya metni al → thread, carousel ve hook üret",
     "ctaFree": "Ücretsiz Başla",
     "ctaDemo": "Demo Gör",

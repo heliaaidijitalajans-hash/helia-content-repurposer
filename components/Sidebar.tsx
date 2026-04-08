@@ -55,15 +55,15 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
                 aria-current={active ? "page" : undefined}
                 className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                   active
-                    ? "bg-blue-50 text-blue-800 shadow-sm ring-1 ring-blue-100"
-                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    ? "bg-blue-50 text-blue-600 shadow-sm ring-1 ring-blue-100"
+                    : "text-gray-900 hover:bg-gray-100 hover:text-blue-600"
                 } `}
               >
                 <Icon
                   className={`h-5 w-5 shrink-0 transition-colors ${
                     active
                       ? "text-blue-600"
-                      : "text-gray-500 group-hover:text-gray-700"
+                      : "text-gray-500 group-hover:text-blue-600"
                   }`}
                 />
                 {label}

@@ -9,7 +9,7 @@ export default async function ExamplesPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
           {t("examplesTitle")}
         </h1>
-        <p className="mt-3 text-sm text-gray-600">{t("examplesSub")}</p>
+        <p className="mt-3 text-sm text-gray-500">{t("examplesSub")}</p>
       </div>
     </div>
   );

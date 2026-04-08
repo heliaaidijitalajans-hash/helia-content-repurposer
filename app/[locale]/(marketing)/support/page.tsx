@@ -9,7 +9,7 @@ export default async function MarketingSupportPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
           {t("supportTitle")}
         </h1>
-        <p className="mt-3 text-sm text-gray-600">{t("supportSub")}</p>
+        <p className="mt-3 text-sm text-gray-500">{t("supportSub")}</p>
       </div>
     </div>
   );
