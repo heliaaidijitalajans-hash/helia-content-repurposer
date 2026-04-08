@@ -66,7 +66,10 @@ export function SupportCenter({ copy }: { copy: SupportPageCopy }) {
         </div>
       </section>
 
-      <section className="mt-16 border-t border-gray-100 pt-16 sm:mt-20 sm:pt-20">
+      <section
+        id="sss"
+        className="mt-16 scroll-mt-24 border-t border-gray-100 pt-16 sm:mt-20 sm:pt-20"
+      >
         <h2 className="text-center text-xl font-semibold tracking-tight text-gray-900">
           {copy.faqTitle}
         </h2>

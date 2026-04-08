@@ -22,6 +22,37 @@
     "login": "Log in",
     "ctaPrimary": "Start free"
   },
+  "marketingFooter": {
+    "brandTitle": "Helia AI",
+    "brandDescription": "AI that speeds up content production. Turn video, audio, and text into viral-ready formats.",
+    "colProduct": "Product",
+    "colSupport": "Support",
+    "colLegal": "Legal",
+    "linkFeatures": "Features",
+    "linkGenerate": "Create content",
+    "linkHistory": "History",
+    "linkAccount": "Account",
+    "linkSupport": "Support",
+    "linkFaq": "FAQ",
+    "linkAbout": "About",
+    "linkTerms": "Terms of use",
+    "linkPrivacy": "Privacy policy",
+    "linkCookies": "Cookie policy",
+    "linkKvkk": "Personal data (KVKK)",
+    "paymentsSecure": "All payments are processed securely.",
+    "paymentBadges": "Visa • Mastercard • AMEX",
+    "copyright": "© 2026 Helia AI. All rights reserved."
+  },
+  "legalPages": {
+    "termsTitle": "Terms of use",
+    "termsBody": "This page will be updated soon. Contact support if you have questions.",
+    "privacyTitle": "Privacy policy",
+    "privacyBody": "This page will be updated soon. Contact support if you have questions.",
+    "cookiesTitle": "Cookie policy",
+    "cookiesBody": "This page will be updated soon. Contact support if you have questions.",
+    "kvkkTitle": "Personal data disclosure (KVKK)",
+    "kvkkBody": "This page will be updated soon. Contact support if you have questions."
+  },
   "marketingPages": {
     "featuresHeroTitle": "One tool, every content format",
     "featuresHeroSub": "Turn video, text, and audio into viral-ready posts in one flow — ship without switching tools.",

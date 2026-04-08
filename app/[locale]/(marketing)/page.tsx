@@ -174,10 +174,6 @@ export default async function HomePage({
           </div>
         </section>
       </main>
-
-      <footer className="border-t border-gray-200 bg-white py-8 text-center text-xs text-gray-500">
-        {t("footer")}
-      </footer>
     </div>
   );
 }

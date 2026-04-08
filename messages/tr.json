@@ -22,6 +22,37 @@
     "login": "Giriş Yap",
     "ctaPrimary": "Ücretsiz Başla"
   },
+  "marketingFooter": {
+    "brandTitle": "Helia AI",
+    "brandDescription": "İçerik üretimini hızlandıran yapay zeka platformu. Video, ses ve metni viral içeriklere dönüştür.",
+    "colProduct": "Ürün",
+    "colSupport": "Destek",
+    "colLegal": "Yasal",
+    "linkFeatures": "Özellikler",
+    "linkGenerate": "İçerik oluştur",
+    "linkHistory": "Geçmiş",
+    "linkAccount": "Hesap",
+    "linkSupport": "Destek",
+    "linkFaq": "SSS",
+    "linkAbout": "Hakkımızda",
+    "linkTerms": "Kullanım Şartları",
+    "linkPrivacy": "Gizlilik Politikası",
+    "linkCookies": "Çerez Politikası",
+    "linkKvkk": "KVKK",
+    "paymentsSecure": "Tüm ödemeler güvenli şekilde işlenir.",
+    "paymentBadges": "Visa • Mastercard • AMEX",
+    "copyright": "© 2026 Helia AI. Tüm hakları saklıdır."
+  },
+  "legalPages": {
+    "termsTitle": "Kullanım Şartları",
+    "termsBody": "Bu sayfa yakında güncellenecektir. Sorularınız için destek ile iletişime geçebilirsiniz.",
+    "privacyTitle": "Gizlilik Politikası",
+    "privacyBody": "Bu sayfa yakında güncellenecektir. Sorularınız için destek ile iletişime geçebilirsiniz.",
+    "cookiesTitle": "Çerez Politikası",
+    "cookiesBody": "Bu sayfa yakında güncellenecektir. Sorularınız için destek ile iletişime geçebilirsiniz.",
+    "kvkkTitle": "KVKK Aydınlatma Metni",
+    "kvkkBody": "Bu sayfa yakında güncellenecektir. Sorularınız için destek ile iletişime geçebilirsiniz."
+  },
   "marketingPages": {
     "featuresHeroTitle": "Tek araç, tüm içerik formatları",
     "featuresHeroSub": "Video, metin ve sesi tek akışta viral paylaşımlara dönüştürün — araç değiştirmeden yayınlayın.",
