@@ -38,7 +38,7 @@ export function PricingSelectPlanButton({ plan, className, children }: Props) {
         credentials: "include",
         body: JSON.stringify({ plan }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const data = (await res.json()) as { success?: boolean; error?: string };
 
       if (res.status === 401) {
         showToast("error", t("pricingPageSelectPlanUnauthorized"));
@@ -46,7 +46,7 @@ export function PricingSelectPlanButton({ plan, className, children }: Props) {
         return;
       }
 
-      if (!res.ok || !data.ok) {
+      if (!res.ok || !data.success) {
         showToast(
           "error",
           typeof data.error === "string"

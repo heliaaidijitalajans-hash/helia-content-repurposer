@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AccountPageCopy } from "@/lib/account/load-copy";
+import { HELIA_CREDITS_REFRESH_EVENT } from "@/lib/credits/constants";
 import { fetchUserSubscriptionFromSupabase } from "@/lib/subscription/fetch-client";
 import { lightCardClass, lightDangerCardClass } from "@/lib/ui/saas-card";
 
@@ -76,6 +77,28 @@ export function AccountView({ copy, upgradeHref, authHref }: Props) {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const onCreditsRefresh = () => {
+      void (async () => {
+        try {
+          const res = await fetch("/api/usage", { credentials: "include" });
+          if (res.ok) {
+            const data = (await res.json()) as { used?: number; limit?: number };
+            setUsageUsed(typeof data.used === "number" ? data.used : 0);
+            setUsageLimit(typeof data.limit === "number" ? data.limit : 0);
+          }
+          const { plan: p } = await fetchUserSubscriptionFromSupabase();
+          setPlan(p === "pro" ? "pro" : "free");
+        } catch {
+          /* keep previous */
+        }
+      })();
+    };
+    window.addEventListener(HELIA_CREDITS_REFRESH_EVENT, onCreditsRefresh);
+    return () =>
+      window.removeEventListener(HELIA_CREDITS_REFRESH_EVENT, onCreditsRefresh);
   }, []);
 
   const remaining = Math.max(0, usageLimit - usageUsed);

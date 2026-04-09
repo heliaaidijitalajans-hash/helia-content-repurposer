@@ -6,8 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 /**
- * POST { "plan": string } — resolve plan from `plans`, update `public.users`
- * (and mirror `usage` / `subscriptions` for billing RPCs + Pro gating).
+ * POST { "plan": string } — authenticated user; load row from `plans` by name;
+ * upsert `public.users` (plan, video_credits, text_credits). Also mirrors
+ * `usage` / `subscriptions` so credit RPCs and Pro gating stay consistent.
+ * Success: { success: true }.
  */
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -35,12 +37,7 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      plan: result.plan,
-      textCredits: result.textCredits,
-      videoCredits: result.videoCredits,
-    });
+    return NextResponse.json({ success: true });
   } catch (e) {
     console.error("[api/select-plan]", e);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
