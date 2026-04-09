@@ -8,7 +8,7 @@ import { HELIA_CREDITS_REFRESH_EVENT } from "@/lib/credits/constants";
 import type { PlansTableName } from "@/lib/plans/normalize-plan-name";
 
 type Props = {
-  /** `public.plans.name`: free | aylik | pro | yearly */
+  /** `public.plans.name`: free | aylık | pro | yearly */
   plan: PlansTableName;
   className: string;
   children: React.ReactNode;

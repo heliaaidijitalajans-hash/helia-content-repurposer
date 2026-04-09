@@ -13,28 +13,46 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-/** DB tabloları: migration 014 — public.plans, public.users (profiles değil). */
+/** Migration 014: public.plans, public.users — sütunlar video_limit/text_limit ve video_credits/text_credits */
 const TABLE_PLANS = "plans";
 const TABLE_USERS = "users";
 
-/** plans sütunları: video_limit, text_limit (014). users: video_credits, text_credits. */
 const ERR_PLAN_NOT_IN_DB = "Sistemde böyle bir plan tanımlı değil.";
-const ERR_INVALID_PLAN = "Geçersiz plan adı. Geçerli değerler: free, aylik, pro, yearly.";
+const ERR_INVALID_PLAN =
+  "Geçersiz plan adı. Geçerli değerler: free, aylık, pro, yearly (Aylık Türkçe karakterli).";
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type PlanRow = {
-  name: PlansTableName;
-  video_limit: number;
-  text_limit: number;
+  name: PlansTableName | string;
+  [key: string]: unknown;
 };
 
-function parseLimits(row: {
-  video_limit: unknown;
-  text_limit: unknown;
-}): { video: number; text: number } | null {
-  const video = Number(row.video_limit);
-  const text = Number(row.text_limit);
+/** plans: çoğunlukla video_limit / text_limit; bazı projelerde video_credits / text_credits olabilir */
+function parseLimits(row: Record<string, unknown>): {
+  video: number;
+  text: number;
+} | null {
+  const videoRaw =
+    row.video_limit ??
+    row.video_credits_limit ??
+    row.video_credit_limit ??
+    row.video_credits;
+  const textRaw =
+    row.text_limit ??
+    row.text_credits_limit ??
+    row.text_credit_limit ??
+    row.text_credits;
+  const video = Number(videoRaw);
+  const text = Number(textRaw);
   if (!Number.isFinite(video) || !Number.isFinite(text)) return null;
   return { video, text };
+}
+
+/** public.users için Postgres int ile uyumlu tamsayı */
+function toPgInt(n: number): number {
+  return Math.trunc(n);
 }
 
 function logPostgrest(ctx: string, err: PostgrestError) {
@@ -57,22 +75,35 @@ function serializeErr(e: unknown): string {
   }
 }
 
+/**
+ * Yazma işlemleri: mümkünse SUPABASE_SERVICE_ROLE_KEY ile admin istemci (RLS bypass).
+ * Anahtar yoksa oturumlu istemci kullanılır; üretimde anahtar tanımlı olmalıdır.
+ */
+function getMutationClient(supabaseUser: SupabaseClient): SupabaseClient {
+  if (isServiceRoleConfigured()) {
+    return createServiceRoleClient();
+  }
+  console.warn(
+    "[api/select-plan] SUPABASE_SERVICE_ROLE_KEY tanımlı değil; yazmalar kullanıcı JWT ile yapılıyor (RLS’e takılabilir).",
+  );
+  return supabaseUser;
+}
+
 /** POST /api/select-plan — public.plans (name) → public.users + usage + subscriptions */
 export async function POST(req: Request): Promise<Response> {
   try {
     const rawBody = await req.json().catch(() => null);
     const body = rawBody as { planName?: unknown; plan?: unknown } | null;
 
-    const raw =
+    const incoming =
       typeof body?.planName === "string"
-        ? body.planName
+        ? body.planName.trim()
         : typeof body?.plan === "string"
-          ? body.plan
+          ? body.plan.trim()
           : "";
-    const planName = raw.toLowerCase().trim();
-    console.log("Incoming plan:", planName);
+    console.log("Incoming plan:", incoming);
 
-    const canonical = normalizePlanNameForDb(planName);
+    const canonical = normalizePlanNameForDb(incoming);
     if (!canonical) {
       return NextResponse.json({ error: ERR_INVALID_PLAN }, { status: 400 });
     }
@@ -88,19 +119,25 @@ export async function POST(req: Request): Promise<Response> {
       return NextResponse.json({ error: "Oturum doğrulanamadı." }, { status: 401 });
     }
 
-    const userId = user?.id?.trim();
-    if (!userId) {
-      console.error("[api/select-plan] auth.getUser: boş kullanıcı id");
+    const userIdRaw = user?.id;
+    if (typeof userIdRaw !== "string" || !userIdRaw.trim()) {
+      console.error("[api/select-plan] user.id boş veya geçersiz:", userIdRaw);
       return NextResponse.json(
         { error: "Oturum bulunamadı veya kullanıcı id alınamadı." },
         { status: 401 },
       );
     }
 
+    const userId = userIdRaw.trim();
+    if (!UUID_RE.test(userId)) {
+      console.error("[api/select-plan] user.id UUID biçiminde değil:", userId);
+      return NextResponse.json({ error: "Geçersiz kullanıcı kimliği." }, { status: 400 });
+    }
+
     async function loadPlanRow(client: SupabaseClient) {
       return client
         .from(TABLE_PLANS)
-        .select("name, video_limit, text_limit")
+        .select("*")
         .eq("name", canonical)
         .maybeSingle();
     }
@@ -142,48 +179,75 @@ export async function POST(req: Request): Promise<Response> {
 
     if (!data) {
       return NextResponse.json(
-        { error: ERR_PLAN_NOT_IN_DB, planName },
+        { error: ERR_PLAN_NOT_IN_DB, planName: incoming },
         { status: 404 },
       );
     }
 
-    const limits = parseLimits(data);
+    const limits = parseLimits(data as Record<string, unknown>);
     if (!limits) {
       return NextResponse.json(
-        { error: ERR_PLAN_NOT_IN_DB, planName },
+        { error: ERR_PLAN_NOT_IN_DB, planName: incoming },
         { status: 404 },
       );
     }
 
-    const writer: SupabaseClient = isServiceRoleConfigured()
-      ? createServiceRoleClient()
-      : supabase;
+    const videoCredits = toPgInt(limits.video);
+    const textCredits = toPgInt(limits.text);
 
-    const upsertPayload = {
-      id: userId,
-      plan: data.name,
-      video_credits: limits.video,
-      text_credits: limits.text,
+    const writer = getMutationClient(supabase);
+
+    /**
+     * public.users sütunları (014): id, plan, video_credits, text_credits, updated_at
+     */
+    const usersPatch = {
+      plan: data.name as PlansTableName,
+      video_credits: videoCredits,
+      text_credits: textCredits,
       updated_at: new Date().toISOString(),
     };
 
-    const { error: userErr } = await writer
-      .from(TABLE_USERS)
-      .upsert(upsertPayload, { onConflict: "id" });
+    const {
+      data: updatedRows,
+      error: updateError,
+    } = await writer.from(TABLE_USERS).update(usersPatch).eq("id", userId).select("id");
 
-    if (userErr) {
-      logPostgrest("users upsert", userErr);
+    if (updateError) {
+      console.error("Güncelleme başarısız:", updateError.message);
+      logPostgrest("users update", updateError);
       return NextResponse.json(
         {
           error: "Kullanıcı bilgileri güncellenemedi.",
-          detail: userErr.message,
-          code: userErr.code,
+          detail: updateError.message,
+          code: updateError.code,
         },
         { status: 500 },
       );
     }
 
-    const subscriptionPlan = isPaidAppPlan(data.name) ? "pro" : "free";
+    if (!updatedRows?.length) {
+      const { error: insertError } = await writer.from(TABLE_USERS).insert({
+        id: userId,
+        ...usersPatch,
+      });
+
+      if (insertError) {
+        console.error("Güncelleme başarısız:", insertError.message);
+        logPostgrest("users insert", insertError);
+        return NextResponse.json(
+          {
+            error: "Kullanıcı bilgileri güncellenemedi.",
+            detail: insertError.message,
+            code: insertError.code,
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    const subscriptionPlan = isPaidAppPlan(data.name as PlansTableName)
+      ? "pro"
+      : "free";
     const { data: existingUsage } = await supabase
       .from("usage")
       .select("user_id")
@@ -194,8 +258,8 @@ export async function POST(req: Request): Promise<Response> {
       const { error: usageUp } = await writer
         .from("usage")
         .update({
-          text_credits: limits.text,
-          video_credits: limits.video,
+          text_credits: textCredits,
+          video_credits: videoCredits,
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", userId);
@@ -207,8 +271,8 @@ export async function POST(req: Request): Promise<Response> {
         user_id: userId,
         request_count: 0,
         transcribe_count: 0,
-        text_credits: limits.text,
-        video_credits: limits.video,
+        text_credits: textCredits,
+        video_credits: videoCredits,
       });
       if (usageIn) {
         logPostgrest("usage insert", usageIn);
@@ -240,8 +304,8 @@ export async function POST(req: Request): Promise<Response> {
         success: true,
         plan: data.name,
         credits: {
-          video: limits.video,
-          text: limits.text,
+          video: videoCredits,
+          text: textCredits,
         },
       },
       { status: 200 },
