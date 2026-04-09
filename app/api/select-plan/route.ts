@@ -26,7 +26,6 @@ export async function POST(req: Request): Promise<Response> {
     console.log("Incoming plan:", plan);
 
     const planName = normalizePlanNameForDb(plan);
-    console.log("Selected plan:", planName);
 
     if (!planName) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
@@ -44,13 +43,21 @@ export async function POST(req: Request): Promise<Response> {
 
     console.log("[api/select-plan] user id:", user.id);
 
-    const { data: planRow, error: planErr } = await supabase
+    const { data, error: planErr } = await supabase
       .from("plans")
-      .select("name, video_limit, text_limit")
+      .select("*")
       .eq("name", planName)
-      .maybeSingle();
+      .single();
+
+    console.log("DB result:", data);
 
     if (planErr) {
+      if (planErr.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Plan not found", incoming: plan },
+          { status: 404 },
+        );
+      }
       console.error("[api/select-plan] plans query error:", planErr.message);
       return NextResponse.json(
         { error: "Could not load plans." },
@@ -58,13 +65,14 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    console.log("[api/select-plan] fetched plan from database:", planRow);
-
-    if (!planRow || typeof planRow.video_limit !== "number") {
-      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    if (!data || typeof data.video_limit !== "number") {
+      return NextResponse.json(
+        { error: "Plan not found", incoming: plan },
+        { status: 404 },
+      );
     }
 
-    const row = planRow as PlanRow;
+    const row = data as PlanRow;
 
     const upsertPayload = {
       id: user.id,
