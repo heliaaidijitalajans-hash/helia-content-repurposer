@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { PricingSelectPlanButton } from "@/components/marketing/pricing-select-plan-button";
+import { PLANS_DB_NAME } from "@/lib/plans/db-plan-names";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
 const primaryCtaClass =
@@ -98,7 +99,10 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <PricingSelectPlanButton plan="free" className={`${outlineCtaClass} pt-6`}>
+          <PricingSelectPlanButton
+            plan={PLANS_DB_NAME.FREE}
+            className={`${outlineCtaClass} pt-6`}
+          >
             {t("pricingPageFreeCta")}
           </PricingSelectPlanButton>
         </article>
@@ -154,7 +158,10 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <PricingSelectPlanButton plan="pro" className={`${primaryCtaClass} pt-6`}>
+          <PricingSelectPlanButton
+            plan={PLANS_DB_NAME.PRO}
+            className={`${primaryCtaClass} pt-6`}
+          >
             {t("pricingPageProCta")}
           </PricingSelectPlanButton>
         </article>
@@ -184,7 +191,10 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <PricingSelectPlanButton plan="yearly" className={`${primaryCtaClass} pt-6`}>
+          <PricingSelectPlanButton
+            plan={PLANS_DB_NAME.YEARLY}
+            className={`${primaryCtaClass} pt-6`}
+          >
             {t("pricingPageYearlyCta")}
           </PricingSelectPlanButton>
         </article>

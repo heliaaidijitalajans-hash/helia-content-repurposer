@@ -5,12 +5,11 @@ import { useRouter } from "@/i18n/navigation";
 import { useCallback, useState } from "react";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { HELIA_CREDITS_REFRESH_EVENT } from "@/lib/credits/constants";
-
-/** Must match `public.plans.name` (POST /api/select-plan body). */
-export type PricingPlanApiKey = "free" | "aylik" | "pro" | "yearly";
+import type { PlansTableName } from "@/lib/plans/normalize-plan-name";
 
 type Props = {
-  plan: PricingPlanApiKey;
+  /** Exact `public.plans.name`: free | aylik | pro | yearly */
+  plan: PlansTableName;
   className: string;
   children: React.ReactNode;
 };
