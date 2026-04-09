@@ -2,7 +2,7 @@ import type { PlansTableName } from "@/lib/plans/normalize-plan-name";
 
 /**
  * Canonical `public.plans.name` values (migration 014).
- * Use these in pricing CTAs so POST /api/select-plan always matches the DB.
+ * Canonical names for `public.users.plan` / checks. Pricing uses `PLANS_DB_ID` + POST /api/select-plan.
  */
 export const PLANS_DB_NAME = {
   FREE: "free",

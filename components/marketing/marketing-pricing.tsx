@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { PricingSelectPlanButton } from "@/components/marketing/pricing-select-plan-button";
-import { PLANS_DB_NAME } from "@/lib/plans/db-plan-names";
+import { PLANS_DB_ID } from "@/lib/plans/plan-ids";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
 const primaryCtaClass =
@@ -100,7 +100,7 @@ export async function MarketingPricingContent() {
             hint={t("pricingPageCreditsHint")}
           />
           <PricingSelectPlanButton
-            plan={PLANS_DB_NAME.FREE}
+            planId={PLANS_DB_ID.FREE}
             className={`${outlineCtaClass} pt-6`}
           >
             {t("pricingPageFreeCta")}
@@ -129,7 +129,7 @@ export async function MarketingPricingContent() {
             hint={t("pricingPageCreditsHint")}
           />
           <PricingSelectPlanButton
-            plan={PLANS_DB_NAME.AYLIK}
+            planId={PLANS_DB_ID.AYLIK}
             className={`${primaryCtaClass} pt-6`}
           >
             {t("pricingPageMonthlyCta")}
@@ -162,7 +162,7 @@ export async function MarketingPricingContent() {
             hint={t("pricingPageCreditsHint")}
           />
           <PricingSelectPlanButton
-            plan={PLANS_DB_NAME.PRO}
+            planId={PLANS_DB_ID.PRO}
             className={`${primaryCtaClass} pt-6`}
           >
             {t("pricingPageProCta")}
@@ -195,7 +195,7 @@ export async function MarketingPricingContent() {
             hint={t("pricingPageCreditsHint")}
           />
           <PricingSelectPlanButton
-            plan={PLANS_DB_NAME.YEARLY}
+            planId={PLANS_DB_ID.YEARLY}
             className={`${primaryCtaClass} pt-6`}
           >
             {t("pricingPageYearlyCta")}

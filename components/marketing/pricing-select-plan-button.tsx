@@ -5,11 +5,11 @@ import { useRouter } from "@/i18n/navigation";
 import { useCallback, useState } from "react";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { HELIA_CREDITS_REFRESH_EVENT } from "@/lib/credits/constants";
-import type { PlansTableName } from "@/lib/plans/normalize-plan-name";
+import type { PlanDbId } from "@/lib/plans/plan-ids";
 
 type Props = {
-  /** Exact `public.plans.name`: free | aylik | pro | yearly */
-  plan: PlansTableName;
+  /** `public.plans.id` (migration 015). */
+  planId: PlanDbId;
   className: string;
   children: React.ReactNode;
 };
@@ -21,7 +21,7 @@ type SelectPlanResponse = {
   credits?: { video?: number; text?: number };
 };
 
-export function PricingSelectPlanButton({ plan, className, children }: Props) {
+export function PricingSelectPlanButton({ planId, className, children }: Props) {
   const t = useTranslations("marketingPages");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -34,7 +34,7 @@ export function PricingSelectPlanButton({ plan, className, children }: Props) {
     if (loading) return;
     setLoading(true);
     try {
-      const payload = { plan };
+      const payload = { planId };
       const res = await fetch(apiOriginUrl("/api/select-plan"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54,7 +54,7 @@ export function PricingSelectPlanButton({ plan, className, children }: Props) {
       console.log("[pricing] /api/select-plan response", {
         status: res.status,
         ok: res.ok,
-        requestPlan: plan,
+        requestPlanId: planId,
         body: data,
       });
 

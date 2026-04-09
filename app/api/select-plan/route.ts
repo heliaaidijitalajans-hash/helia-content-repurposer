@@ -1,34 +1,36 @@
 import { NextResponse } from "next/server";
-import {
-  isPaidAppPlan,
-  normalizePlanNameForDb,
-  type PlansTableName,
-} from "@/lib/plans/normalize-plan-name";
+import { isPaidAppPlan, type PlansTableName } from "@/lib/plans/normalize-plan-name";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 type PlanRow = {
+  id: string;
   name: PlansTableName;
   video_limit: number;
   text_limit: number;
 };
 
-/** POST — select plan from `plans`, upsert `users`, mirror `usage` + `subscriptions`. */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUuid(s: string): boolean {
+  return UUID_RE.test(s);
+}
+
+/** POST — select plan from `plans` by id, upsert `users`, mirror `usage` + `subscriptions`. */
 export async function POST(req: Request): Promise<Response> {
   try {
     const rawBody = await req.json().catch(() => null);
     console.log("[api/select-plan] incoming body:", rawBody);
 
-    const body = rawBody as { plan?: unknown } | null;
-    let plan = typeof body?.plan === "string" ? body.plan : "";
-    plan = plan.toLowerCase().trim();
-    console.log("Incoming plan:", plan);
+    const body = rawBody as { planId?: unknown } | null;
+    const raw = typeof body?.planId === "string" ? body.planId : "";
+    const planId = raw.trim();
+    console.log("Incoming planId:", planId);
 
-    const planName = normalizePlanNameForDb(plan);
-
-    if (!planName) {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    if (!planId || !isUuid(planId)) {
+      return NextResponse.json({ error: "Invalid planId" }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -46,7 +48,7 @@ export async function POST(req: Request): Promise<Response> {
     const { data, error: planErr } = await supabase
       .from("plans")
       .select("*")
-      .eq("name", planName)
+      .eq("id", planId)
       .single();
 
     console.log("DB result:", data);
@@ -54,7 +56,7 @@ export async function POST(req: Request): Promise<Response> {
     if (planErr) {
       if (planErr.code === "PGRST116") {
         return NextResponse.json(
-          { error: "Plan not found", incoming: plan },
+          { error: "Plan not found", incoming: planId },
           { status: 404 },
         );
       }
@@ -67,7 +69,7 @@ export async function POST(req: Request): Promise<Response> {
 
     if (!data || typeof data.video_limit !== "number") {
       return NextResponse.json(
-        { error: "Plan not found", incoming: plan },
+        { error: "Plan not found", incoming: planId },
         { status: 404 },
       );
     }
