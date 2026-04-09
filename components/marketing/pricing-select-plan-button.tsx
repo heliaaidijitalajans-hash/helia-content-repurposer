@@ -34,7 +34,7 @@ export function PricingSelectPlanButton({ plan, className, children }: Props) {
     if (loading) return;
     setLoading(true);
     try {
-      const payload = { plan };
+      const payload = { planName: plan };
       const res = await fetch(apiOriginUrl("/api/select-plan"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -75,7 +75,7 @@ export function PricingSelectPlanButton({ plan, className, children }: Props) {
 
       window.alert("Plan activated successfully");
       window.dispatchEvent(new Event(HELIA_CREDITS_REFRESH_EVENT));
-      router.refresh();
+      window.location.reload();
     } catch (e) {
       console.error("[pricing] /api/select-plan fetch failed", e);
       showError(t("pricingPageSelectPlanError"));

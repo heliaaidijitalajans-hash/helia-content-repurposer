@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   isPaidAppPlan,
   normalizePlanNameForDb,
   type PlansTableName,
 } from "@/lib/plans/normalize-plan-name";
+import {
+  createServiceRoleClient,
+  isServiceRoleConfigured,
+} from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+const ERR_PLAN_NOT_IN_DB = "Sistemde böyle bir plan tanımlı değil.";
+const ERR_INVALID_PLAN = "Geçersiz plan adı. Geçerli değerler: free, aylik, pro, yearly.";
 
 type PlanRow = {
   name: PlansTableName;
@@ -14,20 +22,34 @@ type PlanRow = {
   text_limit: number;
 };
 
-/** POST — select plan from `plans` by name, upsert `users`, mirror `usage` + `subscriptions`. */
+function parseLimits(row: {
+  video_limit: unknown;
+  text_limit: unknown;
+}): { video: number; text: number } | null {
+  const video = Number(row.video_limit);
+  const text = Number(row.text_limit);
+  if (!Number.isFinite(video) || !Number.isFinite(text)) return null;
+  return { video, text };
+}
+
+/** POST /api/select-plan — plans (name) → public.users + usage + subscriptions */
 export async function POST(req: Request): Promise<Response> {
   try {
     const rawBody = await req.json().catch(() => null);
-    console.log("[api/select-plan] incoming body:", rawBody);
+    const body = rawBody as { planName?: unknown; plan?: unknown } | null;
 
-    const body = rawBody as { plan?: unknown } | null;
-    let plan = typeof body?.plan === "string" ? body.plan : "";
-    plan = plan.toLowerCase().trim();
-    console.log("Incoming plan:", plan);
+    const raw =
+      typeof body?.planName === "string"
+        ? body.planName
+        : typeof body?.plan === "string"
+          ? body.plan
+          : "";
+    const planName = raw.toLowerCase().trim();
+    console.log("Incoming plan:", planName);
 
-    const nameKey = normalizePlanNameForDb(plan);
-    if (!nameKey) {
-      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
+    const canonical = normalizePlanNameForDb(planName);
+    if (!canonical) {
+      return NextResponse.json({ error: ERR_INVALID_PLAN }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -36,77 +58,88 @@ export async function POST(req: Request): Promise<Response> {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      console.log("[api/select-plan] user: not authenticated");
-      return NextResponse.json({ error: "User not found" }, { status: 401 });
+      return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
     }
 
-    console.log("[api/select-plan] user id:", user.id);
+    async function loadPlanRow(client: SupabaseClient) {
+      return client
+        .from("plans")
+        .select("name, video_limit, text_limit")
+        .eq("name", canonical)
+        .maybeSingle();
+    }
 
-    const { data, error } = await supabase
-      .from("plans")
-      .select("*")
-      .eq("name", nameKey);
+    let data: PlanRow | null = null;
+    let queryError: { message: string } | null = null;
+
+    if (isServiceRoleConfigured()) {
+      try {
+        const res = await loadPlanRow(createServiceRoleClient());
+        data = (res.data as PlanRow | null) ?? null;
+        queryError = res.error;
+      } catch (e) {
+        console.error("[api/select-plan] service plans query:", e);
+        queryError = { message: String(e) };
+      }
+    }
+
+    if (!data) {
+      const res = await loadPlanRow(supabase);
+      if (res.data) {
+        data = res.data as PlanRow;
+        queryError = null;
+      } else if (res.error) {
+        queryError = res.error;
+      }
+    }
 
     console.log("Query result:", data);
-    console.log("Error:", error);
+    console.log("Error:", queryError);
 
-    if (error) {
-      console.error("[api/select-plan] plans query error:", error.message);
+    if (!data && queryError) {
+      console.error("[api/select-plan] plans query error:", queryError.message);
       return NextResponse.json(
-        { error: "Could not load plans." },
+        { error: "Plan bilgisi alınamadı. Lütfen daha sonra tekrar deneyin." },
         { status: 503 },
       );
     }
 
-    if (!data || data.length === 0) {
+    if (!data) {
       return NextResponse.json(
-        { error: "Plan not found", plan },
+        { error: ERR_PLAN_NOT_IN_DB, planName },
         { status: 404 },
       );
     }
 
-    const selectedPlan = data[0] as PlanRow;
-
-    if (
-      typeof selectedPlan.video_limit !== "number" ||
-      typeof selectedPlan.text_limit !== "number"
-    ) {
+    const limits = parseLimits(data);
+    if (!limits) {
       return NextResponse.json(
-        { error: "Plan not found", plan },
+        { error: ERR_PLAN_NOT_IN_DB, planName },
         { status: 404 },
       );
     }
 
     const upsertPayload = {
       id: user.id,
-      plan: selectedPlan.name,
-      video_credits: selectedPlan.video_limit,
-      text_credits: selectedPlan.text_limit,
+      plan: data.name,
+      video_credits: limits.video,
+      text_credits: limits.text,
       updated_at: new Date().toISOString(),
     };
 
-    const {
-      data: userUpsertData,
-      error: userErr,
-      status: userStatus,
-      statusText: userStatusText,
-    } = await supabase.from("users").upsert(upsertPayload, { onConflict: "id" }).select();
-
-    console.log("[api/select-plan] users upsert result:", {
-      data: userUpsertData,
-      error: userErr?.message ?? null,
-      status: userStatus,
-      statusText: userStatusText,
-    });
+    const { error: userErr } = await supabase
+      .from("users")
+      .upsert(upsertPayload, { onConflict: "id" });
 
     if (userErr) {
+      console.error("[api/select-plan] users upsert:", userErr.message);
       return NextResponse.json(
-        { error: "Could not update user." },
+        { error: "Kullanıcı bilgileri güncellenemedi." },
         { status: 500 },
       );
     }
 
-    const subscriptionPlan = isPaidAppPlan(selectedPlan.name) ? "pro" : "free";
+    const subscriptionPlan = isPaidAppPlan(data.name) ? "pro" : "free";
     const { data: existingUsage } = await supabase
       .from("usage")
       .select("user_id")
@@ -114,69 +147,59 @@ export async function POST(req: Request): Promise<Response> {
       .maybeSingle();
 
     if (existingUsage) {
-      const { error: usageUp, data: usageData } = await supabase
+      const { error: usageUp } = await supabase
         .from("usage")
         .update({
-          text_credits: selectedPlan.text_limit,
-          video_credits: selectedPlan.video_limit,
+          text_credits: limits.text,
+          video_credits: limits.video,
           updated_at: new Date().toISOString(),
         })
-        .eq("user_id", user.id)
-        .select();
-      console.log("[api/select-plan] usage update result:", {
-        data: usageData,
-        error: usageUp?.message ?? null,
-      });
+        .eq("user_id", user.id);
+      if (usageUp) {
+        console.error("[api/select-plan] usage update:", usageUp.message);
+      }
     } else {
-      const { error: usageIn, data: usageData } = await supabase
-        .from("usage")
-        .insert({
-          user_id: user.id,
-          request_count: 0,
-          transcribe_count: 0,
-          text_credits: selectedPlan.text_limit,
-          video_credits: selectedPlan.video_limit,
-        })
-        .select();
-      console.log("[api/select-plan] usage insert result:", {
-        data: usageData,
-        error: usageIn?.message ?? null,
+      const { error: usageIn } = await supabase.from("usage").insert({
+        user_id: user.id,
+        request_count: 0,
+        transcribe_count: 0,
+        text_credits: limits.text,
+        video_credits: limits.video,
       });
+      if (usageIn) {
+        console.error("[api/select-plan] usage insert:", usageIn.message);
+      }
     }
 
-    const { data: subData, error: subErr } = await supabase
-      .from("subscriptions")
-      .upsert(
-        {
-          user_id: user.id,
-          plan: subscriptionPlan,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      )
-      .select();
-    console.log("[api/select-plan] subscriptions upsert result:", {
-      data: subData,
-      error: subErr?.message ?? null,
-    });
-
+    const { error: subErr } = await supabase.from("subscriptions").upsert(
+      {
+        user_id: user.id,
+        plan: subscriptionPlan,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
     if (subErr) {
+      console.error("[api/select-plan] subscriptions upsert:", subErr.message);
       return NextResponse.json(
-        { error: "Could not update subscription." },
+        { error: "Abonelik kaydı güncellenemedi." },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      plan: selectedPlan.name,
-      credits: {
-        video: selectedPlan.video_limit,
-        text: selectedPlan.text_limit,
+    return NextResponse.json(
+      {
+        success: true,
+        plan: data.name,
+        credits: {
+          video: limits.video,
+          text: limits.text,
+        },
       },
-    });
+      { status: 200 },
+    );
   } catch (e) {
     console.error("[api/select-plan] unhandled:", e);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: "Sunucu hatası." }, { status: 500 });
   }
 }
