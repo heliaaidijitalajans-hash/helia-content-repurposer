@@ -124,7 +124,7 @@ export async function MarketingPricingContent() {
             textLabel={t("pricingPageCreditsTextLabel")}
             hint={t("pricingPageCreditsHint")}
           />
-          <PricingSelectPlanButton plan="monthly" className={`${primaryCtaClass} pt-6`}>
+          <PricingSelectPlanButton plan="aylik" className={`${primaryCtaClass} pt-6`}>
             {t("pricingPageMonthlyCta")}
           </PricingSelectPlanButton>
         </article>
