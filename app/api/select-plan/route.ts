@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import {
   isPaidAppPlan,
   normalizePlanNameForDb,
@@ -13,6 +13,11 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+/** DB tabloları: migration 014 — public.plans, public.users (profiles değil). */
+const TABLE_PLANS = "plans";
+const TABLE_USERS = "users";
+
+/** plans sütunları: video_limit, text_limit (014). users: video_credits, text_credits. */
 const ERR_PLAN_NOT_IN_DB = "Sistemde böyle bir plan tanımlı değil.";
 const ERR_INVALID_PLAN = "Geçersiz plan adı. Geçerli değerler: free, aylik, pro, yearly.";
 
@@ -32,7 +37,27 @@ function parseLimits(row: {
   return { video, text };
 }
 
-/** POST /api/select-plan — plans (name) → public.users + usage + subscriptions */
+function logPostgrest(ctx: string, err: PostgrestError) {
+  console.error(`[api/select-plan] ${ctx}:`, {
+    message: err.message,
+    code: err.code,
+    details: err.details,
+    hint: err.hint,
+  });
+}
+
+function serializeErr(e: unknown): string {
+  if (e instanceof Error) {
+    return `${e.name}: ${e.message}\n${e.stack ?? ""}`;
+  }
+  try {
+    return JSON.stringify(e);
+  } catch {
+    return String(e);
+  }
+}
+
+/** POST /api/select-plan — public.plans (name) → public.users + usage + subscriptions */
 export async function POST(req: Request): Promise<Response> {
   try {
     const rawBody = await req.json().catch(() => null);
@@ -55,22 +80,33 @@ export async function POST(req: Request): Promise<Response> {
     const supabase = await createClient();
     const {
       data: { user },
+      error: authErr,
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      return NextResponse.json({ error: "Oturum bulunamadı." }, { status: 401 });
+    if (authErr) {
+      console.error("[api/select-plan] auth.getUser error:", authErr.message);
+      return NextResponse.json({ error: "Oturum doğrulanamadı." }, { status: 401 });
+    }
+
+    const userId = user?.id?.trim();
+    if (!userId) {
+      console.error("[api/select-plan] auth.getUser: boş kullanıcı id");
+      return NextResponse.json(
+        { error: "Oturum bulunamadı veya kullanıcı id alınamadı." },
+        { status: 401 },
+      );
     }
 
     async function loadPlanRow(client: SupabaseClient) {
       return client
-        .from("plans")
+        .from(TABLE_PLANS)
         .select("name, video_limit, text_limit")
         .eq("name", canonical)
         .maybeSingle();
     }
 
     let data: PlanRow | null = null;
-    let queryError: { message: string } | null = null;
+    let queryError: PostgrestError | null = null;
 
     if (isServiceRoleConfigured()) {
       try {
@@ -78,8 +114,8 @@ export async function POST(req: Request): Promise<Response> {
         data = (res.data as PlanRow | null) ?? null;
         queryError = res.error;
       } catch (e) {
-        console.error("[api/select-plan] service plans query:", e);
-        queryError = { message: String(e) };
+        console.error("[api/select-plan] service plans query:", serializeErr(e));
+        queryError = null;
       }
     }
 
@@ -97,7 +133,7 @@ export async function POST(req: Request): Promise<Response> {
     console.log("Error:", queryError);
 
     if (!data && queryError) {
-      console.error("[api/select-plan] plans query error:", queryError.message);
+      logPostgrest("plans query", queryError);
       return NextResponse.json(
         { error: "Plan bilgisi alınamadı. Lütfen daha sonra tekrar deneyin." },
         { status: 503 },
@@ -119,22 +155,30 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
+    const writer: SupabaseClient = isServiceRoleConfigured()
+      ? createServiceRoleClient()
+      : supabase;
+
     const upsertPayload = {
-      id: user.id,
+      id: userId,
       plan: data.name,
       video_credits: limits.video,
       text_credits: limits.text,
       updated_at: new Date().toISOString(),
     };
 
-    const { error: userErr } = await supabase
-      .from("users")
+    const { error: userErr } = await writer
+      .from(TABLE_USERS)
       .upsert(upsertPayload, { onConflict: "id" });
 
     if (userErr) {
-      console.error("[api/select-plan] users upsert:", userErr.message);
+      logPostgrest("users upsert", userErr);
       return NextResponse.json(
-        { error: "Kullanıcı bilgileri güncellenemedi." },
+        {
+          error: "Kullanıcı bilgileri güncellenemedi.",
+          detail: userErr.message,
+          code: userErr.code,
+        },
         { status: 500 },
       );
     }
@@ -143,46 +187,50 @@ export async function POST(req: Request): Promise<Response> {
     const { data: existingUsage } = await supabase
       .from("usage")
       .select("user_id")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
     if (existingUsage) {
-      const { error: usageUp } = await supabase
+      const { error: usageUp } = await writer
         .from("usage")
         .update({
           text_credits: limits.text,
           video_credits: limits.video,
           updated_at: new Date().toISOString(),
         })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
       if (usageUp) {
-        console.error("[api/select-plan] usage update:", usageUp.message);
+        logPostgrest("usage update", usageUp);
       }
     } else {
-      const { error: usageIn } = await supabase.from("usage").insert({
-        user_id: user.id,
+      const { error: usageIn } = await writer.from("usage").insert({
+        user_id: userId,
         request_count: 0,
         transcribe_count: 0,
         text_credits: limits.text,
         video_credits: limits.video,
       });
       if (usageIn) {
-        console.error("[api/select-plan] usage insert:", usageIn.message);
+        logPostgrest("usage insert", usageIn);
       }
     }
 
-    const { error: subErr } = await supabase.from("subscriptions").upsert(
+    const { error: subErr } = await writer.from("subscriptions").upsert(
       {
-        user_id: user.id,
+        user_id: userId,
         plan: subscriptionPlan,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
     );
     if (subErr) {
-      console.error("[api/select-plan] subscriptions upsert:", subErr.message);
+      logPostgrest("subscriptions upsert", subErr);
       return NextResponse.json(
-        { error: "Abonelik kaydı güncellenemedi." },
+        {
+          error: "Abonelik kaydı güncellenemedi.",
+          detail: subErr.message,
+          code: subErr.code,
+        },
         { status: 500 },
       );
     }
@@ -199,7 +247,14 @@ export async function POST(req: Request): Promise<Response> {
       { status: 200 },
     );
   } catch (e) {
-    console.error("[api/select-plan] unhandled:", e);
-    return NextResponse.json({ error: "Sunucu hatası." }, { status: 500 });
+    console.error("Plan güncelleme hatası:", e);
+    console.error("Plan güncelleme hatası (serialize):", serializeErr(e));
+    return NextResponse.json(
+      {
+        error: "Sunucu hatası.",
+        detail: e instanceof Error ? e.message : String(e),
+      },
+      { status: 500 },
+    );
   }
 }
