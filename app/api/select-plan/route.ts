@@ -1,36 +1,33 @@
 import { NextResponse } from "next/server";
-import { isPaidAppPlan, type PlansTableName } from "@/lib/plans/normalize-plan-name";
+import {
+  isPaidAppPlan,
+  normalizePlanNameForDb,
+  type PlansTableName,
+} from "@/lib/plans/normalize-plan-name";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 type PlanRow = {
-  id: string;
   name: PlansTableName;
   video_limit: number;
   text_limit: number;
 };
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isUuid(s: string): boolean {
-  return UUID_RE.test(s);
-}
-
-/** POST — select plan from `plans` by id, upsert `users`, mirror `usage` + `subscriptions`. */
+/** POST — select plan from `plans` by name, upsert `users`, mirror `usage` + `subscriptions`. */
 export async function POST(req: Request): Promise<Response> {
   try {
     const rawBody = await req.json().catch(() => null);
     console.log("[api/select-plan] incoming body:", rawBody);
 
-    const body = rawBody as { planId?: unknown } | null;
-    const raw = typeof body?.planId === "string" ? body.planId : "";
-    const planId = raw.trim();
-    console.log("Incoming planId:", planId);
+    const body = rawBody as { plan?: unknown } | null;
+    let plan = typeof body?.plan === "string" ? body.plan : "";
+    plan = plan.toLowerCase().trim();
+    console.log("Incoming plan:", plan);
 
-    if (!planId || !isUuid(planId)) {
-      return NextResponse.json({ error: "Invalid planId" }, { status: 400 });
+    const nameKey = normalizePlanNameForDb(plan);
+    if (!nameKey) {
+      return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -45,42 +42,46 @@ export async function POST(req: Request): Promise<Response> {
 
     console.log("[api/select-plan] user id:", user.id);
 
-    const { data, error: planErr } = await supabase
+    const { data, error } = await supabase
       .from("plans")
       .select("*")
-      .eq("id", planId)
-      .single();
+      .eq("name", nameKey);
 
-    console.log("DB result:", data);
+    console.log("Query result:", data);
+    console.log("Error:", error);
 
-    if (planErr) {
-      if (planErr.code === "PGRST116") {
-        return NextResponse.json(
-          { error: "Plan not found", incoming: planId },
-          { status: 404 },
-        );
-      }
-      console.error("[api/select-plan] plans query error:", planErr.message);
+    if (error) {
+      console.error("[api/select-plan] plans query error:", error.message);
       return NextResponse.json(
         { error: "Could not load plans." },
         { status: 503 },
       );
     }
 
-    if (!data || typeof data.video_limit !== "number") {
+    if (!data || data.length === 0) {
       return NextResponse.json(
-        { error: "Plan not found", incoming: planId },
+        { error: "Plan not found", plan },
         { status: 404 },
       );
     }
 
-    const row = data as PlanRow;
+    const selectedPlan = data[0] as PlanRow;
+
+    if (
+      typeof selectedPlan.video_limit !== "number" ||
+      typeof selectedPlan.text_limit !== "number"
+    ) {
+      return NextResponse.json(
+        { error: "Plan not found", plan },
+        { status: 404 },
+      );
+    }
 
     const upsertPayload = {
       id: user.id,
-      plan: row.name,
-      video_credits: row.video_limit,
-      text_credits: row.text_limit,
+      plan: selectedPlan.name,
+      video_credits: selectedPlan.video_limit,
+      text_credits: selectedPlan.text_limit,
       updated_at: new Date().toISOString(),
     };
 
@@ -105,7 +106,7 @@ export async function POST(req: Request): Promise<Response> {
       );
     }
 
-    const subscriptionPlan = isPaidAppPlan(row.name) ? "pro" : "free";
+    const subscriptionPlan = isPaidAppPlan(selectedPlan.name) ? "pro" : "free";
     const { data: existingUsage } = await supabase
       .from("usage")
       .select("user_id")
@@ -116,8 +117,8 @@ export async function POST(req: Request): Promise<Response> {
       const { error: usageUp, data: usageData } = await supabase
         .from("usage")
         .update({
-          text_credits: row.text_limit,
-          video_credits: row.video_limit,
+          text_credits: selectedPlan.text_limit,
+          video_credits: selectedPlan.video_limit,
           updated_at: new Date().toISOString(),
         })
         .eq("user_id", user.id)
@@ -133,8 +134,8 @@ export async function POST(req: Request): Promise<Response> {
           user_id: user.id,
           request_count: 0,
           transcribe_count: 0,
-          text_credits: row.text_limit,
-          video_credits: row.video_limit,
+          text_credits: selectedPlan.text_limit,
+          video_credits: selectedPlan.video_limit,
         })
         .select();
       console.log("[api/select-plan] usage insert result:", {
@@ -168,10 +169,10 @@ export async function POST(req: Request): Promise<Response> {
 
     return NextResponse.json({
       success: true,
-      plan: row.name,
+      plan: selectedPlan.name,
       credits: {
-        video: row.video_limit,
-        text: row.text_limit,
+        video: selectedPlan.video_limit,
+        text: selectedPlan.text_limit,
       },
     });
   } catch (e) {
