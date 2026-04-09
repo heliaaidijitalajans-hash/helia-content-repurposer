@@ -121,6 +121,10 @@
     "pricingPageCreditsVideoLabel": " video credits",
     "pricingPageCreditsTextLabel": " text credits",
     "pricingPageCreditsHint": "1 min video = 1 credit · 1 text gen = 1 credit",
+    "pricingPageSelectPlanSuccess": "Plan updated. Your credits are refreshed.",
+    "pricingPageSelectPlanError": "Could not update plan. Try again.",
+    "pricingPageSelectPlanUnauthorized": "Sign in to select a plan.",
+    "pricingPageSelectPlanLoading": "Saving…",
     "supportTitle": "Support",
     "supportSub": "Have a question? We’re happy to help."
   },

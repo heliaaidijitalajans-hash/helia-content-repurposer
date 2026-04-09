@@ -1,6 +1,7 @@
 "use client";
 
 import NextLink from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 export type CheckoutPlanKey = "free" | "monthly" | "pro" | "yearly";
@@ -60,6 +61,7 @@ type Props = {
 };
 
 export function CheckoutDemoForm({ email, planKey, legal }: Props) {
+  const router = useRouter();
   const plan = useMemo(
     () => PLANS[normalizePlanKey(planKey)],
     [planKey],
@@ -75,21 +77,43 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
   const [agreeRefund, setAgreeRefund] = useState(false);
 
   const [toast, setToast] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const allLegalChecked =
     agreeTerms && agreeDistance && agreePrivacy && agreeRefund;
 
   const canSubmit = allLegalChecked;
 
-  function showDemoToast() {
-    setToast("Demo ödeme sayfası – ödeme entegrasyonu henüz bağlı değil");
-    window.setTimeout(() => setToast(null), 4000);
-  }
-
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canSubmit) return;
-    showDemoToast();
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/checkout/apply-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ plan: normalizePlanKey(planKey) }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) {
+        setSubmitError(
+          typeof data.error === "string" ? data.error : "İstek başarısız",
+        );
+        return;
+      }
+      setToast("Plan kaydedildi. Yönlendiriliyorsunuz…");
+      router.refresh();
+      window.setTimeout(() => {
+        router.push("/dashboard");
+      }, 600);
+    } catch {
+      setSubmitError("Ağ hatası. Tekrar deneyin.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const linkClass =
@@ -267,12 +291,18 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
             </ul>
           </section>
 
+          {submitError ? (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              {submitError}
+            </p>
+          ) : null}
+
           <button
             type="submit"
-            disabled={!canSubmit}
+            disabled={!canSubmit || submitting}
             className="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 text-base font-semibold text-white shadow-md transition hover:from-blue-500 hover:to-indigo-500 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
-            Ödemeyi Tamamla
+            {submitting ? "Kaydediliyor…" : "Ödemeyi Tamamla"}
           </button>
 
           <ul className="flex flex-col items-center gap-2 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-8">

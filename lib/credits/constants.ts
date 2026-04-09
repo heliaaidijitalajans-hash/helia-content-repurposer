@@ -10,3 +10,6 @@ export const LOW_VIDEO_CREDITS_THRESHOLD = 5;
 export const MAX_BILLABLE_MEDIA_SECONDS = 6 * 60 * 60;
 
 export const INSUFFICIENT_CREDITS_CODE = "INSUFFICIENT_CREDITS" as const;
+
+/** Dispatched on window after plan change so workspaces refetch /api/usage. */
+export const HELIA_CREDITS_REFRESH_EVENT = "helia:credits-refresh";

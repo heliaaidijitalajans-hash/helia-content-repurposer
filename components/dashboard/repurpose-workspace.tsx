@@ -10,7 +10,10 @@ import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import { billedMinutesFromDurationSeconds } from "@/lib/credits/billing-minutes";
-import { INSUFFICIENT_CREDITS_CODE } from "@/lib/credits/constants";
+import {
+  HELIA_CREDITS_REFRESH_EVENT,
+  INSUFFICIENT_CREDITS_CODE,
+} from "@/lib/credits/constants";
 import { getMediaDurationSecondsFromFile } from "@/lib/media/duration-from-file";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { lightCardClass } from "@/lib/ui/saas-card";
@@ -328,6 +331,16 @@ export function RepurposeWorkspace() {
   useEffect(() => {
     void refreshUsage();
   }, [refreshUsage, result]);
+
+  useEffect(() => {
+    const onCreditsRefresh = () => {
+      void refreshUsage();
+      void refreshSubscriptionStatus();
+    };
+    window.addEventListener(HELIA_CREDITS_REFRESH_EVENT, onCreditsRefresh);
+    return () =>
+      window.removeEventListener(HELIA_CREDITS_REFRESH_EVENT, onCreditsRefresh);
+  }, [refreshUsage, refreshSubscriptionStatus]);
 
   useEffect(() => {
     if (

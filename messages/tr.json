@@ -121,6 +121,10 @@
     "pricingPageCreditsVideoLabel": " Video Kredisi",
     "pricingPageCreditsTextLabel": " Metin Kredisi",
     "pricingPageCreditsHint": "1 dk video = 1 kredi · 1 metin = 1 kredi",
+    "pricingPageSelectPlanSuccess": "Plan güncellendi. Kredileriniz yenilendi.",
+    "pricingPageSelectPlanError": "Plan güncellenemedi. Tekrar deneyin.",
+    "pricingPageSelectPlanUnauthorized": "Plan seçmek için giriş yapın.",
+    "pricingPageSelectPlanLoading": "Kaydediliyor…",
     "supportTitle": "Destek",
     "supportSub": "Herhangi bir sorunuz mu var? Size yardımcı olmaktan mutluluk duyarız."
   },

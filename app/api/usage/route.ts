@@ -26,6 +26,15 @@ export async function GET() {
 
   const isPro = await checkUserProSubscription(supabase);
 
+  const { data: appUserRow, error: appUserErr } = await supabase
+    .from("users")
+    .select("text_credits, video_credits")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (appUserErr) {
+    console.warn("usage (app users):", appUserErr.message);
+  }
+
   const { data: row, error } = await supabase
     .from("usage")
     .select("request_count, transcribe_count, text_credits, video_credits")
@@ -53,11 +62,17 @@ export async function GET() {
   const transcribeUsed =
     typeof row?.transcribe_count === "number" ? row.transcribe_count : 0;
   const textCredits =
-    typeof row?.text_credits === "number" ? row.text_credits : DEFAULT_TEXT_CREDITS;
+    typeof appUserRow?.text_credits === "number"
+      ? appUserRow.text_credits
+      : typeof row?.text_credits === "number"
+        ? row.text_credits
+        : DEFAULT_TEXT_CREDITS;
   const videoCredits =
-    typeof row?.video_credits === "number"
-      ? row.video_credits
-      : DEFAULT_VIDEO_CREDITS;
+    typeof appUserRow?.video_credits === "number"
+      ? appUserRow.video_credits
+      : typeof row?.video_credits === "number"
+        ? row.video_credits
+        : DEFAULT_VIDEO_CREDITS;
 
   const creditsLow =
     !isPro &&
