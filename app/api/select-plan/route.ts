@@ -21,13 +21,12 @@ export async function POST(req: Request): Promise<Response> {
     console.log("[api/select-plan] incoming body:", rawBody);
 
     const body = rawBody as { plan?: unknown } | null;
-    const raw = typeof body?.plan === "string" ? body.plan : "";
-    const planInput = raw.toLowerCase().trim();
-    console.log("[api/select-plan] plan after toLowerCase().trim():", planInput);
+    let plan = typeof body?.plan === "string" ? body.plan : "";
+    plan = plan.toLowerCase().trim();
+    console.log("Incoming plan:", plan);
 
-    const planName = normalizePlanNameForDb(planInput);
-    const plan = planName;
-    console.log("Selected plan:", plan);
+    const planName = normalizePlanNameForDb(plan);
+    console.log("Selected plan:", planName);
 
     if (!planName) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
