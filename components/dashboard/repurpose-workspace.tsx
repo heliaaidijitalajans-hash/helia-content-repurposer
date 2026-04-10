@@ -13,6 +13,7 @@ import {
   HELIA_CREDITS_REFRESH_EVENT,
   isInsufficientCreditsMessage,
 } from "@/lib/credits/constants";
+import { fetchAppUserCreditsFromSupabase } from "@/lib/credits/fetch-app-user-credits-client";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
@@ -369,9 +370,31 @@ export function RepurposeWorkspace() {
       return;
     }
 
-    if (usage && usage.textCredits < 1) {
-      setError(t("creditInsufficient"));
-      return;
+    const { isConfigured } = getPublicSupabaseConfig();
+    if (isConfigured) {
+      const supabase = createClient();
+      const creditRes = await fetchAppUserCreditsFromSupabase(supabase);
+      if (!creditRes.ok) {
+        if (creditRes.reason === "unauthorized") {
+          setError(t("transcribeErrorAuth"));
+          return;
+        }
+        if (creditRes.reason === "no_row") {
+          setError(t("creditInsufficient"));
+          return;
+        }
+        console.error(
+          "[onRepurpose] users credits fetch failed:",
+          creditRes.reason,
+          creditRes.message,
+        );
+        setError(t("errorRequestFailed"));
+        return;
+      }
+      if (creditRes.credits.textCredits <= 0) {
+        setError(t("creditInsufficient"));
+        return;
+      }
     }
 
     setError(null);
@@ -594,25 +617,42 @@ export function RepurposeWorkspace() {
 
     setTranscribeError(null);
     setTranscribeApiMeta(null);
-    setTranscribeLoading(true);
-    setTranscribeReady(false);
-    setTranscriptionText("");
-
-    if (usage && usage.videoCredits < 1) {
-      setTranscribeLoading(false);
-      setTranscribeError(t("creditInsufficient"));
-      return;
-    }
 
     const supabase = createClient();
     const {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      setTranscribeLoading(false);
       setTranscribeError(t("transcribeErrorAuth"));
       return;
     }
+
+    const creditRes = await fetchAppUserCreditsFromSupabase(supabase);
+    if (!creditRes.ok) {
+      if (creditRes.reason === "unauthorized") {
+        setTranscribeError(t("transcribeErrorAuth"));
+        return;
+      }
+      if (creditRes.reason === "no_row") {
+        setTranscribeError(t("creditInsufficient"));
+        return;
+      }
+      console.error(
+        "[submitTranscription] users credits fetch failed:",
+        creditRes.reason,
+        creditRes.message,
+      );
+      setTranscribeError(t("errorRequestFailed"));
+      return;
+    }
+    if (creditRes.credits.videoCredits <= 0) {
+      setTranscribeError(t("creditInsufficient"));
+      return;
+    }
+
+    setTranscribeLoading(true);
+    setTranscribeReady(false);
+    setTranscriptionText("");
 
     const safeName = (file.name || "media").replace(/[/\\]/g, "_");
     const storagePath = `files/${Date.now()}-${safeName}`;
