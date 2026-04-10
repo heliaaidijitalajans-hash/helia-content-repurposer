@@ -434,15 +434,16 @@ export function RepurposeWorkspace() {
         body: JSON.stringify(payload),
       });
 
-      const data = (await res.json()) as Record<string, unknown> & {
-        error?: string;
-      };
+      let data: Record<string, unknown> & { error?: string; detail?: string };
+      try {
+        data = (await res.json()) as typeof data;
+      } catch {
+        setError(t("errorRequestFailed"));
+        return;
+      }
 
       if (!res.ok) {
-        if (
-          res.status === 503 &&
-          data.error === CREDIT_DEBIT_FAILED_MSG
-        ) {
+        if (data.error === CREDIT_DEBIT_FAILED_MSG) {
           setError(CREDIT_DEBIT_FAILED_MSG);
           return;
         }
