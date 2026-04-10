@@ -412,12 +412,26 @@ export function RepurposeWorkspace() {
 
     try {
       const payload = { text: bodyText };
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (isConfigured) {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setError(t("transcribeErrorAuth"));
+          return;
+        }
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch("/api/repurpose", {
         method: "POST",
         credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -426,7 +440,10 @@ export function RepurposeWorkspace() {
       };
 
       if (!res.ok) {
-        if (res.status === 401) {
+        if (
+          res.status === 401 ||
+          (res.status === 403 && data.error === "Unauthorized")
+        ) {
           setError(t("transcribeErrorAuth"));
           return;
         }

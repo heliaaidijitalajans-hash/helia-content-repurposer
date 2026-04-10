@@ -1,7 +1,7 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import { getServiceSupabaseUrl } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,16 +14,16 @@ type UsersRow = {
   id?: string;
 };
 
-/**
- * Supabase SSR: çerezler PKCE / parçalı saklama için `getAll` + `setAll` olmalı.
- * Yalnızca `get(name)` kullanmak `auth.getUser()` → null üretebilir.
- *
- * Not: `createRouteHandlerClient` (@supabase/auth-helpers-nextjs) pakette yok / deprecated;
- * resmi yol: `@supabase/ssr` + bu adaptör (middleware ile aynı model).
- */
+function jsonUnauthorized() {
+  return Response.json({ error: "Unauthorized" }, { status: 403 });
+}
+
 export async function POST(req: Request): Promise<Response> {
-  const { url: supabaseUrl, anonKey: supabaseAnonKey, isConfigured } =
-    getPublicSupabaseConfig();
+  const { isConfigured } = getPublicSupabaseConfig();
+  const supabaseUrl =
+    getServiceSupabaseUrl() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  const canUseTokenAuth = Boolean(supabaseUrl && serviceRoleKey);
 
   try {
     const body = (await req.json()) as { text?: unknown };
@@ -42,37 +42,41 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json(result);
     }
 
-    const cookieStore = await cookies();
+    if (!canUseTokenAuth) {
+      console.error(
+        "[api/repurpose] SUPABASE_SERVICE_ROLE_KEY veya proje URL eksik (token auth).",
+      );
+      return Response.json({ error: "Server configuration" }, { status: 503 });
+    }
 
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // Route Handler’da set bazen kısıtlı; middleware zaten oturumu yeniliyor.
-          }
-        },
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return jsonUnauthorized();
+    }
+
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    if (!token) {
+      return jsonUnauthorized();
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     });
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getUser(token);
 
-    console.log("API USER:", user);
     if (authError) {
-      console.log("AUTH ERROR:", authError);
+      console.log("AUTH ERROR:", authError.message);
     }
 
     if (!user) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonUnauthorized();
     }
 
     let { data: dbUser, error: selectErr } = await supabase
