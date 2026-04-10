@@ -259,6 +259,7 @@
     "statCreditsRemainingHint": "Bu ay kalan",
     "statCreditsUsedLabel": "Kullanılan Kredi",
     "statCreditsUsedHint": "Bu ay kullanıldı",
+    "statCreditsUsedBreakdownHint": "Video: {videoUsed} · Metin: {textUsed}",
     "statTotalOutputLabel": "Toplam Üretim",
     "statTotalOutputHint": "Oluşturulan içerik",
     "statPlanLabel": "Plan",

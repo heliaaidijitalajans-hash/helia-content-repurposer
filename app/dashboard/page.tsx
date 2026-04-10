@@ -18,7 +18,17 @@ export default async function DashboardPage() {
     .replace("{video}", String(stats.videoCredits))
     .replace("{text}", String(stats.textCredits));
 
+  const usedCreditsHint = copy.statCreditsUsedBreakdownHint
+    .replace("{videoUsed}", String(stats.usedVideo))
+    .replace("{textUsed}", String(stats.usedText));
+
   const statItems = [
+    {
+      label: copy.statCreditsUsedLabel,
+      value: stats.creditsUsed,
+      hint: usedCreditsHint,
+      numeric: true,
+    },
     {
       label: copy.statTotalCreditsLabel,
       value: stats.totalCreditsRemaining,
@@ -67,7 +77,7 @@ export default async function DashboardPage() {
       </header>
 
       <section aria-label={copy.statPlanLabel}>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {statItems.map((item) => (
             <li key={item.label}>
               <div className={`${statCardClass} flex h-full flex-col justify-between`}>

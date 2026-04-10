@@ -259,6 +259,7 @@
     "statCreditsRemainingHint": "Left this month",
     "statCreditsUsedLabel": "Credits used",
     "statCreditsUsedHint": "Used this month",
+    "statCreditsUsedBreakdownHint": "Video: {videoUsed} · Text: {textUsed}",
     "statTotalOutputLabel": "Total output",
     "statTotalOutputHint": "Content generated",
     "statPlanLabel": "Plan",
