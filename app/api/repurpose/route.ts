@@ -1,7 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
-import { getServiceSupabaseUrl } from "@/lib/supabase/admin";
+import { CREDIT_DEBIT_FAILED_MSG } from "@/lib/credits/constants";
+import {
+  createServiceRoleClient,
+  getServiceSupabaseUrl,
+} from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -137,9 +141,11 @@ export async function POST(req: Request): Promise<Response> {
     const textCredits =
       typeof dbUser.text_credits === "number" ? dbUser.text_credits : 0;
 
+    console.log(`[DEBUG] İşlem öncesi kredi: ${textCredits}`);
+
     if (isAdminCreditBypass) {
       console.log(
-        "[api/repurpose] ADMIN_USER_ID eşleşmesi — kredi kontrolü ve düşüm atlandı (debug).",
+        "[api/repurpose] ADMIN_USER_ID eşleşmesi — kredi düşümü atlandı (debug).",
       );
       const result = await generateRepurpose(inputText);
       return Response.json(result);
@@ -149,8 +155,17 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Kredi yok" }, { status: 403 });
     }
 
+    let result: Awaited<ReturnType<typeof generateRepurpose>>;
+    try {
+      result = await generateRepurpose(inputText);
+    } catch (genErr) {
+      console.error("[api/repurpose] generateRepurpose:", genErr);
+      throw genErr;
+    }
+
+    const admin = createServiceRoleClient();
     const now = new Date().toISOString();
-    const { data: afterDebit, error: debitErr } = await supabase
+    const { data: afterDebit, error: debitErr } = await admin
       .from("users")
       .update({
         text_credits: textCredits - 1,
@@ -162,22 +177,21 @@ export async function POST(req: Request): Promise<Response> {
       .maybeSingle();
 
     if (debitErr || !afterDebit) {
-      return Response.json({ error: "Kredi yok" }, { status: 403 });
+      console.error(
+        "[api/repurpose] Kredi düşürülemedi (service role):",
+        debitErr?.message ?? "no row updated",
+      );
+      return Response.json(
+        { error: CREDIT_DEBIT_FAILED_MSG },
+        { status: 503 },
+      );
     }
 
-    try {
-      const result = await generateRepurpose(inputText);
-      return Response.json(result);
-    } catch (genErr) {
-      await supabase
-        .from("users")
-        .update({
-          text_credits: textCredits,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
-      throw genErr;
-    }
+    console.log(
+      `[DEBUG] İşlem sonrası kredi: ${afterDebit.text_credits ?? textCredits - 1}`,
+    );
+
+    return Response.json(result);
   } catch (error) {
     if (error instanceof Error && error.message === "Text is empty") {
       return Response.json({ error: "Text is empty" }, { status: 400 });

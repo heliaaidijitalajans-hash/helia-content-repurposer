@@ -19,6 +19,10 @@ export const NO_CREDITS_MSG = "No credits" as const;
 
 export const NO_CREDITS_MSG_TR = "Kredi yok" as const;
 
+/** /api/repurpose: üretim sonrası kredi düşümü başarısız */
+export const CREDIT_DEBIT_FAILED_MSG =
+  "Kredi güncellenemediği için işlem durduruldu" as const;
+
 export const INSUFFICIENT_CREDITS_MESSAGES = [
   INSUFFICIENT_CREDITS_CODE,
   NOT_ENOUGH_TEXT_CREDITS_MSG,

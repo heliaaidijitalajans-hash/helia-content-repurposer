@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RepurposeResult } from "@/lib/repurpose/types";
 import { FORCE_VIDEO_FEATURE_ENABLED } from "@/lib/feature-flags";
@@ -10,6 +11,7 @@ import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import {
+  CREDIT_DEBIT_FAILED_MSG,
   HELIA_CREDITS_REFRESH_EVENT,
   isInsufficientCreditsMessage,
 } from "@/lib/credits/constants";
@@ -185,6 +187,7 @@ type WorkspaceTab = "text" | "video";
 
 export function RepurposeWorkspace() {
   const t = useTranslations("repurpose");
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("text");
   /** Source text for /api/repurpose only (Text Repurpose tab). */
   const [repurposeText, setRepurposeText] = useState("");
@@ -396,7 +399,7 @@ export function RepurposeWorkspace() {
         return;
       }
 
-      // Kredi düşürme: /api/repurpose içinde useTextCredit; ardından AI.
+      // Kredi: sunucu üretimden sonra düşürür; bakiye /api/usage + router.refresh.
     }
 
     setError(null);
@@ -441,6 +444,13 @@ export function RepurposeWorkspace() {
 
       if (!res.ok) {
         if (
+          res.status === 503 &&
+          data.error === CREDIT_DEBIT_FAILED_MSG
+        ) {
+          setError(CREDIT_DEBIT_FAILED_MSG);
+          return;
+        }
+        if (
           res.status === 401 ||
           (res.status === 403 && data.error === "Unauthorized")
         ) {
@@ -483,6 +493,7 @@ export function RepurposeWorkspace() {
 
       setResult(parsed);
       void refreshUsage();
+      router.refresh();
     } catch {
       setError(t("errorNetwork"));
     } finally {
