@@ -57,10 +57,14 @@ export async function POST(req: Request): Promise<Response> {
 
     const {
       data: { user },
+      error,
     } = await supabaseUser.auth.getUser();
 
+    console.log("API USER:", user);
+    console.log("AUTH ERROR:", error);
+
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      return new Response(JSON.stringify({ error: "NO USER IN API" }), {
         status: 401,
       });
     }
