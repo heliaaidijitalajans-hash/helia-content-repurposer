@@ -45,7 +45,7 @@ function createServiceSupabase() {
   }) as SupabaseClient;
 }
 
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: Request) {
   try {
     return await handleRepurposePost(req);
   } catch (err) {
