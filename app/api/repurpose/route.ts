@@ -1,11 +1,12 @@
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   jsonResponseForUseCreditError,
   useTextCredit,
 } from "@/lib/credits/use-credits";
 import { rpcRefundUserTextCredit } from "@/lib/credits/server-rpc";
 import { generateRepurpose } from "@/lib/repurpose/generate";
-import { getPublicSupabaseConfig } from "@/lib/supabase/config";
-import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,8 +14,14 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(req: Request): Promise<Response> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const isConfigured = Boolean(
+    supabaseUrl?.trim() && supabaseAnonKey?.trim(),
+  );
+
   let consumedTextCredit = false;
-  let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
+  let supabase: SupabaseClient | null = null;
 
   try {
     const body = (await req.json()) as { text?: unknown };
@@ -28,29 +35,39 @@ export async function POST(req: Request): Promise<Response> {
     const inputText = text.trim();
     console.log("INPUT TEXT:", inputText);
 
-    const { isConfigured } = getPublicSupabaseConfig();
-    if (isConfigured) {
-      try {
-        supabase = await createClient();
-      } catch (e) {
-        console.warn("[api/repurpose] Supabase client:", e);
-        return Response.json(
-          { error: "Server configuration" },
-          { status: 503 },
-        );
-      }
+    if (!isConfigured) {
+      const result = await generateRepurpose(inputText);
+      return Response.json(result);
     }
 
-    if (supabase) {
-      try {
-        await useTextCredit(supabase);
-        consumedTextCredit = true;
-      } catch (creditErr) {
-        const res = jsonResponseForUseCreditError(creditErr);
-        if (res) return res;
-        console.error("[api/repurpose] useTextCredit:", creditErr);
-        return Response.json({ error: "Server error" }, { status: 500 });
-      }
+    const cookieStore = await cookies();
+
+    supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+      cookies: {
+        get(name) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    });
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+      });
+    }
+
+    try {
+      await useTextCredit(supabase);
+      consumedTextCredit = true;
+    } catch (creditErr) {
+      const res = jsonResponseForUseCreditError(creditErr);
+      if (res) return res;
+      console.error("[api/repurpose] useTextCredit:", creditErr);
+      return Response.json({ error: "Server error" }, { status: 500 });
     }
 
     const result = await generateRepurpose(inputText);
