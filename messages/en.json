@@ -253,6 +253,8 @@
     "title": "Dashboard",
     "subtitle": "Manage your content production from one place",
     "headerCreateCta": "Create content",
+    "statTotalCreditsLabel": "Total credits remaining",
+    "statCreditsBreakdownHint": "{video} video + {text} text",
     "statCreditsRemainingLabel": "Credits remaining",
     "statCreditsRemainingHint": "Left this month",
     "statCreditsUsedLabel": "Credits used",

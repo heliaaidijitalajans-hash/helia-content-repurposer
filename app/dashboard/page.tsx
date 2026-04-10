@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getDashboardHomePageCopy } from "@/lib/dashboard/load-copy";
-import { getDashboardStatsPlaceholder } from "@/lib/dashboard/stats-placeholder";
+import { getDashboardStats } from "@/lib/dashboard/load-dashboard-stats";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
 const statCardClass = `${lightCardClass} shadow-sm`;
@@ -8,21 +8,21 @@ const btnSecondary =
   "inline-flex w-full items-center justify-center rounded-xl border border-blue-200/80 bg-white/90 px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm shadow-blue-900/5 transition hover:border-blue-300 hover:bg-blue-50/90 hover:text-blue-800 sm:w-auto";
 
 export default async function DashboardPage() {
-  const copy = await getDashboardHomePageCopy();
-  const stats = getDashboardStatsPlaceholder();
+  const [copy, stats] = await Promise.all([
+    getDashboardHomePageCopy(),
+    getDashboardStats(),
+  ]);
   const planLabel = stats.plan === "pro" ? copy.planPro : copy.planFree;
+
+  const creditsHint = copy.statCreditsBreakdownHint
+    .replace("{video}", String(stats.videoCredits))
+    .replace("{text}", String(stats.textCredits));
 
   const statItems = [
     {
-      label: copy.statCreditsRemainingLabel,
-      value: stats.creditsRemaining,
-      hint: copy.statCreditsRemainingHint,
-      numeric: true,
-    },
-    {
-      label: copy.statCreditsUsedLabel,
-      value: stats.creditsUsed,
-      hint: copy.statCreditsUsedHint,
+      label: copy.statTotalCreditsLabel,
+      value: stats.totalCreditsRemaining,
+      hint: creditsHint,
       numeric: true,
     },
     {
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
       </header>
 
       <section aria-label={copy.statPlanLabel}>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {statItems.map((item) => (
             <li key={item.label}>
               <div className={`${statCardClass} flex h-full flex-col justify-between`}>

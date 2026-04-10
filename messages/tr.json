@@ -253,6 +253,8 @@
     "title": "Dashboard",
     "subtitle": "İçerik üretimini buradan yönet",
     "headerCreateCta": "İçerik Oluştur",
+    "statTotalCreditsLabel": "Toplam kalan kredi",
+    "statCreditsBreakdownHint": "{video} video + {text} metin",
     "statCreditsRemainingLabel": "Kalan Kredi",
     "statCreditsRemainingHint": "Bu ay kalan",
     "statCreditsUsedLabel": "Kullanılan Kredi",
