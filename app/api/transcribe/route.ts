@@ -73,6 +73,30 @@ export async function POST(req: Request) {
   }
 
   if (supabase) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: dbUser } = await supabase
+      .from("users")
+      .select("video_credits")
+      .eq("id", user.id)
+      .single();
+
+    if (!dbUser || dbUser.video_credits <= 0) {
+      return new Response(JSON.stringify({ error: "No credits" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     try {
       await useVideoCredit(supabase);
       consumedVideoCredit = true;

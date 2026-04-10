@@ -60,6 +60,18 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
 
+    const { data: dbUser } = await supabase
+      .from("users")
+      .select("text_credits")
+      .eq("id", user.id)
+      .single();
+
+    if (!dbUser || dbUser.text_credits <= 0) {
+      return new Response(JSON.stringify({ error: "No credits" }), {
+        status: 403,
+      });
+    }
+
     try {
       await useTextCredit(supabase);
       consumedTextCredit = true;

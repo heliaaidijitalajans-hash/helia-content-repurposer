@@ -15,10 +15,13 @@ export const NOT_ENOUGH_TEXT_CREDITS_MSG = "Not enough text credits" as const;
 export const NOT_ENOUGH_VIDEO_CREDITS_MSG =
   "Not enough video credits" as const;
 
+export const NO_CREDITS_MSG = "No credits" as const;
+
 export const INSUFFICIENT_CREDITS_MESSAGES = [
   INSUFFICIENT_CREDITS_CODE,
   NOT_ENOUGH_TEXT_CREDITS_MSG,
   NOT_ENOUGH_VIDEO_CREDITS_MSG,
+  NO_CREDITS_MSG,
 ] as const;
 
 export function isInsufficientCreditsMessage(
