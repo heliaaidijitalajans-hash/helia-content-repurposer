@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getStandaloneLocale } from "@/lib/account/load-copy";
 import { createClient } from "@/lib/supabase/server";
-import { syncAuthenticatedUserWithUsersTable } from "@/lib/users/sync-authenticated-user";
+import { syncUserAndCredits } from "@/lib/users/sync-user-and-credits";
 
 /** Redirects to locale auth with `next` when there is no session. */
 export async function requireSession(nextPath: string): Promise<void> {
@@ -16,5 +16,5 @@ export async function requireSession(nextPath: string): Promise<void> {
     );
   }
 
-  await syncAuthenticatedUserWithUsersTable(supabase);
+  await syncUserAndCredits(supabase);
 }
