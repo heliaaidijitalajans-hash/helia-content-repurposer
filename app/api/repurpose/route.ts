@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   jsonResponseForUseCreditError,
@@ -16,12 +17,16 @@ export const maxDuration = 300;
 export async function POST(req: Request): Promise<Response> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const isConfigured = Boolean(
-    supabaseUrl?.trim() && supabaseAnonKey?.trim(),
+    supabaseUrl?.trim() &&
+      supabaseAnonKey?.trim() &&
+      serviceRoleKey?.trim(),
   );
 
   let consumedTextCredit = false;
-  let supabase: SupabaseClient | null = null;
+  /** Oturum + RPC (`auth.uid()`); RLS anon politikalarına tabi. */
+  let supabaseUser: SupabaseClient | null = null;
 
   try {
     const body = (await req.json()) as { text?: unknown };
@@ -42,7 +47,7 @@ export async function POST(req: Request): Promise<Response> {
 
     const cookieStore = await cookies();
 
-    supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    supabaseUser = createServerClient(supabaseUrl!, supabaseAnonKey!, {
       cookies: {
         get(name) {
           return cookieStore.get(name)?.value;
@@ -52,7 +57,7 @@ export async function POST(req: Request): Promise<Response> {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await supabaseUser.auth.getUser();
 
     if (!user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -60,7 +65,11 @@ export async function POST(req: Request): Promise<Response> {
       });
     }
 
-    const { data: dbUser } = await supabase
+    const supabaseService = createClient(supabaseUrl!, serviceRoleKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data: dbUser } = await supabaseService
       .from("users")
       .select("text_credits")
       .eq("id", user.id)
@@ -73,7 +82,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     try {
-      await useTextCredit(supabase);
+      await useTextCredit(supabaseUser);
       consumedTextCredit = true;
     } catch (creditErr) {
       const res = jsonResponseForUseCreditError(creditErr);
@@ -85,8 +94,8 @@ export async function POST(req: Request): Promise<Response> {
     const result = await generateRepurpose(inputText);
     return Response.json(result);
   } catch (error) {
-    if (consumedTextCredit && supabase) {
-      await rpcRefundUserTextCredit(supabase);
+    if (consumedTextCredit && supabaseUser) {
+      await rpcRefundUserTextCredit(supabaseUser);
     }
     if (error instanceof Error && error.message === "Text is empty") {
       return Response.json({ error: "Text is empty" }, { status: 400 });
