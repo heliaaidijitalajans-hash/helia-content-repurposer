@@ -79,6 +79,10 @@ export async function POST(req: Request): Promise<Response> {
       return jsonUnauthorized();
     }
 
+    const adminUserId = process.env.ADMIN_USER_ID?.trim();
+    const isAdminCreditBypass =
+      Boolean(adminUserId) && user.id === adminUserId;
+
     let { data: dbUser, error: selectErr } = await supabase
       .from("users")
       .select("*")
@@ -132,6 +136,14 @@ export async function POST(req: Request): Promise<Response> {
 
     const textCredits =
       typeof dbUser.text_credits === "number" ? dbUser.text_credits : 0;
+
+    if (isAdminCreditBypass) {
+      console.log(
+        "[api/repurpose] ADMIN_USER_ID eşleşmesi — kredi kontrolü ve düşüm atlandı (debug).",
+      );
+      const result = await generateRepurpose(inputText);
+      return Response.json(result);
+    }
 
     if (textCredits <= 0) {
       return Response.json({ error: "Kredi yok" }, { status: 403 });

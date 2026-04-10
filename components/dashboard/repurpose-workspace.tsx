@@ -280,7 +280,7 @@ export function RepurposeWorkspace() {
   const refreshUsage = useCallback(async () => {
     try {
       const r = await fetch(apiOriginUrl("/api/usage"), {
-        credentials: "same-origin",
+        credentials: "include",
       });
       if (!r.ok) return;
       const j = (await r.json()) as {
