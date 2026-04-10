@@ -16,12 +16,11 @@ export type DashboardStats = {
   usedText: number;
   creditsUsed: number;
   totalCreditsRemaining: number;
-  totalOutput: number;
   plan: "free" | "pro";
 };
 
 /**
- * Dashboard metrikleri — `public.users` (krediler, plan) ve `repurposes` (üretim sayısı).
+ * Dashboard metrikleri — `public.users` (krediler, plan) ve `public.plans` limitleri.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
   const empty: DashboardStats = {
@@ -33,7 +32,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     usedText: 0,
     creditsUsed: 0,
     totalCreditsRemaining: 0,
-    totalOutput: 0,
     plan: "free",
   };
 
@@ -81,13 +79,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const usedText = Math.max(0, totalTextLimit - text);
   const creditsUsed = usedVideo + usedText;
 
-  const { count, error: countErr } = await supabase
-    .from("repurposes")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
-
-  const totalOutput = countErr ? 0 : (count ?? 0);
-
   return {
     videoCredits: video,
     textCredits: text,
@@ -97,7 +88,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     usedText,
     creditsUsed,
     totalCreditsRemaining: video + text,
-    totalOutput,
     plan: planTier,
   };
 }

@@ -12,6 +12,7 @@ import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import {
   CREDIT_DEBIT_FAILED_MSG,
+  DEFAULT_TEXT_CREDITS,
   HELIA_CREDITS_REFRESH_EVENT,
   isInsufficientCreditsMessage,
 } from "@/lib/credits/constants";
@@ -790,7 +791,17 @@ export function RepurposeWorkspace() {
         {usage ? (
           <div className="flex flex-col gap-2">
             <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500">
-              <span>{t("usage", { used: usage.used, limit: usage.limit })}</span>
+              <span>
+                {usage.isPro
+                  ? t("usageProPlan")
+                  : t("usage", {
+                      usedText: Math.max(
+                        0,
+                        DEFAULT_TEXT_CREDITS - usage.textCredits,
+                      ),
+                      totalText: DEFAULT_TEXT_CREDITS,
+                    })}
+              </span>
               <span>
                 {t("creditLineText", { remaining: usage.textCredits })}
               </span>

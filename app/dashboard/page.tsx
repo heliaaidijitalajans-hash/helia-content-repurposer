@@ -36,12 +36,6 @@ export default async function DashboardPage() {
       numeric: true,
     },
     {
-      label: copy.statTotalOutputLabel,
-      value: stats.totalOutput,
-      hint: copy.statTotalOutputHint,
-      numeric: true,
-    },
-    {
       label: copy.statPlanLabel,
       value: planLabel,
       hint: copy.statPlanHint,
@@ -77,7 +71,7 @@ export default async function DashboardPage() {
       </header>
 
       <section aria-label={copy.statPlanLabel}>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {statItems.map((item) => (
             <li key={item.label}>
               <div className={`${statCardClass} flex h-full flex-col justify-between`}>
