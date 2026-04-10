@@ -378,19 +378,24 @@ export function RepurposeWorkspace() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      console.log("AUTH USER:", user);
+
       if (!user) {
-        setError(t("transcribeErrorAuth"));
+        console.log("NO AUTH USER");
         return;
       }
 
-      const { data: dbUser, error: dbUserErr } = await supabase
+      const { data: dbUser, error } = await supabase
         .from("users")
-        .select("video_credits, text_credits")
+        .select("*")
         .eq("id", user.id)
         .single();
 
-      if (dbUserErr) {
-        console.error("[onRepurpose] users select:", dbUserErr.message);
+      console.log("DB USER:", dbUser);
+      console.log("DB ERROR:", error);
+
+      if (error) {
+        console.error("[onRepurpose] users select:", error.message);
         setError(t("errorRequestFailed"));
         return;
       }
