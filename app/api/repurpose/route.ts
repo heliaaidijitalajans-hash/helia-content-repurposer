@@ -3,10 +3,6 @@ import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { CREDIT_DEBIT_FAILED_MSG } from "@/lib/credits/constants";
 import {
-  rpcServiceDecrementTextCredit,
-  type ServiceDecrementTextCreditResult,
-} from "@/lib/credits/server-rpc";
-import {
   getServiceSupabaseUrl,
   isServiceRoleConfigured,
 } from "@/lib/supabase/admin";
@@ -32,24 +28,6 @@ function jsonError(
     body.detail = options.detail;
   }
   return Response.json(body, { status });
-}
-
-function formatDebitFailure(
-  debit: Extract<ServiceDecrementTextCreditResult, { ok: false }>,
-): string {
-  const parts = [debit.message];
-  if (debit.code) parts.push(`code=${debit.code}`);
-  if (debit.hint) parts.push(`hint=${debit.hint}`);
-  if (debit.details) parts.push(`details=${debit.details}`);
-  if (debit.remaining !== undefined) {
-    parts.push(`remaining=${debit.remaining}`);
-  }
-  if (debit.rawData !== undefined) {
-    let raw = JSON.stringify(debit.rawData);
-    if (raw.length > 400) raw = `${raw.slice(0, 400)}…`;
-    parts.push(`raw=${raw}`);
-  }
-  return parts.join(" | ");
 }
 
 function createServiceSupabase() {
@@ -328,34 +306,58 @@ async function handleRepurposePost(req: Request): Promise<Response> {
     );
   }
 
-  console.log("[api/repurpose] Kredi RPC çağrılıyor:", {
+  /* Metin repurposer: text_credits düşülür (video_credits değil). */
+  const updatedAt = new Date().toISOString();
+  console.log("[api/repurpose] Kredi update başlıyor:", {
     userId: user.id,
-    fn: "service_decrement_text_credit",
+    text_credits_before: textCredits,
+    updated_at: updatedAt,
   });
 
-  let debitResult: ServiceDecrementTextCreditResult;
-  try {
-    debitResult = await rpcServiceDecrementTextCredit(supabase, user.id);
-  } catch (rpcErr) {
-    const msg =
-      rpcErr instanceof Error ? rpcErr.message : String(rpcErr);
-    console.error("[api/repurpose] Kredi RPC exception:", rpcErr);
-    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, { detail: msg });
+  const { data: afterRow, error: updateErr } = await supabase
+    .from("users")
+    .update({
+      text_credits: textCredits - 1,
+      updated_at: updatedAt,
+    })
+    .eq("id", user.id)
+    .select("text_credits")
+    .maybeSingle();
+
+  console.log("[api/repurpose] UPDATE sonucu:", {
+    afterRow,
+    updateError: updateErr
+      ? {
+          message: updateErr.message,
+          code: updateErr.code,
+          details: updateErr.details,
+          hint: updateErr.hint,
+        }
+      : null,
+  });
+
+  if (updateErr) {
+    console.error(
+      "[api/repurpose] Kredi update failed:",
+      updateErr.message,
+      updateErr.code,
+    );
+    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, {
+      detail: updateErr.message,
+    });
+  }
+
+  if (afterRow == null || typeof afterRow.text_credits !== "number") {
+    console.error(
+      "[api/repurpose] Kredi update: güncellenmiş satır dönmedi (0 eşleşme veya RLS?)",
+    );
+    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, {
+      detail: "Güncelleme sonrası satır alınamadı.",
+    });
   }
 
   console.log(
-    "[api/repurpose] Kredi RPC sonucu:",
-    JSON.stringify(debitResult),
-  );
-
-  if (!debitResult.ok) {
-    const detail = formatDebitFailure(debitResult);
-    console.error("[api/repurpose] Kredi düşürülemedi:", detail);
-    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, { detail });
-  }
-
-  console.log(
-    `[api/repurpose] [DEBUG] İşlem sonrası kredi: ${debitResult.remaining}`,
+    `[api/repurpose] [DEBUG] İşlem sonrası kredi: ${afterRow.text_credits}`,
   );
 
   return Response.json(result);
