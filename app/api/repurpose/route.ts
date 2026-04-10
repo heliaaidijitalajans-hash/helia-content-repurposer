@@ -2,7 +2,10 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { CREDIT_DEBIT_FAILED_MSG } from "@/lib/credits/constants";
-import { rpcServiceDecrementTextCredit } from "@/lib/credits/server-rpc";
+import {
+  rpcServiceDecrementTextCredit,
+  type ServiceDecrementTextCreditResult,
+} from "@/lib/credits/server-rpc";
 import {
   getServiceSupabaseUrl,
   isServiceRoleConfigured,
@@ -29,6 +32,24 @@ function jsonError(
     body.detail = options.detail;
   }
   return Response.json(body, { status });
+}
+
+function formatDebitFailure(
+  debit: Extract<ServiceDecrementTextCreditResult, { ok: false }>,
+): string {
+  const parts = [debit.message];
+  if (debit.code) parts.push(`code=${debit.code}`);
+  if (debit.hint) parts.push(`hint=${debit.hint}`);
+  if (debit.details) parts.push(`details=${debit.details}`);
+  if (debit.remaining !== undefined) {
+    parts.push(`remaining=${debit.remaining}`);
+  }
+  if (debit.rawData !== undefined) {
+    let raw = JSON.stringify(debit.rawData);
+    if (raw.length > 400) raw = `${raw.slice(0, 400)}…`;
+    parts.push(`raw=${raw}`);
+  }
+  return parts.join(" | ");
 }
 
 function createServiceSupabase() {
@@ -60,16 +81,25 @@ export async function POST(req: Request) {
 }
 
 async function handleRepurposePost(req: Request): Promise<Response> {
+  console.log("[api/repurpose] API başladı");
   const { isConfigured } = getPublicSupabaseConfig();
 
   let body: unknown;
   try {
     body = await req.json();
-  } catch {
+  } catch (parseErr) {
+    console.error("[api/repurpose] JSON parse hatası:", parseErr);
     return jsonError("Geçersiz istek: JSON gövdesi okunamadı.", 400);
   }
 
   const bodyObj = body as { text?: unknown; userId?: unknown };
+  console.log("[api/repurpose] BODY:", {
+    keys: body && typeof body === "object" ? Object.keys(body as object) : [],
+    userId: typeof bodyObj.userId === "string" ? bodyObj.userId : "(yok/invalid)",
+    textChars:
+      typeof bodyObj.text === "string" ? bodyObj.text.length : 0,
+  });
+
   const { text: rawText, userId: rawUserId } = bodyObj;
   const text = typeof rawText === "string" ? rawText : "";
   const claimedUserId =
@@ -82,7 +112,7 @@ async function handleRepurposePost(req: Request): Promise<Response> {
   }
 
   const inputText = text.trim();
-  console.log("INPUT TEXT:", inputText);
+  console.log("[api/repurpose] INPUT TEXT uzunluk:", inputText.length);
 
   if (!isConfigured) {
     try {
@@ -113,6 +143,7 @@ async function handleRepurposePost(req: Request): Promise<Response> {
 
   const authHeader = req.headers.get("authorization");
   const accessToken = authHeader?.replace(/^Bearer\s+/i, "").trim();
+  console.log("[api/repurpose] Authorization:", accessToken ? "Bearer (var)" : "yok");
   if (!accessToken) {
     return jsonError("Unauthorized", 401);
   }
@@ -143,10 +174,17 @@ async function handleRepurposePost(req: Request): Promise<Response> {
   }
 
   if (!claimedUserId) {
+    console.log("[api/repurpose] userId yok");
     return jsonError("No userId", 400);
   }
 
   if (claimedUserId !== user.id) {
+    console.warn(
+      "[api/repurpose] userId JWT ile eşleşmiyor:",
+      claimedUserId,
+      "vs",
+      user.id,
+    );
     return jsonError("Forbidden", 403);
   }
 
@@ -162,7 +200,13 @@ async function handleRepurposePost(req: Request): Promise<Response> {
     .maybeSingle();
 
   if (selectErr) {
-    console.error("[api/repurpose] users select:", selectErr.message);
+    console.error(
+      "[api/repurpose] DB select error:",
+      selectErr.message,
+      selectErr.code,
+      selectErr.details,
+      selectErr.hint,
+    );
     return jsonError(
       "Profil bilgisi alınamadı. Lütfen tekrar deneyin.",
       500,
@@ -171,6 +215,18 @@ async function handleRepurposePost(req: Request): Promise<Response> {
   }
 
   dbUser = row as UsersRow | null;
+  console.log(
+    "[api/repurpose] DB USER:",
+    dbUser
+      ? {
+          id: dbUser.id,
+          text_credits: dbUser.text_credits,
+          video_credits: dbUser.video_credits,
+        }
+      : null,
+    "selectError:",
+    selectErr ?? null,
+  );
 
   if (!dbUser) {
     const { data: newUser, error: insertErr } = await supabase
@@ -205,7 +261,13 @@ async function handleRepurposePost(req: Request): Promise<Response> {
         }
         dbUser = again as UsersRow;
       } else {
-        console.error("[api/repurpose] users insert:", insertErr.message);
+        console.error(
+          "[api/repurpose] users insert:",
+          insertErr.message,
+          insertErr.code,
+          insertErr.details,
+          insertErr.hint,
+        );
         return jsonError(
           "Hesap kaydı oluşturulamadı. Lütfen tekrar deneyin.",
           500,
@@ -218,10 +280,9 @@ async function handleRepurposePost(req: Request): Promise<Response> {
   }
 
   if (!dbUser) {
+    console.log("[api/repurpose] Kullanıcı profili bulunamadı (404)");
     return jsonError("Kullanıcı profili bulunamadı.", 404);
   }
-
-  console.log("DB USER:", dbUser);
 
   const textCredits =
     typeof dbUser.text_credits === "number" ? dbUser.text_credits : 0;
@@ -267,32 +328,35 @@ async function handleRepurposePost(req: Request): Promise<Response> {
     );
   }
 
-  let debited: Awaited<
-    ReturnType<typeof rpcServiceDecrementTextCredit>
-  >;
+  console.log("[api/repurpose] Kredi RPC çağrılıyor:", {
+    userId: user.id,
+    fn: "service_decrement_text_credit",
+  });
+
+  let debitResult: ServiceDecrementTextCreditResult;
   try {
-    debited = await rpcServiceDecrementTextCredit(supabase, user.id);
+    debitResult = await rpcServiceDecrementTextCredit(supabase, user.id);
   } catch (rpcErr) {
-    console.error("[api/repurpose] rpcServiceDecrementTextCredit:", rpcErr);
-    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, {
-      detail:
-        rpcErr instanceof Error ? rpcErr.message : String(rpcErr),
-    });
+    const msg =
+      rpcErr instanceof Error ? rpcErr.message : String(rpcErr);
+    console.error("[api/repurpose] Kredi RPC exception:", rpcErr);
+    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, { detail: msg });
   }
 
-  if (!debited?.ok) {
-    console.error(
-      "[api/repurpose] Kredi düşürülemedi:",
-      debited ? `ok=false remaining=${debited.remaining}` : "rpc null",
-    );
-    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, {
-      detail: debited
-        ? `Bakiye güncellenemedi (kalan: ${debited.remaining}).`
-        : "RPC yanıtı alınamadı. Supabase migration 021 uygulandı mı?",
-    });
+  console.log(
+    "[api/repurpose] Kredi RPC sonucu:",
+    JSON.stringify(debitResult),
+  );
+
+  if (!debitResult.ok) {
+    const detail = formatDebitFailure(debitResult);
+    console.error("[api/repurpose] Kredi düşürülemedi:", detail);
+    return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, { detail });
   }
 
-  console.log(`[DEBUG] İşlem sonrası kredi: ${debited.remaining}`);
+  console.log(
+    `[api/repurpose] [DEBUG] İşlem sonrası kredi: ${debitResult.remaining}`,
+  );
 
   return Response.json(result);
 }

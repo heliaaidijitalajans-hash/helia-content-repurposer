@@ -459,7 +459,11 @@ export function RepurposeWorkspace() {
 
       if (!res.ok) {
         if (data.error === CREDIT_DEBIT_FAILED_MSG) {
-          setError(CREDIT_DEBIT_FAILED_MSG);
+          const detail =
+            typeof data.detail === "string" && data.detail.trim()
+              ? ` ${data.detail.trim()}`
+              : "";
+          setError(`${CREDIT_DEBIT_FAILED_MSG}${detail}`);
           return;
         }
         if (
