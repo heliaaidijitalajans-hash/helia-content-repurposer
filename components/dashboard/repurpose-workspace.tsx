@@ -411,11 +411,14 @@ export function RepurposeWorkspace() {
     };
 
     try {
-      const res = await fetch(apiOriginUrl("/api/repurpose"), {
+      const payload = { text: bodyText };
+      const res = await fetch("/api/repurpose", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ text: bodyText }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
       const data = (await res.json()) as Record<string, unknown> & {
