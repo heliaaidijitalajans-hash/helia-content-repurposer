@@ -15,6 +15,7 @@ import {
 } from "@/lib/credits/constants";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { lightCardClass } from "@/lib/ui/saas-card";
+import { ensurePublicUserRow } from "@/lib/users/ensure-public-user-row-client";
 
 /** Ön kontrol — yetersiz kredide snippet ile aynı mesaj */
 const CREDITS_INSUFFICIENT_ALERT = "Krediniz yetersiz";
@@ -375,32 +376,22 @@ export function RepurposeWorkspace() {
     const { isConfigured } = getPublicSupabaseConfig();
     if (isConfigured) {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      console.log("AUTH USER:", user);
-
-      if (!user) {
-        console.log("NO AUTH USER");
-        return;
-      }
-
-      const { data: dbUser, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      console.log("DB USER:", dbUser);
-      console.log("DB ERROR:", error);
-
-      if (error) {
-        console.error("[onRepurpose] users select:", error.message);
+      let dbUser: Awaited<ReturnType<typeof ensurePublicUserRow>>;
+      try {
+        dbUser = await ensurePublicUserRow(supabase);
+      } catch (e) {
+        if (e instanceof Error && e.message === "No user") {
+          setError(t("transcribeErrorAuth"));
+          return;
+        }
+        console.error("[onRepurpose] ensurePublicUserRow:", e);
         setError(t("errorRequestFailed"));
         return;
       }
 
-      if (!dbUser || dbUser.text_credits <= 0) {
+      const textCredits =
+        typeof dbUser.text_credits === "number" ? dbUser.text_credits : 0;
+      if (textCredits <= 0) {
         window.alert(CREDITS_INSUFFICIENT_ALERT);
         return;
       }
@@ -630,27 +621,22 @@ export function RepurposeWorkspace() {
     setTranscribeApiMeta(null);
 
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setTranscribeError(t("transcribeErrorAuth"));
-      return;
-    }
-
-    const { data: dbUser, error: dbUserErr } = await supabase
-      .from("users")
-      .select("video_credits, text_credits")
-      .eq("id", user.id)
-      .single();
-
-    if (dbUserErr) {
-      console.error("[submitTranscription] users select:", dbUserErr.message);
+    let dbUser: Awaited<ReturnType<typeof ensurePublicUserRow>>;
+    try {
+      dbUser = await ensurePublicUserRow(supabase);
+    } catch (e) {
+      if (e instanceof Error && e.message === "No user") {
+        setTranscribeError(t("transcribeErrorAuth"));
+        return;
+      }
+      console.error("[submitTranscription] ensurePublicUserRow:", e);
       setTranscribeError(t("errorRequestFailed"));
       return;
     }
 
-    if (!dbUser || dbUser.video_credits <= 0) {
+    const videoCredits =
+      typeof dbUser.video_credits === "number" ? dbUser.video_credits : 0;
+    if (videoCredits <= 0) {
       window.alert(CREDITS_INSUFFICIENT_ALERT);
       return;
     }
