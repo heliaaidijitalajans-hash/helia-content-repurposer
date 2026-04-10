@@ -29,9 +29,9 @@ export function AccountView({ copy, upgradeHref, authHref }: Props) {
   const [email, setEmail] = useState("");
   const [plan, setPlan] = useState<"free" | "pro">("free");
   const [loaded, setLoaded] = useState(false);
-  const [usageUsed, setUsageUsed] = useState(0);
-  const [usageLimit, setUsageLimit] = useState(0);
-  const [usageReady, setUsageReady] = useState(false);
+  const [videoCredits, setVideoCredits] = useState(0);
+  const [textCredits, setTextCredits] = useState(0);
+  const [creditsReady, setCreditsReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<"success" | "error" | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -46,18 +46,25 @@ export function AccountView({ copy, upgradeHref, authHref }: Props) {
       const { plan: p } = await fetchUserSubscriptionFromSupabase();
 
       try {
-        const res = await fetch("/api/usage");
-        if (res.ok) {
-          const data = (await res.json()) as { used?: number; limit?: number };
+        if (user?.id) {
+          const { data: row } = await supabase
+            .from("users")
+            .select("video_credits, text_credits")
+            .eq("id", user.id)
+            .maybeSingle();
           if (!cancelled) {
-            setUsageUsed(typeof data.used === "number" ? data.used : 0);
-            setUsageLimit(typeof data.limit === "number" ? data.limit : 0);
+            setVideoCredits(
+              typeof row?.video_credits === "number" ? row.video_credits : 0,
+            );
+            setTextCredits(
+              typeof row?.text_credits === "number" ? row.text_credits : 0,
+            );
           }
         }
       } catch {
         /* keep defaults */
       } finally {
-        if (!cancelled) setUsageReady(true);
+        if (!cancelled) setCreditsReady(true);
       }
 
       if (cancelled) return;
@@ -83,11 +90,22 @@ export function AccountView({ copy, upgradeHref, authHref }: Props) {
     const onCreditsRefresh = () => {
       void (async () => {
         try {
-          const res = await fetch("/api/usage", { credentials: "include" });
-          if (res.ok) {
-            const data = (await res.json()) as { used?: number; limit?: number };
-            setUsageUsed(typeof data.used === "number" ? data.used : 0);
-            setUsageLimit(typeof data.limit === "number" ? data.limit : 0);
+          const supabase = createClient();
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user?.id) {
+            const { data: row } = await supabase
+              .from("users")
+              .select("video_credits, text_credits")
+              .eq("id", user.id)
+              .maybeSingle();
+            setVideoCredits(
+              typeof row?.video_credits === "number" ? row.video_credits : 0,
+            );
+            setTextCredits(
+              typeof row?.text_credits === "number" ? row.text_credits : 0,
+            );
           }
           const { plan: p } = await fetchUserSubscriptionFromSupabase();
           setPlan(p === "pro" ? "pro" : "free");
@@ -100,12 +118,6 @@ export function AccountView({ copy, upgradeHref, authHref }: Props) {
     return () =>
       window.removeEventListener(HELIA_CREDITS_REFRESH_EVENT, onCreditsRefresh);
   }, []);
-
-  const remaining = Math.max(0, usageLimit - usageUsed);
-  const percentUsed =
-    usageLimit > 0
-      ? Math.min(100, Math.round((usageUsed / usageLimit) * 100))
-      : 0;
 
   const planDisplay =
     !loaded ? "…" : plan === "pro" ? copy.planPro : copy.planFree;
@@ -193,47 +205,21 @@ export function AccountView({ copy, upgradeHref, authHref }: Props) {
           <h2 className="text-base font-semibold text-gray-900">
             {copy.usageTitle}
           </h2>
-          <div className="mt-5 space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {copy.creditsRemaining}
-                </p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
-                  {!usageReady ? "…" : remaining}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                  {copy.creditsUsed}
-                </p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
-                  {!usageReady ? "…" : usageUsed}
-                </p>
-              </div>
+          <div className="mt-5 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                {copy.videoCreditsLabel}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
+                {!creditsReady ? "…" : videoCredits}
+              </p>
             </div>
             <div>
-              <div
-                className="h-2 w-full overflow-hidden rounded-full bg-gray-100"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={percentUsed}
-                aria-label={copy.usedPercentAria.replace(
-                  "{percent}",
-                  String(percentUsed),
-                )}
-              >
-                <div
-                  className="h-full rounded-full bg-blue-600 transition-all duration-300"
-                  style={{ width: `${percentUsed}%` }}
-                />
-              </div>
-              <p className="mt-2 text-sm text-gray-500">
-                {copy.usedPercentAria.replace(
-                  "{percent}",
-                  String(percentUsed),
-                )}
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                {copy.textCreditsLabel}
+              </p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">
+                {!creditsReady ? "…" : textCredits}
               </p>
             </div>
           </div>
