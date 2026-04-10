@@ -1,10 +1,8 @@
-import { billedMinutesFromDurationSeconds } from "@/lib/credits/billing-minutes";
-import { INSUFFICIENT_CREDITS_CODE } from "@/lib/credits/constants";
+import { rpcRefundUserVideoCredit } from "@/lib/credits/server-rpc";
 import {
-  rpcRefundVideoCredits,
-  rpcReserveVideoCredits,
-} from "@/lib/credits/server-rpc";
-import { checkUserProSubscription } from "@/lib/subscription/plan";
+  jsonResponseForUseCreditError,
+  useVideoCredit,
+} from "@/lib/credits/use-credits";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceSupabaseUrl } from "@/lib/supabase/admin";
@@ -33,9 +31,9 @@ function isAllowedStorageUrl(urlString: string): boolean {
 
 export async function POST(req: Request) {
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
-  let reservedVideoMinutes = 0;
+  let consumedVideoCredit = false;
 
-  let body: { url?: unknown; durationSeconds?: unknown };
+  let body: { url?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -75,56 +73,24 @@ export async function POST(req: Request) {
   }
 
   if (supabase) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
+    try {
+      await useVideoCredit(supabase);
+      consumedVideoCredit = true;
+    } catch (creditErr) {
+      const res = jsonResponseForUseCreditError(creditErr);
+      if (res) return res;
+      console.error("[api/transcribe] useVideoCredit:", creditErr);
+      return new Response(JSON.stringify({ error: "Server error" }), {
+        status: 500,
         headers: { "Content-Type": "application/json" },
       });
-    }
-
-    const isPro = await checkUserProSubscription(supabase);
-    if (!isPro) {
-      const rawDur = body.durationSeconds;
-      if (typeof rawDur !== "number" || !Number.isFinite(rawDur)) {
-        return new Response(
-          JSON.stringify({ error: "DURATION_REQUIRED" }),
-          {
-            status: 400,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-      let minutes: number;
-      try {
-        minutes = billedMinutesFromDurationSeconds(rawDur);
-      } catch {
-        return new Response(JSON.stringify({ error: "Invalid duration" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      const reserve = await rpcReserveVideoCredits(supabase, minutes);
-      if (!reserve?.ok) {
-        return new Response(
-          JSON.stringify({ error: INSUFFICIENT_CREDITS_CODE }),
-          {
-            status: 403,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-      reservedVideoMinutes = minutes;
     }
   }
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY missing" }), {
       status: 503,
@@ -137,8 +103,8 @@ export async function POST(req: Request) {
     audioRes = await fetch(url, { redirect: "follow" });
   } catch (e) {
     console.error("[api/transcribe] fetch url:", e);
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
     return new Response(JSON.stringify({ error: "Download failed" }), {
       status: 502,
@@ -147,8 +113,8 @@ export async function POST(req: Request) {
   }
 
   if (!audioRes.ok) {
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
     return new Response(
       JSON.stringify({ error: `Download failed: ${audioRes.status}` }),
@@ -160,8 +126,8 @@ export async function POST(req: Request) {
   if (len) {
     const n = parseInt(len, 10);
     if (Number.isFinite(n) && n > MAX_BYTES) {
-      if (reservedVideoMinutes > 0 && supabase) {
-        await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+      if (consumedVideoCredit && supabase) {
+        await rpcRefundUserVideoCredit(supabase);
       }
       return new Response(JSON.stringify({ error: "File too large for OpenAI" }), {
         status: 413,
@@ -172,8 +138,8 @@ export async function POST(req: Request) {
 
   const buffer = await audioRes.arrayBuffer();
   if (buffer.byteLength > MAX_BYTES) {
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
     return new Response(JSON.stringify({ error: "File too large for OpenAI" }), {
       status: 413,
@@ -196,8 +162,8 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("[api/transcribe] OpenAI fetch:", e);
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
     return new Response(JSON.stringify({ error: "OpenAI request failed" }), {
       status: 502,
@@ -209,8 +175,8 @@ export async function POST(req: Request) {
   try {
     result = await openaiRes.json();
   } catch {
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
     return new Response(JSON.stringify({ error: "OpenAI invalid JSON" }), {
       status: 502,
@@ -219,8 +185,8 @@ export async function POST(req: Request) {
   }
 
   if (!openaiRes.ok) {
-    if (reservedVideoMinutes > 0 && supabase) {
-      await rpcRefundVideoCredits(supabase, reservedVideoMinutes);
+    if (consumedVideoCredit && supabase) {
+      await rpcRefundUserVideoCredit(supabase);
     }
   }
 

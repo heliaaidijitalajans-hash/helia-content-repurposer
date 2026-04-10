@@ -1,10 +1,9 @@
-import { INSUFFICIENT_CREDITS_CODE } from "@/lib/credits/constants";
 import {
-  rpcRefundTextCredit,
-  rpcReserveTextCredit,
-} from "@/lib/credits/server-rpc";
+  jsonResponseForUseCreditError,
+  useTextCredit,
+} from "@/lib/credits/use-credits";
+import { rpcRefundUserTextCredit } from "@/lib/credits/server-rpc";
 import { generateRepurpose } from "@/lib/repurpose/generate";
-import { checkUserProSubscription } from "@/lib/subscription/plan";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 
@@ -14,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(req: Request): Promise<Response> {
-  let reservedTextCredit = false;
+  let consumedTextCredit = false;
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
 
   try {
@@ -43,31 +42,22 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     if (supabase) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        return Response.json({ error: "Unauthorized" }, { status: 401 });
-      }
-
-      const isPro = await checkUserProSubscription(supabase);
-      if (!isPro) {
-        const reserve = await rpcReserveTextCredit(supabase);
-        if (!reserve?.ok) {
-          return Response.json(
-            { error: INSUFFICIENT_CREDITS_CODE },
-            { status: 403 },
-          );
-        }
-        reservedTextCredit = true;
+      try {
+        await useTextCredit(supabase);
+        consumedTextCredit = true;
+      } catch (creditErr) {
+        const res = jsonResponseForUseCreditError(creditErr);
+        if (res) return res;
+        console.error("[api/repurpose] useTextCredit:", creditErr);
+        return Response.json({ error: "Server error" }, { status: 500 });
       }
     }
 
     const result = await generateRepurpose(inputText);
     return Response.json(result);
   } catch (error) {
-    if (reservedTextCredit && supabase) {
-      await rpcRefundTextCredit(supabase);
+    if (consumedTextCredit && supabase) {
+      await rpcRefundUserTextCredit(supabase);
     }
     if (error instanceof Error && error.message === "Text is empty") {
       return Response.json({ error: "Text is empty" }, { status: 400 });

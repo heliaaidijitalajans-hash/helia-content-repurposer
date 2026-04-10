@@ -75,9 +75,8 @@ export async function GET() {
         : DEFAULT_VIDEO_CREDITS;
 
   const creditsLow =
-    !isPro &&
-    (textCredits <= LOW_TEXT_CREDITS_THRESHOLD ||
-      videoCredits <= LOW_VIDEO_CREDITS_THRESHOLD);
+    textCredits <= LOW_TEXT_CREDITS_THRESHOLD ||
+    videoCredits <= LOW_VIDEO_CREDITS_THRESHOLD;
 
   return NextResponse.json({
     used,

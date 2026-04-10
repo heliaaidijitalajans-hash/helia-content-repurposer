@@ -69,3 +69,53 @@ export async function rpcRefundVideoCredits(
     console.error("[credits] refund_video_credits", error.message);
   }
 }
+
+export async function rpcConsumeUserTextCredit(
+  supabase: SupabaseClient,
+): Promise<ReserveRow | null> {
+  const { data, error } = await supabase.rpc("consume_user_text_credit");
+  if (error) {
+    console.error("[credits] consume_user_text_credit", error.message);
+    return null;
+  }
+  const row = firstRow<ReserveRow>(data);
+  if (!row || typeof row.ok !== "boolean") return null;
+  return {
+    ok: row.ok,
+    remaining: typeof row.remaining === "number" ? row.remaining : 0,
+  };
+}
+
+export async function rpcRefundUserTextCredit(
+  supabase: SupabaseClient,
+): Promise<void> {
+  const { error } = await supabase.rpc("refund_user_text_credit");
+  if (error) {
+    console.error("[credits] refund_user_text_credit", error.message);
+  }
+}
+
+export async function rpcConsumeUserVideoCredit(
+  supabase: SupabaseClient,
+): Promise<ReserveRow | null> {
+  const { data, error } = await supabase.rpc("consume_user_video_credit");
+  if (error) {
+    console.error("[credits] consume_user_video_credit", error.message);
+    return null;
+  }
+  const row = firstRow<ReserveRow>(data);
+  if (!row || typeof row.ok !== "boolean") return null;
+  return {
+    ok: row.ok,
+    remaining: typeof row.remaining === "number" ? row.remaining : 0,
+  };
+}
+
+export async function rpcRefundUserVideoCredit(
+  supabase: SupabaseClient,
+): Promise<void> {
+  const { error } = await supabase.rpc("refund_user_video_credit");
+  if (error) {
+    console.error("[credits] refund_user_video_credit", error.message);
+  }
+}
