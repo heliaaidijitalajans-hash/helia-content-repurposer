@@ -13,9 +13,11 @@ import {
   HELIA_CREDITS_REFRESH_EVENT,
   isInsufficientCreditsMessage,
 } from "@/lib/credits/constants";
-import { fetchAppUserCreditsFromSupabase } from "@/lib/credits/fetch-app-user-credits-client";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { lightCardClass } from "@/lib/ui/saas-card";
+
+/** Ön kontrol — yetersiz kredide snippet ile aynı mesaj */
+const CREDITS_INSUFFICIENT_ALERT = "Krediniz yetersiz";
 
 const TRANSCRIBE_ALLOWED_EXT = new Set([
   "mp3",
@@ -373,28 +375,32 @@ export function RepurposeWorkspace() {
     const { isConfigured } = getPublicSupabaseConfig();
     if (isConfigured) {
       const supabase = createClient();
-      const creditRes = await fetchAppUserCreditsFromSupabase(supabase);
-      if (!creditRes.ok) {
-        if (creditRes.reason === "unauthorized") {
-          setError(t("transcribeErrorAuth"));
-          return;
-        }
-        if (creditRes.reason === "no_row") {
-          setError(t("creditInsufficient"));
-          return;
-        }
-        console.error(
-          "[onRepurpose] users credits fetch failed:",
-          creditRes.reason,
-          creditRes.message,
-        );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setError(t("transcribeErrorAuth"));
+        return;
+      }
+
+      const { data: dbUser, error: dbUserErr } = await supabase
+        .from("users")
+        .select("video_credits, text_credits")
+        .eq("id", user.id)
+        .single();
+
+      if (dbUserErr) {
+        console.error("[onRepurpose] users select:", dbUserErr.message);
         setError(t("errorRequestFailed"));
         return;
       }
-      if (creditRes.credits.textCredits <= 0) {
-        setError(t("creditInsufficient"));
+
+      if (!dbUser || dbUser.text_credits <= 0) {
+        window.alert(CREDITS_INSUFFICIENT_ALERT);
         return;
       }
+
+      // Kredi düşürme: /api/repurpose içinde useTextCredit; ardından AI.
     }
 
     setError(null);
@@ -620,35 +626,31 @@ export function RepurposeWorkspace() {
 
     const supabase = createClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
       setTranscribeError(t("transcribeErrorAuth"));
       return;
     }
 
-    const creditRes = await fetchAppUserCreditsFromSupabase(supabase);
-    if (!creditRes.ok) {
-      if (creditRes.reason === "unauthorized") {
-        setTranscribeError(t("transcribeErrorAuth"));
-        return;
-      }
-      if (creditRes.reason === "no_row") {
-        setTranscribeError(t("creditInsufficient"));
-        return;
-      }
-      console.error(
-        "[submitTranscription] users credits fetch failed:",
-        creditRes.reason,
-        creditRes.message,
-      );
+    const { data: dbUser, error: dbUserErr } = await supabase
+      .from("users")
+      .select("video_credits, text_credits")
+      .eq("id", user.id)
+      .single();
+
+    if (dbUserErr) {
+      console.error("[submitTranscription] users select:", dbUserErr.message);
       setTranscribeError(t("errorRequestFailed"));
       return;
     }
-    if (creditRes.credits.videoCredits <= 0) {
-      setTranscribeError(t("creditInsufficient"));
+
+    if (!dbUser || dbUser.video_credits <= 0) {
+      window.alert(CREDITS_INSUFFICIENT_ALERT);
       return;
     }
+
+    // Kredi düşürme: /api/transcribe içinde useVideoCredit; ardından AI.
 
     setTranscribeLoading(true);
     setTranscribeReady(false);
