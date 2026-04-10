@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { generateRepurpose } from "@/lib/repurpose/generate";
+import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,12 +14,16 @@ type UsersRow = {
   id?: string;
 };
 
+/**
+ * Supabase SSR: çerezler PKCE / parçalı saklama için `getAll` + `setAll` olmalı.
+ * Yalnızca `get(name)` kullanmak `auth.getUser()` → null üretebilir.
+ *
+ * Not: `createRouteHandlerClient` (@supabase/auth-helpers-nextjs) pakette yok / deprecated;
+ * resmi yol: `@supabase/ssr` + bu adaptör (middleware ile aynı model).
+ */
 export async function POST(req: Request): Promise<Response> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const isConfigured = Boolean(
-    supabaseUrl?.trim() && supabaseAnonKey?.trim(),
-  );
+  const { url: supabaseUrl, anonKey: supabaseAnonKey, isConfigured } =
+    getPublicSupabaseConfig();
 
   try {
     const body = (await req.json()) as { text?: unknown };
@@ -39,10 +44,19 @@ export async function POST(req: Request): Promise<Response> {
 
     const cookieStore = await cookies();
 
-    const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
-        get(name) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {
+            // Route Handler’da set bazen kısıtlı; middleware zaten oturumu yeniliyor.
+          }
         },
       },
     });
