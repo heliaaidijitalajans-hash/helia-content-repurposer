@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +12,27 @@ type PlanRow = {
 };
 
 /**
- * HARD DEBUG rotası — service role ile doğrudan @supabase/supabase-js.
- * public.users genelde `email` sütunu içermez (014: sadece id). Bu yüzden
- * önce .eq("email") denenir; hata olursa auth.admin ile e-postadan id bulunup .eq("id") denenir.
+ * Oturumlu kullanıcı (cookie) + plans okuma / users güncelleme.
+ * Service role tanımlıysa RLS bypass için admin istemci kullanılır.
  */
 export async function POST(req: Request) {
   try {
+    const supabase = await createServerClient();
+
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+
+    if (authErr) {
+      console.log("STEP 0 - auth.getUser error:", authErr.message);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!user?.id) {
+      console.log("STEP 0 - No user id");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
     const plan = (body?.plan ?? body?.planName) as string | undefined;
 
@@ -24,21 +40,18 @@ export async function POST(req: Request) {
 
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!url || !key) {
-      console.log("STEP 0 - Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-      return NextResponse.json(
-        { error: "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
-        { status: 500 },
-      );
+    const db =
+      url && key
+        ? createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false },
+          })
+        : supabase;
+
+    if (!url && !key) {
+      console.log("STEP 0b - No service role; DB işlemleri oturumlu istemci ile");
     }
 
-    const supabase = createClient(url, key, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-
-    const { data: allPlans, error: allPlansError } = await supabase
-      .from("plans")
-      .select("*");
+    const { data: allPlans, error: allPlansError } = await db.from("plans").select("*");
 
     console.log("STEP 2 - ALL PLANS:", allPlans);
     if (allPlansError) {
@@ -59,48 +72,16 @@ export async function POST(req: Request) {
       });
     }
 
-    const testEmail = "test@test.com";
-
-    let updateError = null as { message: string; code?: string; details?: string } | null;
-
-    const { error: emailColError } = await supabase
+    const { error: updateError } = await db
       .from("users")
       .update({
         plan: selectedPlan.name,
         video_credits: selectedPlan.video_limit,
         text_credits: selectedPlan.text_limit,
       })
-      .eq("email", testEmail);
+      .eq("id", user.id);
 
-    console.log("STEP 4 - UPDATE ERROR (by email):", emailColError);
-
-    if (emailColError) {
-      const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1000,
-      });
-      console.log("STEP 4b - listUsers error:", listErr);
-
-      const authUser = listData?.users?.find(
-        (u) => u.email?.toLowerCase() === testEmail.toLowerCase(),
-      );
-      console.log("STEP 4b - auth user id:", authUser?.id);
-
-      if (!authUser?.id) {
-        updateError = emailColError;
-      } else {
-        const { error: idError } = await supabase
-          .from("users")
-          .update({
-            plan: selectedPlan.name,
-            video_credits: selectedPlan.video_limit,
-            text_credits: selectedPlan.text_limit,
-          })
-          .eq("id", authUser.id);
-        console.log("STEP 4c - UPDATE ERROR (by id):", idError);
-        updateError = idError;
-      }
-    }
+    console.log("STEP 4 - UPDATE ERROR:", updateError);
 
     if (updateError) {
       return NextResponse.json({
