@@ -119,3 +119,27 @@ export async function rpcRefundUserVideoCredit(
     console.error("[credits] refund_user_video_credit", error.message);
   }
 }
+
+/** Service role: atomik text_credits -= 1 (yarışma güvenli). Migration: 021. */
+export async function rpcServiceDecrementTextCredit(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<ReserveRow | null> {
+  const { data, error } = await admin.rpc("service_decrement_text_credit", {
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error(
+      "[credits] service_decrement_text_credit",
+      error.message,
+      error.code ?? "",
+    );
+    return null;
+  }
+  const row = firstRow<ReserveRow>(data);
+  if (!row || typeof row.ok !== "boolean") return null;
+  return {
+    ok: row.ok,
+    remaining: typeof row.remaining === "number" ? row.remaining : 0,
+  };
+}

@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { CREDIT_DEBIT_FAILED_MSG } from "@/lib/credits/constants";
+import { rpcServiceDecrementTextCredit } from "@/lib/credits/server-rpc";
 import {
   createServiceRoleClient,
   getServiceSupabaseUrl,
@@ -164,22 +165,12 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const admin = createServiceRoleClient();
-    const now = new Date().toISOString();
-    const { data: afterDebit, error: debitErr } = await admin
-      .from("users")
-      .update({
-        text_credits: textCredits - 1,
-        updated_at: now,
-      })
-      .eq("id", user.id)
-      .eq("text_credits", textCredits)
-      .select("text_credits")
-      .maybeSingle();
+    const debited = await rpcServiceDecrementTextCredit(admin, user.id);
 
-    if (debitErr || !afterDebit) {
+    if (!debited?.ok) {
       console.error(
-        "[api/repurpose] Kredi düşürülemedi (service role):",
-        debitErr?.message ?? "no row updated",
+        "[api/repurpose] Kredi düşürülemedi (service_decrement_text_credit RPC):",
+        debited ? `ok=false remaining=${debited.remaining}` : "rpc null",
       );
       return Response.json(
         { error: CREDIT_DEBIT_FAILED_MSG },
@@ -188,7 +179,7 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     console.log(
-      `[DEBUG] İşlem sonrası kredi: ${afterDebit.text_credits ?? textCredits - 1}`,
+      `[DEBUG] İşlem sonrası kredi: ${debited.remaining}`,
     );
 
     return Response.json(result);
