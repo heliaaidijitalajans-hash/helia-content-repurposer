@@ -1,324 +1,122 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
-import {
-  isPaidAppPlan,
-  normalizePlanNameForDb,
-  type PlansTableName,
-} from "@/lib/plans/normalize-plan-name";
-import {
-  createServiceRoleClient,
-  isServiceRoleConfigured,
-} from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-/** Migration 014: public.plans, public.users — sütunlar video_limit/text_limit ve video_credits/text_credits */
-const TABLE_PLANS = "plans";
-const TABLE_USERS = "users";
-
-const ERR_PLAN_NOT_IN_DB = "Sistemde böyle bir plan tanımlı değil.";
-const ERR_INVALID_PLAN =
-  "Geçersiz plan adı. Geçerli değerler: free, aylık, pro, yearly (Aylık Türkçe karakterli).";
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 type PlanRow = {
-  name: PlansTableName | string;
+  name?: string;
+  video_limit?: number;
+  text_limit?: number;
   [key: string]: unknown;
 };
 
-/** plans: çoğunlukla video_limit / text_limit; bazı projelerde video_credits / text_credits olabilir */
-function parseLimits(row: Record<string, unknown>): {
-  video: number;
-  text: number;
-} | null {
-  const videoRaw =
-    row.video_limit ??
-    row.video_credits_limit ??
-    row.video_credit_limit ??
-    row.video_credits;
-  const textRaw =
-    row.text_limit ??
-    row.text_credits_limit ??
-    row.text_credit_limit ??
-    row.text_credits;
-  const video = Number(videoRaw);
-  const text = Number(textRaw);
-  if (!Number.isFinite(video) || !Number.isFinite(text)) return null;
-  return { video, text };
-}
-
-/** public.users için Postgres int ile uyumlu tamsayı */
-function toPgInt(n: number): number {
-  return Math.trunc(n);
-}
-
-function logPostgrest(ctx: string, err: PostgrestError) {
-  console.error(`[api/select-plan] ${ctx}:`, {
-    message: err.message,
-    code: err.code,
-    details: err.details,
-    hint: err.hint,
-  });
-}
-
-function serializeErr(e: unknown): string {
-  if (e instanceof Error) {
-    return `${e.name}: ${e.message}\n${e.stack ?? ""}`;
-  }
-  try {
-    return JSON.stringify(e);
-  } catch {
-    return String(e);
-  }
-}
-
 /**
- * Yazma işlemleri: mümkünse SUPABASE_SERVICE_ROLE_KEY ile admin istemci (RLS bypass).
- * Anahtar yoksa oturumlu istemci kullanılır; üretimde anahtar tanımlı olmalıdır.
+ * HARD DEBUG rotası — service role ile doğrudan @supabase/supabase-js.
+ * public.users genelde `email` sütunu içermez (014: sadece id). Bu yüzden
+ * önce .eq("email") denenir; hata olursa auth.admin ile e-postadan id bulunup .eq("id") denenir.
  */
-function getMutationClient(supabaseUser: SupabaseClient): SupabaseClient {
-  if (isServiceRoleConfigured()) {
-    return createServiceRoleClient();
-  }
-  console.warn(
-    "[api/select-plan] SUPABASE_SERVICE_ROLE_KEY tanımlı değil; yazmalar kullanıcı JWT ile yapılıyor (RLS’e takılabilir).",
-  );
-  return supabaseUser;
-}
-
-/** POST /api/select-plan — public.plans (name) → public.users + usage + subscriptions */
-export async function POST(req: Request): Promise<Response> {
+export async function POST(req: Request) {
   try {
-    const rawBody = await req.json().catch(() => null);
-    const body = rawBody as { planName?: unknown; plan?: unknown } | null;
+    const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    const plan = (body?.plan ?? body?.planName) as string | undefined;
 
-    const incoming =
-      typeof body?.planName === "string"
-        ? body.planName.trim()
-        : typeof body?.plan === "string"
-          ? body.plan.trim()
-          : "";
-    console.log("Incoming plan:", incoming);
+    console.log("STEP 1 - Incoming plan:", plan);
 
-    const canonical = normalizePlanNameForDb(incoming);
-    if (!canonical) {
-      return NextResponse.json({ error: ERR_INVALID_PLAN }, { status: 400 });
-    }
-
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
-
-    if (authErr) {
-      console.error("[api/select-plan] auth.getUser error:", authErr.message);
-      return NextResponse.json({ error: "Oturum doğrulanamadı." }, { status: 401 });
-    }
-
-    const userIdRaw = user?.id;
-    if (typeof userIdRaw !== "string" || !userIdRaw.trim()) {
-      console.error("[api/select-plan] user.id boş veya geçersiz:", userIdRaw);
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    if (!url || !key) {
+      console.log("STEP 0 - Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
       return NextResponse.json(
-        { error: "Oturum bulunamadı veya kullanıcı id alınamadı." },
-        { status: 401 },
+        { error: "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY" },
+        { status: 500 },
       );
     }
 
-    const userId = userIdRaw.trim();
-    if (!UUID_RE.test(userId)) {
-      console.error("[api/select-plan] user.id UUID biçiminde değil:", userId);
-      return NextResponse.json({ error: "Geçersiz kullanıcı kimliği." }, { status: 400 });
+    const supabase = createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    const { data: allPlans, error: allPlansError } = await supabase
+      .from("plans")
+      .select("*");
+
+    console.log("STEP 2 - ALL PLANS:", allPlans);
+    if (allPlansError) {
+      console.log("STEP 2 - ALL PLANS ERROR:", allPlansError.message, allPlansError);
     }
 
-    async function loadPlanRow(client: SupabaseClient) {
-      return client
-        .from(TABLE_PLANS)
-        .select("*")
-        .eq("name", canonical)
-        .maybeSingle();
+    const selectedPlan = (allPlans as PlanRow[] | null)?.find(
+      (p) => p.name?.toLowerCase().trim() === plan?.toLowerCase().trim(),
+    );
+
+    console.log("STEP 3 - MATCHED PLAN:", selectedPlan);
+
+    if (!selectedPlan) {
+      return NextResponse.json({
+        error: "Plan not found",
+        incoming: plan,
+        available: (allPlans as PlanRow[] | null)?.map((p) => p.name),
+      });
     }
 
-    let data: PlanRow | null = null;
-    let queryError: PostgrestError | null = null;
+    const testEmail = "test@test.com";
 
-    if (isServiceRoleConfigured()) {
-      try {
-        const res = await loadPlanRow(createServiceRoleClient());
-        data = (res.data as PlanRow | null) ?? null;
-        queryError = res.error;
-      } catch (e) {
-        console.error("[api/select-plan] service plans query:", serializeErr(e));
-        queryError = null;
+    let updateError = null as { message: string; code?: string; details?: string } | null;
+
+    const { error: emailColError } = await supabase
+      .from("users")
+      .update({
+        plan: selectedPlan.name,
+        video_credits: selectedPlan.video_limit,
+        text_credits: selectedPlan.text_limit,
+      })
+      .eq("email", testEmail);
+
+    console.log("STEP 4 - UPDATE ERROR (by email):", emailColError);
+
+    if (emailColError) {
+      const { data: listData, error: listErr } = await supabase.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+      console.log("STEP 4b - listUsers error:", listErr);
+
+      const authUser = listData?.users?.find(
+        (u) => u.email?.toLowerCase() === testEmail.toLowerCase(),
+      );
+      console.log("STEP 4b - auth user id:", authUser?.id);
+
+      if (!authUser?.id) {
+        updateError = emailColError;
+      } else {
+        const { error: idError } = await supabase
+          .from("users")
+          .update({
+            plan: selectedPlan.name,
+            video_credits: selectedPlan.video_limit,
+            text_credits: selectedPlan.text_limit,
+          })
+          .eq("id", authUser.id);
+        console.log("STEP 4c - UPDATE ERROR (by id):", idError);
+        updateError = idError;
       }
     }
-
-    if (!data) {
-      const res = await loadPlanRow(supabase);
-      if (res.data) {
-        data = res.data as PlanRow;
-        queryError = null;
-      } else if (res.error) {
-        queryError = res.error;
-      }
-    }
-
-    console.log("Query result:", data);
-    console.log("Error:", queryError);
-
-    if (!data && queryError) {
-      logPostgrest("plans query", queryError);
-      return NextResponse.json(
-        { error: "Plan bilgisi alınamadı. Lütfen daha sonra tekrar deneyin." },
-        { status: 503 },
-      );
-    }
-
-    if (!data) {
-      return NextResponse.json(
-        { error: ERR_PLAN_NOT_IN_DB, planName: incoming },
-        { status: 404 },
-      );
-    }
-
-    const limits = parseLimits(data as Record<string, unknown>);
-    if (!limits) {
-      return NextResponse.json(
-        { error: ERR_PLAN_NOT_IN_DB, planName: incoming },
-        { status: 404 },
-      );
-    }
-
-    const videoCredits = toPgInt(limits.video);
-    const textCredits = toPgInt(limits.text);
-
-    const writer = getMutationClient(supabase);
-
-    /**
-     * public.users sütunları (014): id, plan, video_credits, text_credits, updated_at
-     */
-    const usersPatch = {
-      plan: data.name as PlansTableName,
-      video_credits: videoCredits,
-      text_credits: textCredits,
-      updated_at: new Date().toISOString(),
-    };
-
-    const {
-      data: updatedRows,
-      error: updateError,
-    } = await writer.from(TABLE_USERS).update(usersPatch).eq("id", userId).select("id");
 
     if (updateError) {
-      console.error("Güncelleme başarısız:", updateError.message);
-      logPostgrest("users update", updateError);
-      return NextResponse.json(
-        {
-          error: "Kullanıcı bilgileri güncellenemedi.",
-          detail: updateError.message,
-          code: updateError.code,
-        },
-        { status: 500 },
-      );
-    }
-
-    if (!updatedRows?.length) {
-      const { error: insertError } = await writer.from(TABLE_USERS).insert({
-        id: userId,
-        ...usersPatch,
+      return NextResponse.json({
+        success: false,
+        error: updateError.message,
+        code: updateError.code,
+        selectedPlan,
       });
-
-      if (insertError) {
-        console.error("Güncelleme başarısız:", insertError.message);
-        logPostgrest("users insert", insertError);
-        return NextResponse.json(
-          {
-            error: "Kullanıcı bilgileri güncellenemedi.",
-            detail: insertError.message,
-            code: insertError.code,
-          },
-          { status: 500 },
-        );
-      }
     }
 
-    const subscriptionPlan = isPaidAppPlan(data.name as PlansTableName)
-      ? "pro"
-      : "free";
-    const { data: existingUsage } = await supabase
-      .from("usage")
-      .select("user_id")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (existingUsage) {
-      const { error: usageUp } = await writer
-        .from("usage")
-        .update({
-          text_credits: textCredits,
-          video_credits: videoCredits,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-      if (usageUp) {
-        logPostgrest("usage update", usageUp);
-      }
-    } else {
-      const { error: usageIn } = await writer.from("usage").insert({
-        user_id: userId,
-        request_count: 0,
-        transcribe_count: 0,
-        text_credits: textCredits,
-        video_credits: videoCredits,
-      });
-      if (usageIn) {
-        logPostgrest("usage insert", usageIn);
-      }
-    }
-
-    const { error: subErr } = await writer.from("subscriptions").upsert(
-      {
-        user_id: userId,
-        plan: subscriptionPlan,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" },
-    );
-    if (subErr) {
-      logPostgrest("subscriptions upsert", subErr);
-      return NextResponse.json(
-        {
-          error: "Abonelik kaydı güncellenemedi.",
-          detail: subErr.message,
-          code: subErr.code,
-        },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: true,
-        plan: data.name,
-        credits: {
-          video: videoCredits,
-          text: textCredits,
-        },
-      },
-      { status: 200 },
-    );
-  } catch (e) {
-    console.error("Plan güncelleme hatası:", e);
-    console.error("Plan güncelleme hatası (serialize):", serializeErr(e));
-    return NextResponse.json(
-      {
-        error: "Sunucu hatası.",
-        detail: e instanceof Error ? e.message : String(e),
-      },
-      { status: 500 },
-    );
+    return NextResponse.json({
+      success: true,
+      selectedPlan,
+    });
+  } catch (err) {
+    console.log("FATAL ERROR:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
