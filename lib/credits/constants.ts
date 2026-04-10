@@ -17,11 +17,14 @@ export const NOT_ENOUGH_VIDEO_CREDITS_MSG =
 
 export const NO_CREDITS_MSG = "No credits" as const;
 
+export const NO_CREDITS_MSG_TR = "Kredi yok" as const;
+
 export const INSUFFICIENT_CREDITS_MESSAGES = [
   INSUFFICIENT_CREDITS_CODE,
   NOT_ENOUGH_TEXT_CREDITS_MSG,
   NOT_ENOUGH_VIDEO_CREDITS_MSG,
   NO_CREDITS_MSG,
+  NO_CREDITS_MSG_TR,
 ] as const;
 
 export function isInsufficientCreditsMessage(

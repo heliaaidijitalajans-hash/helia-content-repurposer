@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 
 export const runtime = "nodejs";
@@ -49,12 +49,16 @@ export async function POST(req: Request): Promise<Response> {
 
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
+    console.log("API USER:", user);
+    if (authError) {
+      console.log("AUTH ERROR:", authError);
+    }
+
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-      });
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     let { data: dbUser, error: selectErr } = await supabase
@@ -106,13 +110,13 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json({ error: "Server error" }, { status: 500 });
     }
 
+    console.log("DB USER:", dbUser);
+
     const textCredits =
       typeof dbUser.text_credits === "number" ? dbUser.text_credits : 0;
 
     if (textCredits <= 0) {
-      return new Response(JSON.stringify({ error: "No credits" }), {
-        status: 403,
-      });
+      return Response.json({ error: "Kredi yok" }, { status: 403 });
     }
 
     const now = new Date().toISOString();
@@ -128,9 +132,7 @@ export async function POST(req: Request): Promise<Response> {
       .maybeSingle();
 
     if (debitErr || !afterDebit) {
-      return new Response(JSON.stringify({ error: "No credits" }), {
-        status: 403,
-      });
+      return Response.json({ error: "Kredi yok" }, { status: 403 });
     }
 
     try {
