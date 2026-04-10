@@ -414,23 +414,38 @@ export function RepurposeWorkspace() {
     };
 
     try {
-      const payload = { text: bodyText };
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const payload: { text: string; userId?: string } = {
+        text: bodyText,
+      };
 
       if (isConfigured) {
         const supabase = createClient();
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session) {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user?.id) {
           setError(t("transcribeErrorAuth"));
           return;
         }
+        payload.userId = user.id;
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          setError(t("transcribeErrorAuth"));
+          return;
+        }
+        headers.Authorization = `Bearer ${session.access_token}`;
       }
 
       const res = await fetch("/api/repurpose", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -449,7 +464,8 @@ export function RepurposeWorkspace() {
         }
         if (
           res.status === 401 ||
-          (res.status === 403 && data.error === "Unauthorized")
+          (res.status === 403 &&
+            (data.error === "Unauthorized" || data.error === "Forbidden"))
         ) {
           setError(t("transcribeErrorAuth"));
           return;

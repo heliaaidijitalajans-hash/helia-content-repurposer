@@ -1,10 +1,10 @@
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
-import { createClient } from "@/lib/supabase/server";
 import { CREDIT_DEBIT_FAILED_MSG } from "@/lib/credits/constants";
 import { rpcServiceDecrementTextCredit } from "@/lib/credits/server-rpc";
 import {
-  createServiceRoleClient,
+  getServiceSupabaseUrl,
   isServiceRoleConfigured,
 } from "@/lib/supabase/admin";
 
@@ -31,12 +31,25 @@ function jsonError(
   return Response.json(body, { status });
 }
 
+function createServiceSupabase() {
+  const url =
+    getServiceSupabaseUrl() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  if (!url || !key) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY ve Supabase URL gerekli.");
+  }
+  return createClient(url, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  }) as SupabaseClient;
+}
+
 export async function POST(req: Request): Promise<Response> {
   try {
     return await handleRepurposePost(req);
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : String(err);
     console.error("[api/repurpose] CRASH (outer catch):", err);
     return jsonError(
       "İşlem tamamlanamadı. Lütfen bir süre sonra tekrar deneyin.",
@@ -56,8 +69,13 @@ async function handleRepurposePost(req: Request): Promise<Response> {
     return jsonError("Geçersiz istek: JSON gövdesi okunamadı.", 400);
   }
 
-  const { text: rawText } = body as { text?: unknown };
+  const bodyObj = body as { text?: unknown; userId?: unknown };
+  const { text: rawText, userId: rawUserId } = bodyObj;
   const text = typeof rawText === "string" ? rawText : "";
+  const claimedUserId =
+    typeof rawUserId === "string" && rawUserId.trim().length > 0
+      ? rawUserId.trim()
+      : "";
 
   if (!text.trim()) {
     return jsonError("Text is empty", 400);
@@ -88,39 +106,48 @@ async function handleRepurposePost(req: Request): Promise<Response> {
       "[api/repurpose] SUPABASE_SERVICE_ROLE_KEY veya Supabase URL eksik.",
     );
     return jsonError(
-      "Sunucu yapılandırması eksik: kredi işlemi için service role anahtarı gerekli.",
+      "Sunucu yapılandırması eksik: SUPABASE_SERVICE_ROLE_KEY ve Supabase URL gerekli.",
       500,
     );
   }
 
-  let supabase: Awaited<ReturnType<typeof createClient>>;
+  const authHeader = req.headers.get("authorization");
+  const accessToken = authHeader?.replace(/^Bearer\s+/i, "").trim();
+  if (!accessToken) {
+    return jsonError("Unauthorized", 401);
+  }
+
+  let supabase: SupabaseClient;
   try {
-    supabase = await createClient();
-  } catch (clientErr) {
-    console.error("[api/repurpose] createClient:", clientErr);
+    supabase = createServiceSupabase();
+  } catch (e) {
+    console.error("[api/repurpose] service client:", e);
     return jsonError(
-      "Oturum başlatılamadı. Sayfayı yenileyip tekrar deneyin.",
+      "Sunucu yapılandırması eksik: service role ile bağlantı kurulamadı.",
       500,
-      {
-        detail:
-          clientErr instanceof Error
-            ? clientErr.message
-            : String(clientErr),
-      },
+      { detail: e instanceof Error ? e.message : String(e) },
     );
   }
 
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser(accessToken);
 
   if (authError) {
-    console.warn("[api/repurpose] auth.getUser:", authError.message);
+    console.warn("[api/repurpose] auth.getUser(jwt):", authError.message);
   }
 
   if (!user) {
     return jsonError("Unauthorized", 401);
+  }
+
+  if (!claimedUserId) {
+    return jsonError("No userId", 400);
+  }
+
+  if (claimedUserId !== user.id) {
+    return jsonError("Forbidden", 403);
   }
 
   const adminUserId = process.env.ADMIN_USER_ID?.trim();
@@ -128,7 +155,7 @@ async function handleRepurposePost(req: Request): Promise<Response> {
     Boolean(adminUserId) && user.id === adminUserId;
 
   let dbUser: UsersRow | null = null;
-  let { data: row, error: selectErr } = await supabase
+  const { data: row, error: selectErr } = await supabase
     .from("users")
     .select("*")
     .eq("id", user.id)
@@ -180,7 +207,7 @@ async function handleRepurposePost(req: Request): Promise<Response> {
       } else {
         console.error("[api/repurpose] users insert:", insertErr.message);
         return jsonError(
-          "Hesap kaydı oluşturulamadı. Lütfen destek ile iletişime geçin veya tekrar deneyin.",
+          "Hesap kaydı oluşturulamadı. Lütfen tekrar deneyin.",
           500,
           { detail: insertErr.message },
         );
@@ -191,7 +218,7 @@ async function handleRepurposePost(req: Request): Promise<Response> {
   }
 
   if (!dbUser) {
-    return jsonError("Kullanıcı profili bulunamadı.", 500);
+    return jsonError("Kullanıcı profili bulunamadı.", 404);
   }
 
   console.log("DB USER:", dbUser);
@@ -240,28 +267,11 @@ async function handleRepurposePost(req: Request): Promise<Response> {
     );
   }
 
-  let admin;
-  try {
-    admin = createServiceRoleClient();
-  } catch (adminErr) {
-    console.error("[api/repurpose] createServiceRoleClient:", adminErr);
-    return jsonError(
-      "Kredi sunucusu yapılandırılamadı.",
-      500,
-      {
-        detail:
-          adminErr instanceof Error
-            ? adminErr.message
-            : String(adminErr),
-      },
-    );
-  }
-
   let debited: Awaited<
     ReturnType<typeof rpcServiceDecrementTextCredit>
   >;
   try {
-    debited = await rpcServiceDecrementTextCredit(admin, user.id);
+    debited = await rpcServiceDecrementTextCredit(supabase, user.id);
   } catch (rpcErr) {
     console.error("[api/repurpose] rpcServiceDecrementTextCredit:", rpcErr);
     return jsonError(CREDIT_DEBIT_FAILED_MSG, 502, {
