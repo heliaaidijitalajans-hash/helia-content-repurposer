@@ -19,6 +19,12 @@ export const NO_CREDITS_MSG = "No credits" as const;
 
 export const NO_CREDITS_MSG_TR = "Kredi yok" as const;
 
+/** Kullanıcıya gösterilen net mesajlar (API + UI). */
+export const UX_CREDIT_EXHAUSTED_TR = "Kredin bitti" as const;
+export const UX_LOGIN_REQUIRED_TR = "Giriş yapmalısın" as const;
+export const UX_SERVER_ERROR_TR = "Sunucu hatası" as const;
+export const API_ERROR_GENERIC_TR = "Bir hata oluştu" as const;
+
 /** /api/repurpose: üretim sonrası kredi düşümü başarısız */
 export const CREDIT_DEBIT_FAILED_MSG =
   "Kredi güncellenemediği için işlem durduruldu" as const;
@@ -29,6 +35,7 @@ export const INSUFFICIENT_CREDITS_MESSAGES = [
   NOT_ENOUGH_VIDEO_CREDITS_MSG,
   NO_CREDITS_MSG,
   NO_CREDITS_MSG_TR,
+  UX_CREDIT_EXHAUSTED_TR,
 ] as const;
 
 export function isInsufficientCreditsMessage(

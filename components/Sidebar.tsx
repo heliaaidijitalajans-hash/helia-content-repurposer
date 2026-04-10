@@ -1,16 +1,45 @@
 "use client";
 
+import type { ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
-const items = [
-  { href: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
-  { href: "/generate", label: "Content Generator", icon: IconSpark, exact: false },
-  { href: "/history", label: "History", icon: IconClock, exact: false },
-  { href: "/account", label: "Account", icon: IconGear, exact: false },
-  { href: "/support", label: "Support", icon: IconLifebuoy, exact: false },
-] as const;
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  exact: boolean;
+};
+
+function buildNavItems(showAdminLink: boolean): NavItem[] {
+  const base: NavItem[] = [
+    { href: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
+    {
+      href: "/generate",
+      label: "Content Generator",
+      icon: IconSpark,
+      exact: false,
+    },
+    { href: "/history", label: "History", icon: IconClock, exact: false },
+    { href: "/account", label: "Account", icon: IconGear, exact: false },
+  ];
+  if (showAdminLink) {
+    base.push({
+      href: "/admin",
+      label: "Admin",
+      icon: IconShield,
+      exact: true,
+    });
+  }
+  base.push({
+    href: "/support",
+    label: "Support",
+    icon: IconLifebuoy,
+    exact: false,
+  });
+  return base;
+}
 
 function isNavActive(
   pathname: string,
@@ -24,10 +53,16 @@ function isNavActive(
 type SidebarProps = {
   mobileOpen: boolean;
   onNavigate?: () => void;
+  showAdminLink?: boolean;
 };
 
-export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
+export function Sidebar({
+  mobileOpen,
+  onNavigate,
+  showAdminLink = false,
+}: SidebarProps) {
   const pathname = usePathname();
+  const items = buildNavItems(showAdminLink);
 
   return (
     <>
@@ -45,7 +80,7 @@ export function Sidebar({ mobileOpen, onNavigate }: SidebarProps) {
         aria-label="Workspace"
       >
         <nav className="flex flex-1 flex-col gap-0.5 p-3">
-          {items.map(({ href, label, icon: Icon, exact }) => {
+          {items.map(({ href, label, icon: Icon, exact }: NavItem) => {
             const active = isNavActive(pathname, href, exact);
             return (
               <Link
@@ -120,6 +155,14 @@ function IconLifebuoy(props: { className?: string }) {
   return (
     <svg className={props.className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.712 4.33a9.03 9.03 0 0 1 1.652 1.306c.51.51.958 1.074 1.335 1.672M16.712 4.33c-1.124-.93-2.346-1.688-3.636-2.25M16.712 4.33l-2.116 5.307M4.5 19.5c1.65 2.385 4.3 4.046 7.317 4.5M4.5 19.5 2.25 17.25m2.25 2.25 2.307-5.758M19.5 4.5c1.65 2.385 2.692 5.25 2.85 8.25m-2.85-8.25L17.25 9.75m0 0-2.116-5.307M9.75 9.75 2.25 12m0 0 5.243-2.243M9.75 9.75 9.75 15.75m6-6c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3Z" />
+    </svg>
+  );
+}
+
+function IconShield(props: { className?: string }) {
+  return (
+    <svg className={props.className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Zm0 13.5h.008v.008H9v-.008Z" />
     </svg>
   );
 }

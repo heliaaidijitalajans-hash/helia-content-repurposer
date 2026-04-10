@@ -5,8 +5,19 @@ import { getPublicSupabaseConfig } from "./config";
 function getEnvOrThrow() {
   const { url, anonKey, isConfigured } = getPublicSupabaseConfig();
   if (!isConfigured) {
+    if (
+      typeof globalThis !== "undefined" &&
+      !(globalThis as { __heliaPublicSupabaseWarned?: boolean })
+        .__heliaPublicSupabaseWarned
+    ) {
+      (globalThis as { __heliaPublicSupabaseWarned?: boolean }).__heliaPublicSupabaseWarned =
+        true;
+      console.warn(
+        "[supabase] Eksik NEXT_PUBLIC_SUPABASE_URL veya NEXT_PUBLIC_SUPABASE_ANON_KEY (istemci).",
+      );
+    }
     throw new Error(
-      ".env.local içinde NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY tanımlayın.",
+      "NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY tanımlayın (.env.example).",
     );
   }
   return { url, anonKey };

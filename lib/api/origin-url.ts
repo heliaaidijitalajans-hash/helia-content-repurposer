@@ -1,12 +1,14 @@
+import { getServerAppOrigin } from "@/lib/site/app-origin";
+
 /**
- * Absolute API URL (no locale segment). Use for client fetch() so paths never
- * resolve relative to a prefixed pathname like `/tr/...`.
+ * Absolute API URL (no locale segment). Client: window origin; server: env / Vercel.
  */
 export function apiOriginUrl(path: string): string {
   const p = path.startsWith("/") ? path : `/${path}`;
   if (typeof window !== "undefined") {
     return `${window.location.origin}${p}`;
   }
-  const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+  const base = getServerAppOrigin();
+  if (!base) return p;
   return `${base}${p}`;
 }

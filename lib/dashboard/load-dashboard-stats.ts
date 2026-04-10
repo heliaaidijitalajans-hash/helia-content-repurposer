@@ -8,10 +8,8 @@ import { isPaidAppPlan, normalizePlanNameForDb } from "@/lib/plans/normalize-pla
 export type DashboardStats = {
   videoCredits: number;
   textCredits: number;
-  /** Paket limitleri (plans tablosu veya free varsayılanı). */
   totalVideoLimit: number;
   totalTextLimit: number;
-  /** Limit − kalan (negatif olmaz). */
   usedVideo: number;
   usedText: number;
   creditsUsed: number;
@@ -20,7 +18,8 @@ export type DashboardStats = {
 };
 
 /**
- * Dashboard metrikleri — `public.users` (krediler, plan) ve `public.plans` limitleri.
+ * Ücretsiz plan: kullanılan kredi = (30 − video) + (3 − text).
+ * Pro: limitler `public.plans` tablosundan.
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
   const empty: DashboardStats = {
@@ -60,20 +59,22 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     if (canonical && isPaidAppPlan(canonical)) planTier = "pro";
   }
 
-  const { data: planRow } = await supabase
-    .from("plans")
-    .select("video_limit, text_limit")
-    .eq("name", planKey)
-    .maybeSingle();
+  let totalVideoLimit = DEFAULT_VIDEO_CREDITS;
+  let totalTextLimit = DEFAULT_TEXT_CREDITS;
 
-  const totalVideoLimit =
-    typeof planRow?.video_limit === "number"
-      ? planRow.video_limit
-      : DEFAULT_VIDEO_CREDITS;
-  const totalTextLimit =
-    typeof planRow?.text_limit === "number"
-      ? planRow.text_limit
-      : DEFAULT_TEXT_CREDITS;
+  if (planTier === "pro") {
+    const { data: planRow } = await supabase
+      .from("plans")
+      .select("video_limit, text_limit")
+      .eq("name", planKey)
+      .maybeSingle();
+    if (typeof planRow?.video_limit === "number") {
+      totalVideoLimit = planRow.video_limit;
+    }
+    if (typeof planRow?.text_limit === "number") {
+      totalTextLimit = planRow.text_limit;
+    }
+  }
 
   const usedVideo = Math.max(0, totalVideoLimit - video);
   const usedText = Math.max(0, totalTextLimit - text);

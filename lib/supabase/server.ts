@@ -1,17 +1,21 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { getPublicSupabaseConfig } from "./config";
+import { getServerSupabaseConfig } from "./config";
 
 /**
  * Sunucu istemcisi — Server Components, Route Handlers, Server Actions.
  * Oturum çerezleri için @supabase/ssr kullanılır (Next.js ile uyumlu).
- * Tarayıcıda @supabase/supabase-js: `client.ts` / `supabase-js-client.ts`.
+ * Anon anahtar: isteğe bağlı SUPABASE_ANON_KEY, yoksa NEXT_PUBLIC_SUPABASE_ANON_KEY.
+ * Tarayıcı: `client.ts` → yalnızca NEXT_PUBLIC_*.
  */
 export async function createClient() {
-  const { url, anonKey, isConfigured } = getPublicSupabaseConfig();
+  const { url, anonKey, isConfigured } = getServerSupabaseConfig();
   if (!isConfigured) {
+    console.warn(
+      "[supabase/server] Eksik Supabase URL veya anon key. SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL ve SUPABASE_ANON_KEY / NEXT_PUBLIC_SUPABASE_ANON_KEY tanımlayın. Bkz. .env.example",
+    );
     throw new Error(
-      "Add NEXT_PUBLIC_SUPABASE_URL (Project URL) and NEXT_PUBLIC_SUPABASE_ANON_KEY (anon public key). See .env.example.",
+      "Supabase sunucu yapılandırması eksik. .env.example dosyasına bakın.",
     );
   }
 

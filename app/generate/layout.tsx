@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { Layout } from "@/components/Layout";
+import { AppShell } from "@/components/AppShell";
 import { getStandaloneLocale } from "@/lib/account/load-copy";
 import { requireSession } from "@/lib/standalone/require-session";
 
@@ -20,7 +20,7 @@ export default async function GenerateLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <Layout>{children}</Layout>
+      <AppShell>{children}</AppShell>
     </NextIntlClientProvider>
   );
 }

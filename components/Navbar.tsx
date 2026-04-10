@@ -6,9 +6,10 @@ import { HeliaLogoNext } from "@/components/brand/helia-logo";
 
 type NavbarProps = {
   onMenuClick?: () => void;
+  showAdminLink?: boolean;
 };
 
-export function Navbar({ onMenuClick }: NavbarProps) {
+export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +67,11 @@ export function Navbar({ onMenuClick }: NavbarProps) {
             <Link href="/account" className={linkClass}>
               Hesabım
             </Link>
+            {showAdminLink ? (
+              <Link href="/admin" className={linkClass}>
+                Admin
+              </Link>
+            ) : null}
             <Link href="/support" className={linkClass}>
               Support
             </Link>
@@ -95,6 +101,16 @@ export function Navbar({ onMenuClick }: NavbarProps) {
                 >
                   Account settings
                 </Link>
+                {showAdminLink ? (
+                  <Link
+                    href="/admin"
+                    className="block px-4 py-2.5 text-sm text-gray-800 transition hover:bg-gray-50"
+                    role="menuitem"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    Admin panel
+                  </Link>
+                ) : null}
                 <Link
                   href="/support"
                   className="block px-4 py-2.5 text-sm text-gray-800 transition hover:bg-gray-50"

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Layout } from "@/components/Layout";
+import { AppShell } from "@/components/AppShell";
 import { requireSession } from "@/lib/standalone/require-session";
 
 export const metadata: Metadata = {
@@ -13,5 +13,5 @@ export default async function DashboardShellLayout({
   children: React.ReactNode;
 }>) {
   await requireSession("/dashboard");
-  return <Layout>{children}</Layout>;
+  return <AppShell>{children}</AppShell>;
 }

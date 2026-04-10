@@ -11,17 +11,21 @@ import { UPLOADS_BUCKET } from "@/lib/storage/uploads-bucket";
 import { effectiveAudioVideoMime } from "@/lib/transcribe/mime-from-extension";
 import { apiOriginUrl } from "@/lib/api/origin-url";
 import {
+  API_ERROR_GENERIC_TR,
   CREDIT_DEBIT_FAILED_MSG,
   DEFAULT_TEXT_CREDITS,
   HELIA_CREDITS_REFRESH_EVENT,
   isInsufficientCreditsMessage,
+  UX_CREDIT_EXHAUSTED_TR,
+  UX_LOGIN_REQUIRED_TR,
+  UX_SERVER_ERROR_TR,
 } from "@/lib/credits/constants";
 import { FREE_TRANSCRIBE_LIMIT } from "@/lib/usage/free-tier";
 import { lightCardClass } from "@/lib/ui/saas-card";
 import { ensurePublicUserRow } from "@/lib/users/ensure-public-user-row-client";
 
 /** Ön kontrol — yetersiz kredide snippet ile aynı mesaj */
-const CREDITS_INSUFFICIENT_ALERT = "Krediniz yetersiz";
+const CREDITS_INSUFFICIENT_ALERT = UX_CREDIT_EXHAUSTED_TR;
 
 const TRANSCRIBE_ALLOWED_EXT = new Set([
   "mp3",
@@ -370,6 +374,7 @@ export function RepurposeWorkspace() {
   }, [activeTab]);
 
   async function onRepurpose() {
+    if (loading) return;
     const bodyText = repurposeText.trim();
     if (!bodyText) return;
     if (bodyText.length > REPURPOSE_MAX_CHARS) {
@@ -428,7 +433,8 @@ export function RepurposeWorkspace() {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user?.id) {
-          setError(t("transcribeErrorAuth"));
+          setError(UX_LOGIN_REQUIRED_TR);
+          showToast(UX_LOGIN_REQUIRED_TR);
           return;
         }
         payload.userId = user.id;
@@ -437,13 +443,14 @@ export function RepurposeWorkspace() {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session?.access_token) {
-          setError(t("transcribeErrorAuth"));
+          setError(UX_LOGIN_REQUIRED_TR);
+          showToast(UX_LOGIN_REQUIRED_TR);
           return;
         }
         headers.Authorization = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch("/api/repurpose", {
+      const res = await fetch(apiOriginUrl("/api/repurpose"), {
         method: "POST",
         credentials: "include",
         headers,
@@ -454,46 +461,59 @@ export function RepurposeWorkspace() {
       try {
         data = (await res.json()) as typeof data;
       } catch {
-        setError(t("errorRequestFailed"));
+        setError(UX_SERVER_ERROR_TR);
+        showToast(UX_SERVER_ERROR_TR);
         return;
       }
 
       if (!res.ok) {
         if (data.error === CREDIT_DEBIT_FAILED_MSG) {
-          const detail =
-            typeof data.detail === "string" && data.detail.trim()
-              ? ` ${data.detail.trim()}`
-              : "";
-          setError(`${CREDIT_DEBIT_FAILED_MSG}${detail}`);
+          setError(CREDIT_DEBIT_FAILED_MSG);
+          showToast(CREDIT_DEBIT_FAILED_MSG);
+          return;
+        }
+        if (data.error === "Forbidden") {
+          setError(UX_LOGIN_REQUIRED_TR);
+          showToast(UX_LOGIN_REQUIRED_TR);
           return;
         }
         if (
           res.status === 401 ||
-          (res.status === 403 &&
-            (data.error === "Unauthorized" || data.error === "Forbidden"))
+          data.error === UX_LOGIN_REQUIRED_TR ||
+          data.error === "Unauthorized"
         ) {
-          setError(t("transcribeErrorAuth"));
+          setError(UX_LOGIN_REQUIRED_TR);
+          showToast(UX_LOGIN_REQUIRED_TR);
           return;
         }
         if (
           res.status === 403 &&
-          isInsufficientCreditsMessage(data.error)
+          (data.error === UX_CREDIT_EXHAUSTED_TR ||
+            isInsufficientCreditsMessage(data.error))
         ) {
-          setError(t("creditInsufficient"));
+          setError(UX_CREDIT_EXHAUSTED_TR);
+          showToast(UX_CREDIT_EXHAUSTED_TR);
           void refreshUsage();
           return;
         }
         if (res.status === 403) {
-          setError(
-            typeof data.error === "string"
-              ? data.error
-              : t("errorUpgrade"),
-          );
+          const msg =
+            typeof data.error === "string" ? data.error : UX_CREDIT_EXHAUSTED_TR;
+          setError(msg);
+          showToast(msg);
           void refreshUsage();
           return;
         }
+        if (res.status >= 500 || data.error === API_ERROR_GENERIC_TR) {
+          setError(UX_SERVER_ERROR_TR);
+          showToast(UX_SERVER_ERROR_TR);
+          return;
+        }
         setError(
-          typeof data.error === "string" ? data.error : t("errorRequestFailed"),
+          typeof data.error === "string" ? data.error : UX_SERVER_ERROR_TR,
+        );
+        showToast(
+          typeof data.error === "string" ? data.error : UX_SERVER_ERROR_TR,
         );
         return;
       }
@@ -513,7 +533,8 @@ export function RepurposeWorkspace() {
       void refreshUsage();
       router.refresh();
     } catch {
-      setError(t("errorNetwork"));
+      setError(UX_SERVER_ERROR_TR);
+      showToast(UX_SERVER_ERROR_TR);
     } finally {
       setLoading(false);
     }

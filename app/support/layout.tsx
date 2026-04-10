@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Layout } from "@/components/Layout";
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Support | Helia AI",
@@ -11,5 +11,5 @@ export default function SupportShellLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <Layout>{children}</Layout>;
+  return <AppShell>{children}</AppShell>;
 }
