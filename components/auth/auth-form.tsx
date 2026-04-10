@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { lightCardClass } from "@/lib/ui/saas-card";
+import { ensureAppUserAfterAuth } from "@/lib/users/ensure-app-user";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-3 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20";
@@ -43,6 +44,7 @@ export function AuthForm() {
         setMessage(error.message);
         return;
       }
+      await ensureAppUserAfterAuth(supabase);
       window.location.assign(next);
     } finally {
       setLoading(null);
@@ -68,6 +70,7 @@ export function AuthForm() {
         return;
       }
       if (data.session) {
+        await ensureAppUserAfterAuth(supabase);
         window.location.assign(next);
         return;
       }

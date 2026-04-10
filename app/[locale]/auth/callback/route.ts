@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import { ensureAppUserAfterAuth } from "@/lib/users/ensure-app-user";
 
 export async function GET(
   request: Request,
@@ -34,6 +35,7 @@ export async function GET(
     });
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      await ensureAppUserAfterAuth(supabase);
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
