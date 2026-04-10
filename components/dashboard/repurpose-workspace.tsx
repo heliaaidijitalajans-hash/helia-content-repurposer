@@ -416,25 +416,21 @@ export function RepurposeWorkspace() {
     try {
       const payload = { text: bodyText };
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
       if (isConfigured) {
         const supabase = createClient();
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (!session?.access_token) {
+        if (!session) {
           setError(t("transcribeErrorAuth"));
           return;
         }
-        headers.Authorization = `Bearer ${session.access_token}`;
       }
 
       const res = await fetch("/api/repurpose", {
         method: "POST",
         credentials: "include",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 

@@ -1,11 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
 import { generateRepurpose } from "@/lib/repurpose/generate";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
+import { createClient } from "@/lib/supabase/server";
 import { CREDIT_DEBIT_FAILED_MSG } from "@/lib/credits/constants";
 import { rpcServiceDecrementTextCredit } from "@/lib/credits/server-rpc";
 import {
   createServiceRoleClient,
-  getServiceSupabaseUrl,
+  isServiceRoleConfigured,
 } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -20,15 +20,11 @@ type UsersRow = {
 };
 
 function jsonUnauthorized() {
-  return Response.json({ error: "Unauthorized" }, { status: 403 });
+  return Response.json({ error: "Unauthorized" }, { status: 401 });
 }
 
 export async function POST(req: Request): Promise<Response> {
   const { isConfigured } = getPublicSupabaseConfig();
-  const supabaseUrl =
-    getServiceSupabaseUrl() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || "";
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
-  const canUseTokenAuth = Boolean(supabaseUrl && serviceRoleKey);
 
   try {
     const body = (await req.json()) as { text?: unknown };
@@ -47,37 +43,22 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json(result);
     }
 
-    if (!canUseTokenAuth) {
+    if (!isServiceRoleConfigured()) {
       console.error(
-        "[api/repurpose] SUPABASE_SERVICE_ROLE_KEY veya proje URL eksik (token auth).",
+        "[api/repurpose] SUPABASE_SERVICE_ROLE_KEY veya URL eksik (kredi RPC).",
       );
       return Response.json({ error: "Server configuration" }, { status: 503 });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
-      return jsonUnauthorized();
-    }
-
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    if (!token) {
-      return jsonUnauthorized();
-    }
-
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const supabase = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser(token);
+    } = await supabase.auth.getUser();
 
     if (authError) {
-      console.log("AUTH ERROR:", authError.message);
+      console.log("[api/repurpose] auth.getUser:", authError.message);
     }
 
     if (!user) {
