@@ -2,46 +2,68 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 
-/** İstemci: NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY (`createClient` içinde). */
 const ADMIN_EMAIL = "helia.ai.digital.ajans@gmail.com";
-
-function isAdminEmail(email: string | undefined): boolean {
-  return (email?.trim().toLowerCase() ?? "") === ADMIN_EMAIL.toLowerCase();
-}
 
 export default function AdminPage() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  /** `undefined` = henüz oturum bilgisi gelmedi (INITIAL_SESSION / getSession bekleniyor) */
+  const [sessionUser, setSessionUser] = useState<User | null | undefined>(
+    undefined,
+  );
+  const [allowed, setAllowed] = useState(false);
 
+  // Oturum: önce storage’dan getSession, sonra tüm güncellemeler onAuthStateChange ile
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (cancelled) return;
+    const supabase = createClient();
+
+    void supabase.auth.getSession().then(({ data: { session } }) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // sessionUser yüklendikten sonra (null veya User) yönlendirme / izin
+  useEffect(() => {
+    if (sessionUser === undefined) return;
+
+    const t = window.setTimeout(() => {
+      const user = sessionUser;
+
+      console.log("USER:", user);
+      console.log("EMAIL:", user?.email);
 
       if (!user) {
-        router.push("/login?next=" + encodeURIComponent("/admin"));
+        setAllowed(false);
+        router.push("/login");
         return;
       }
 
-      if (!isAdminEmail(user.email ?? undefined)) {
+      if (
+        !user.email ||
+        user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()
+      ) {
+        setAllowed(false);
         router.push("/dashboard");
         return;
       }
 
-      setReady(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+      setAllowed(true);
+    }, 100);
 
-  if (!ready) {
+    return () => window.clearTimeout(t);
+  }, [sessionUser, router]);
+
+  if (sessionUser === undefined || !allowed) {
     return <div>Loading...</div>;
   }
 
