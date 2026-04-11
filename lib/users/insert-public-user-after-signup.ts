@@ -48,6 +48,8 @@ export async function insertPublicUserAfterSignup(
       updated_at: now,
     });
 
+    console.log("INSERT ERROR:", insertError);
+
     if (insertError) {
       if (insertError.code === "23505") {
         const { error: patchError } = await supabase

@@ -12,6 +12,7 @@ export async function signUp(
   extra?: SignUpExtraOptions,
 ) {
   const supabase = createClient();
+  console.log("SIGNUP START");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -25,7 +26,17 @@ export async function signUp(
     },
   });
 
-  if (error) throw error;
+  console.log("AUTH RESULT:", data, error);
+
+  if (error) {
+    console.error("AUTH ERROR:", error);
+    throw error;
+  }
+
+  if (data.user) {
+    console.log("USER:", data.user);
+  }
+
   return data;
 }
 
