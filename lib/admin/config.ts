@@ -1,12 +1,12 @@
 /**
  * Yalnızca bu e-posta admin paneli ve /api/admin/* kullanabilir.
- * İsteğe bağlı: HELIA_ADMIN_EMAIL ile override (.env).
+ * İsteğe bağlı: HELIA_ADMIN_EMAIL ile override (.env; sunucuda).
  */
-const DEFAULT_ADMIN_EMAIL = "helia.ai.digital.ajans@gmail.com";
+export const ADMIN_EMAIL = "helia.ai.digital.ajans@gmail.com";
 
 export function getAdminEmailNormalized(): string {
   const fromEnv = process.env.HELIA_ADMIN_EMAIL?.trim().toLowerCase();
-  return (fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_ADMIN_EMAIL).toLowerCase();
+  return (fromEnv && fromEnv.length > 0 ? fromEnv : ADMIN_EMAIL).toLowerCase();
 }
 
 export function isAdminEmail(email: string | null | undefined): boolean {
