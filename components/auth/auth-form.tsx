@@ -161,6 +161,7 @@ export function AuthForm() {
           const insertResult = await insertPublicUserAfterSignup(supabase, {
             user: data.user,
             displayName: name,
+            session: data.session,
           });
           if (insertResult.profileSyncWarning) {
             profileSyncWarning = true;

@@ -1,36 +1,46 @@
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
+
+function nameFromUser(user: User, displayName: string): string {
+  const trimmed = displayName.trim();
+  if (trimmed) return trimmed;
+  const meta = user.user_metadata as Record<string, unknown> | undefined;
+  if (typeof meta?.full_name === "string" && meta.full_name.trim()) {
+    return meta.full_name.trim();
+  }
+  return "";
+}
 
 /**
- * signUp sonrası public.users satırı: oturum varsa (RLS) insert dener.
- * Tetikleyici zaten satır oluşturmuşsa 23505 → name/email güncellenir.
- * Hata olursa kaydı bozmaz; `profileSyncWarning: true` ile UI çeviri anahtarı gösterilir.
+ * `signUp` başarılı olduktan sonra `public.users` satırı (RLS: oturumdaki kullanıcı = satır id).
+ * Insert başarısız olsa bile fırlatmaz; konsola yazar, UI `profileSyncWarning` ile bilgilendirir.
+ * Tetikleyici satır eklemişse 23505 → yalnızca email / name / updated_at güncellenir (krediler korunur).
  */
 export async function insertPublicUserAfterSignup(
   supabase: SupabaseClient,
-  input: { user: User; displayName: string },
+  input: { user: User; displayName: string; session?: Session | null },
 ): Promise<{ profileSyncWarning: boolean }> {
-  const { user, displayName } = input;
+  const { user, displayName, session: sessionFromSignUp } = input;
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const session =
+    sessionFromSignUp ??
+    (await supabase.auth.getSession()).data.session;
 
   if (!session || session.user.id !== user.id) {
     console.warn(
-      "[insertPublicUserAfterSignup] Oturum yok veya kullanıcı eşleşmiyor; istemci insert atlandı (RLS). Tetikleyici satır oluşturmuş olmalı.",
+      "[insertPublicUserAfterSignup] Oturum yok veya kullanıcı eşleşmiyor; istemci insert atlandı (RLS). DB tetikleyicisi satır oluşturmuş olmalı.",
     );
     return { profileSyncWarning: false };
   }
 
   const now = new Date().toISOString();
   const emailNorm = user.email?.trim().toLowerCase() || null;
-  const name = displayName?.trim() || "";
+  const name = nameFromUser(user, displayName);
 
   try {
-    const { error } = await supabase.from("users").insert({
+    const { error: insertError } = await supabase.from("users").insert({
       id: user.id,
       email: emailNorm,
-      name,
+      name: name || "",
       plan: "free",
       video_credits: 30,
       text_credits: 3,
@@ -38,40 +48,30 @@ export async function insertPublicUserAfterSignup(
       updated_at: now,
     });
 
-    if (error) {
-      if (error.code === "23505") {
-        console.info(
-          "[insertPublicUserAfterSignup] Satır zaten var (id), name/email güncelleniyor",
-        );
-        const { error: upErr } = await supabase
+    if (insertError) {
+      if (insertError.code === "23505") {
+        const { error: patchError } = await supabase
           .from("users")
           .update({
             email: emailNorm,
-            name,
+            name: name || "",
             updated_at: now,
           })
           .eq("id", user.id);
 
-        if (upErr) {
-          console.error(
-            "[insertPublicUserAfterSignup] güncelleme hatası:",
-            upErr.code,
-            upErr.message,
-          );
+        if (patchError) {
+          console.error("User insert error (then patch):", insertError);
+          console.error("User row patch error:", patchError);
           return { profileSyncWarning: true };
         }
         return { profileSyncWarning: false };
       }
 
-      console.error(
-        "[insertPublicUserAfterSignup] insert hatası:",
-        error.code,
-        error.message,
-      );
+      console.error("User insert error:", insertError);
       return { profileSyncWarning: true };
     }
   } catch (e) {
-    console.error("[insertPublicUserAfterSignup] istisna:", e);
+    console.error("User insert error (exception):", e);
     return { profileSyncWarning: true };
   }
 
