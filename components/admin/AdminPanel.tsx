@@ -13,6 +13,18 @@ type Stats = {
   totalTextCredits: number;
 };
 
+/** API düz metin (ör. Unauthorized) veya JSON { error } döndürebilir. */
+function errorFromAdminBody(
+  raw: string,
+  parsed: { error?: string },
+  fallback: string,
+): string {
+  if (typeof parsed.error === "string" && parsed.error) return parsed.error;
+  const t = raw.trim();
+  if (t) return t;
+  return fallback;
+}
+
 async function postUpdate(body: {
   userId: string;
   video_credits: number;
@@ -25,9 +37,18 @@ async function postUpdate(body: {
     credentials: "include",
     body: JSON.stringify(body),
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  const raw = await res.text();
+  let parsed: { error?: string } = {};
+  try {
+    if (raw) parsed = JSON.parse(raw) as { error?: string };
+  } catch {
+    /* plain text */
+  }
   if (!res.ok) {
-    return { ok: false, error: data.error ?? `HTTP ${res.status}` };
+    return {
+      ok: false,
+      error: errorFromAdminBody(raw, parsed, "Güncelleme başarısız"),
+    };
   }
   return { ok: true };
 }
@@ -51,13 +72,19 @@ export function AdminPanel() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/users", { credentials: "include" });
-      const data = (await res.json()) as {
+      const raw = await res.text();
+      let data = {} as {
         users?: AdminUserRow[];
         stats?: Stats;
         error?: string;
       };
+      try {
+        if (raw) data = JSON.parse(raw) as typeof data;
+      } catch {
+        /* plain text */
+      }
       if (!res.ok) {
-        setError(data.error ?? "Liste yüklenemedi");
+        setError(errorFromAdminBody(raw, data, "Liste yüklenemedi"));
         setUsers([]);
         setStats(null);
         return;

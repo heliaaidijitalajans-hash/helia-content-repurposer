@@ -13,14 +13,15 @@ export async function assertAdminApi(): Promise<AdminAuthOk | AdminAuthFail> {
   if (!user?.email) {
     return {
       ok: false,
-      response: Response.json({ error: "Giriş yapmalısın" }, { status: 401 }),
+      response: new Response("Unauthorized", { status: 401 }),
     };
   }
 
+  // `user.email !== ADMIN_EMAIL` yerine: HELIA_ADMIN_EMAIL + trim/lowercase için isAdminEmail
   if (!isAdminEmail(user.email)) {
     return {
       ok: false,
-      response: Response.json({ error: "Yetkisiz" }, { status: 403 }),
+      response: new Response("Unauthorized", { status: 403 }),
     };
   }
 
