@@ -1,9 +1,17 @@
 "use client";
 
+import type { AuthError } from "@supabase/supabase-js";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Link } from "@/i18n/navigation";
+import {
+  classifySignInError,
+  classifySignUpError,
+  signIn,
+  signOutGlobal,
+  signUp,
+} from "@/lib/auth/supabase-email-auth";
 import { createClient } from "@/lib/supabase/client";
 import { lightCardClass } from "@/lib/ui/saas-card";
 import { ensureAppUserAfterAuth } from "@/lib/users/ensure-app-user";
@@ -13,21 +21,13 @@ const inputClass =
 
 const labelClass = "text-sm font-medium text-gray-900";
 
-function mapAuthErrorMessage(raw: string): string {
-  const m = raw.toLowerCase();
-  if (m.includes("database error saving new user")) {
-    return "Kayıt veritabanına yazılamadı. Supabase tetikleyicilerini kontrol edin veya daha sonra tekrar deneyin.";
-  }
-  if (
-    m.includes("user already registered") ||
-    m.includes("already been registered")
-  ) {
-    return "Bu e-posta ile zaten hesap var. Giriş yapın.";
-  }
-  if (m.includes("email rate limit") || m.includes("rate limit")) {
-    return "Çok sık deneme yapıldı. Bir süre sonra tekrar deneyin.";
-  }
-  return raw;
+function isAuthError(e: unknown): e is AuthError {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    "message" in e &&
+    typeof (e as AuthError).message === "string"
+  );
 }
 
 export function AuthForm() {
@@ -35,7 +35,6 @@ export function AuthForm() {
   const tc = useTranslations("common");
   const locale = useLocale();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/dashboard";
   const err = searchParams.get("error");
 
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -47,18 +46,9 @@ export function AuthForm() {
     null,
   );
   const [message, setMessage] = useState<string | null>(null);
-  const [messageVariant, setMessageVariant] = useState<"error" | "info">(
-    "error",
-  );
-
-  /** Mevcut çerezdeki oturum, yanlışlıkla hep aynı hesaba bağlanmayı önlemek için önce kapatılır. */
-  async function clearExistingSession(supabase: ReturnType<typeof createClient>) {
-    try {
-      await supabase.auth.signOut({ scope: "global" });
-    } catch {
-      /* ağ hatası — giriş denemesine devam */
-    }
-  }
+  const [messageVariant, setMessageVariant] = useState<
+    "error" | "info" | "success"
+  >("error");
 
   async function handleLogin() {
     setMessage(null);
@@ -69,20 +59,29 @@ export function AuthForm() {
       return;
     }
     setLoading("login");
-    const supabase = createClient();
     try {
-      await clearExistingSession(supabase);
-      const { error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-      if (error) {
+      await signOutGlobal();
+      await signIn(normalizedEmail, password);
+      const supabase = createClient();
+      await ensureAppUserAfterAuth(supabase);
+      window.location.assign("/dashboard");
+    } catch (e) {
+      if (isAuthError(e)) {
+        const kind = classifySignInError(e);
+        if (kind === "user_not_found") {
+          setMessage(t("errorUserNotFound"));
+        } else if (kind === "wrong_password") {
+          setMessage(t("errorWrongPassword"));
+        } else if (kind === "email_not_confirmed") {
+          setMessage(t("errorEmailNotConfirmed"));
+        } else {
+          setMessage(e.message || "Giriş yapılamadı.");
+        }
         setMessageVariant("error");
-        setMessage(mapAuthErrorMessage(error.message));
         return;
       }
-      await ensureAppUserAfterAuth(supabase);
-      window.location.assign(next);
+      setMessageVariant("error");
+      setMessage("Giriş yapılamadı.");
     } finally {
       setLoading(null);
     }
@@ -94,9 +93,10 @@ export function AuthForm() {
     const supabase = createClient();
     const origin =
       typeof window !== "undefined" ? window.location.origin : "";
+    const next = "/dashboard";
     const redirectTo = `${origin}/${locale}/auth/callback?next=${encodeURIComponent(next)}`;
     try {
-      await clearExistingSession(supabase);
+      await signOutGlobal();
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -106,7 +106,7 @@ export function AuthForm() {
       });
       if (error) {
         setMessageVariant("error");
-        setMessage(mapAuthErrorMessage(error.message));
+        setMessage(error.message);
         return;
       }
       if (data.url) {
@@ -143,32 +143,48 @@ export function AuthForm() {
     }
 
     setLoading("signup");
-    const supabase = createClient();
     const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const emailRedirectTo = `${origin}/${locale}/auth/callback?next=${encodeURIComponent("/dashboard")}`;
+
     try {
-      await clearExistingSession(supabase);
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          data: { full_name: name },
-          emailRedirectTo: `${origin}/${locale}/auth/callback?next=${encodeURIComponent(next)}`,
-        },
+      await signOutGlobal();
+      const data = await signUp(normalizedEmail, password, {
+        fullName: name,
+        emailRedirectTo,
       });
-      if (error) {
-        setMessageVariant("error");
-        setMessage(mapAuthErrorMessage(error.message));
-        return;
-      }
+
+      setMessageVariant("success");
+      setMessage(t("signupSuccessMessage"));
+
       if (data.session) {
+        const supabase = createClient();
         await ensureAppUserAfterAuth(supabase);
-        window.location.assign(next);
+        window.setTimeout(() => {
+          window.location.assign("/dashboard");
+        }, 900);
         return;
       }
+
       setPassword("");
       setPasswordConfirm("");
       setMode("login");
-      setMessage(null);
+    } catch (e) {
+      if (isAuthError(e)) {
+        const kind = classifySignUpError(e);
+        if (kind === "database_save") {
+          setMessage(t("errorSignupDatabase"));
+        } else if (kind === "already_registered") {
+          setMessage(t("errorSignupExists"));
+        } else if (kind === "rate_limit") {
+          setMessage(t("errorRateLimit"));
+        } else {
+          setMessage(e.message || t("errorSignupDatabase"));
+        }
+        setMessageVariant("error");
+        return;
+      }
+      setMessageVariant("error");
+      setMessage("Kayıt olunamadı.");
     } finally {
       setLoading(null);
     }
@@ -189,6 +205,13 @@ export function AuthForm() {
     setFullName("");
     setPasswordConfirm("");
   }
+
+  const messageClass =
+    messageVariant === "success"
+      ? "text-green-700"
+      : messageVariant === "info"
+        ? "text-gray-700"
+        : "text-red-600";
 
   return (
     <div className="notranslate min-h-screen bg-white text-gray-900">
@@ -322,13 +345,7 @@ export function AuthForm() {
             </form>
 
             {message ? (
-              <p
-                className={`mt-4 text-sm ${
-                  messageVariant === "info"
-                    ? "text-gray-700"
-                    : "text-red-600"
-                }`}
-              >
+              <p className={`mt-4 text-sm ${messageClass}`} role="status">
                 {message}
               </p>
             ) : null}

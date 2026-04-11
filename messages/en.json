@@ -298,6 +298,13 @@
     "errorAuth": "Could not sign in. Try again or use email sign-in.",
     "errorPasswordMismatch": "Passwords do not match.",
     "errorFullName": "Full name must be at least 2 characters.",
+    "errorUserNotFound": "User not found",
+    "errorWrongPassword": "Wrong password",
+    "errorEmailNotConfirmed": "Please confirm your email first.",
+    "errorSignupDatabase": "Could not save your account. Try again later.",
+    "errorSignupExists": "An account with this email already exists. Sign in.",
+    "errorRateLimit": "Too many attempts. Try again later.",
+    "signupSuccessMessage": "Sign up successful",
     "terms": "By continuing you agree to the terms and privacy policy."
   },
   "dashboard": {

@@ -298,6 +298,13 @@
     "errorAuth": "Oturum açılamadı. Tekrar deneyin veya e-posta ile giriş yapın.",
     "errorPasswordMismatch": "Şifreler eşleşmiyor.",
     "errorFullName": "İsim soyisim en az 2 karakter olmalı.",
+    "errorUserNotFound": "Kullanıcı bulunamadı",
+    "errorWrongPassword": "Şifre yanlış",
+    "errorEmailNotConfirmed": "Önce e-postanızı doğrulayın.",
+    "errorSignupDatabase": "Kayıt veritabanına yazılamadı. Daha sonra tekrar deneyin.",
+    "errorSignupExists": "Bu e-posta ile zaten hesap var. Giriş yapın.",
+    "errorRateLimit": "Çok sık deneme yapıldı. Bir süre sonra tekrar deneyin.",
+    "signupSuccessMessage": "Kayıt başarılı",
     "terms": "Devam ederek şartları ve gizlilik politikasını kabul etmiş olursunuz."
   },
   "dashboard": {
