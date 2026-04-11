@@ -35,15 +35,21 @@ export async function ensurePublicUserRow(
   }
 
   if (!dbUser) {
+    const meta = user.user_metadata as Record<string, unknown> | undefined;
+    const fromMeta =
+      typeof meta?.full_name === "string" ? meta.full_name.trim() : "";
+    const now = new Date().toISOString();
     const { data: newUser, error: insErr } = await supabase
       .from("users")
       .insert({
         id: user.id,
         email: user.email?.trim() ? user.email.trim().toLowerCase() : null,
+        name: fromMeta,
         plan: "free",
         video_credits: 30,
         text_credits: 3,
-        created_at: new Date().toISOString(),
+        created_at: now,
+        updated_at: now,
       })
       .select()
       .single();

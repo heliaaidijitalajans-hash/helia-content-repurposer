@@ -13,6 +13,7 @@ import {
   signUp,
 } from "@/lib/auth/supabase-email-auth";
 import { createClient } from "@/lib/supabase/client";
+import { insertPublicUserAfterSignup } from "@/lib/users/insert-public-user-after-signup";
 import { lightCardClass } from "@/lib/ui/saas-card";
 import { ensureAppUserAfterAuth } from "@/lib/users/ensure-app-user";
 
@@ -153,12 +154,40 @@ export function AuthForm() {
         emailRedirectTo,
       });
 
-      setMessageVariant("success");
-      setMessage(t("signupSuccessMessage"));
+      let profileSyncWarning = false;
+      if (data.user) {
+        const supabase = createClient();
+        try {
+          const insertResult = await insertPublicUserAfterSignup(supabase, {
+            user: data.user,
+            displayName: name,
+          });
+          if (insertResult.profileSyncWarning) {
+            profileSyncWarning = true;
+          }
+        } catch (e) {
+          console.error("[auth-form] insertPublicUserAfterSignup:", e);
+          profileSyncWarning = true;
+        }
+
+        if (data.session) {
+          try {
+            await ensureAppUserAfterAuth(supabase);
+          } catch (e) {
+            console.error("[auth-form] ensureAppUserAfterAuth:", e);
+            profileSyncWarning = true;
+          }
+        }
+      }
+
+      const successParts = [t("signupSuccessMessage")];
+      if (profileSyncWarning) {
+        successParts.push(t("signupProfileSyncWarning"));
+      }
+      setMessage(successParts.join(" "));
+      setMessageVariant(profileSyncWarning ? "info" : "success");
 
       if (data.session) {
-        const supabase = createClient();
-        await ensureAppUserAfterAuth(supabase);
         window.setTimeout(() => {
           window.location.assign("/dashboard");
         }, 900);

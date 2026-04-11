@@ -305,6 +305,7 @@
     "errorSignupExists": "An account with this email already exists. Sign in.",
     "errorRateLimit": "Too many attempts. Try again later.",
     "signupSuccessMessage": "Sign up successful",
+    "signupProfileSyncWarning": "Profile row could not sync yet; it will complete when you sign in.",
     "terms": "By continuing you agree to the terms and privacy policy."
   },
   "dashboard": {

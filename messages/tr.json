@@ -305,6 +305,7 @@
     "errorSignupExists": "Bu e-posta ile zaten hesap var. Giriş yapın.",
     "errorRateLimit": "Çok sık deneme yapıldı. Bir süre sonra tekrar deneyin.",
     "signupSuccessMessage": "Kayıt başarılı",
+    "signupProfileSyncWarning": "Profil satırı şu an senkronize edilemedi; giriş yaptığınızda tamamlanır.",
     "terms": "Devam ederek şartları ve gizlilik politikasını kabul etmiş olursunuz."
   },
   "dashboard": {
