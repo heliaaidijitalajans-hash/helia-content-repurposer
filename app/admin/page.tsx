@@ -3,19 +3,18 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
+import { AdminDirectLink } from "@/components/admin/AdminDirectLink";
+import { AdminPanel } from "@/components/admin/AdminPanel";
 import { createClient } from "@/lib/supabase/client";
-
-const ADMIN_EMAIL = "helia.ai.digital.ajans@gmail.com";
+import { isAdminEmail } from "@/lib/admin/config";
 
 export default function AdminPage() {
   const router = useRouter();
-  /** `undefined` = henüz oturum bilgisi gelmedi (INITIAL_SESSION / getSession bekleniyor) */
   const [sessionUser, setSessionUser] = useState<User | null | undefined>(
     undefined,
   );
   const [allowed, setAllowed] = useState(false);
 
-  // Oturum: önce storage’dan getSession, sonra tüm güncellemeler onAuthStateChange ile
   useEffect(() => {
     const supabase = createClient();
 
@@ -32,26 +31,19 @@ export default function AdminPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // sessionUser yüklendikten sonra (null veya User) yönlendirme / izin
   useEffect(() => {
     if (sessionUser === undefined) return;
 
     const t = window.setTimeout(() => {
       const user = sessionUser;
 
-      console.log("USER:", user);
-      console.log("EMAIL:", user?.email);
-
       if (!user) {
         setAllowed(false);
-        router.push("/login");
+        router.push("/login?next=" + encodeURIComponent("/admin"));
         return;
       }
 
-      if (
-        !user.email ||
-        user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()
-      ) {
+      if (!user.email || !isAdminEmail(user.email)) {
         setAllowed(false);
         router.push("/dashboard");
         return;
@@ -68,9 +60,15 @@ export default function AdminPage() {
   }
 
   return (
-    <div>
-      <h1>Admin Panel</h1>
-      <p>Welcome admin</p>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Admin Panel</h1>
+        <p className="mt-1 text-muted-foreground">Hoş geldin — özet ve kullanıcı yönetimi</p>
+      </div>
+
+      <AdminDirectLink />
+
+      <AdminPanel />
     </div>
   );
 }
