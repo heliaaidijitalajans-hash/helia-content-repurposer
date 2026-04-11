@@ -296,8 +296,6 @@
     "login": "Login",
     "signup": "Signup",
     "errorAuth": "Could not sign in. Try again or use email sign-in.",
-    "signupSuccess": "Your account was created. If email verification is required, check your inbox; then sign in.",
-    "signupSuccessDirect": "You’re all set. Redirecting…",
     "errorPasswordMismatch": "Passwords do not match.",
     "errorFullName": "Full name must be at least 2 characters.",
     "terms": "By continuing you agree to the terms and privacy policy."

@@ -13,6 +13,23 @@ const inputClass =
 
 const labelClass = "text-sm font-medium text-gray-900";
 
+function mapAuthErrorMessage(raw: string): string {
+  const m = raw.toLowerCase();
+  if (m.includes("database error saving new user")) {
+    return "Kayıt veritabanına yazılamadı. Supabase tetikleyicilerini kontrol edin veya daha sonra tekrar deneyin.";
+  }
+  if (
+    m.includes("user already registered") ||
+    m.includes("already been registered")
+  ) {
+    return "Bu e-posta ile zaten hesap var. Giriş yapın.";
+  }
+  if (m.includes("email rate limit") || m.includes("rate limit")) {
+    return "Çok sık deneme yapıldı. Bir süre sonra tekrar deneyin.";
+  }
+  return raw;
+}
+
 export function AuthForm() {
   const t = useTranslations("auth");
   const tc = useTranslations("common");
@@ -26,7 +43,9 @@ export function AuthForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
-  const [loading, setLoading] = useState<"login" | "signup" | null>(null);
+  const [loading, setLoading] = useState<"login" | "signup" | "google" | null>(
+    null,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [messageVariant, setMessageVariant] = useState<"error" | "info">(
     "error",
@@ -43,21 +62,56 @@ export function AuthForm() {
 
   async function handleLogin() {
     setMessage(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password) {
+      setMessageVariant("error");
+      setMessage("E-posta ve şifre gerekli.");
+      return;
+    }
     setLoading("login");
     const supabase = createClient();
     try {
       await clearExistingSession(supabase);
       const { error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
       });
       if (error) {
         setMessageVariant("error");
-        setMessage(error.message);
+        setMessage(mapAuthErrorMessage(error.message));
         return;
       }
       await ensureAppUserAfterAuth(supabase);
       window.location.assign(next);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleGoogle() {
+    setMessage(null);
+    setLoading("google");
+    const supabase = createClient();
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const redirectTo = `${origin}/${locale}/auth/callback?next=${encodeURIComponent(next)}`;
+    try {
+      await clearExistingSession(supabase);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (error) {
+        setMessageVariant("error");
+        setMessage(mapAuthErrorMessage(error.message));
+        return;
+      }
+      if (data.url) {
+        window.location.assign(data.url);
+      }
     } finally {
       setLoading(null);
     }
@@ -76,6 +130,17 @@ export function AuthForm() {
       setMessage(t("errorPasswordMismatch"));
       return;
     }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      setMessageVariant("error");
+      setMessage("E-posta gerekli.");
+      return;
+    }
+    if (password.length < 6) {
+      setMessageVariant("error");
+      setMessage("Şifre en az 6 karakter olmalı.");
+      return;
+    }
 
     setLoading("signup");
     const supabase = createClient();
@@ -83,7 +148,7 @@ export function AuthForm() {
     try {
       await clearExistingSession(supabase);
       const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
         options: {
           data: { full_name: name },
@@ -92,25 +157,26 @@ export function AuthForm() {
       });
       if (error) {
         setMessageVariant("error");
-        setMessage(error.message);
+        setMessage(mapAuthErrorMessage(error.message));
         return;
       }
       if (data.session) {
         await ensureAppUserAfterAuth(supabase);
-        setMessageVariant("info");
-        setMessage(t("signupSuccessDirect"));
         window.location.assign(next);
         return;
       }
-      setMessageVariant("info");
-      setMessage(t("signupSuccess"));
+      setPassword("");
+      setPasswordConfirm("");
+      setMode("login");
+      setMessage(null);
     } finally {
       setLoading(null);
     }
   }
 
   const isLogin = mode === "login";
-  const busy = loading !== null;
+  const emailFlowBusy = loading === "login" || loading === "signup";
+  const googleBusy = loading === "google";
 
   function switchToSignup() {
     setMode("signup");
@@ -148,12 +214,13 @@ export function AuthForm() {
             <div className="mt-8">
               <button
                 type="button"
-                className="flex h-12 w-full cursor-not-allowed items-center justify-center gap-3 rounded-xl border border-gray-300 bg-gray-50 text-sm font-semibold text-gray-600 opacity-90"
-                onClick={(e) => e.preventDefault()}
+                disabled={googleBusy}
+                onClick={() => void handleGoogle()}
+                className="flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white text-sm font-semibold text-gray-800 shadow-sm transition hover:bg-gray-50 disabled:cursor-wait disabled:opacity-70"
                 aria-label={t("continueGoogle")}
               >
                 <GoogleMark className="h-5 w-5 shrink-0" />
-                {t("continueGoogle")}
+                {loading === "google" ? tc("ellipsis") : t("continueGoogle")}
               </button>
             </div>
 
@@ -172,7 +239,15 @@ export function AuthForm() {
               <p className="mb-4 text-sm text-red-600">{t("errorAuth")}</p>
             ) : null}
 
-            <div className="space-y-4">
+            <form
+              id="auth-email-form"
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void (isLogin ? handleLogin() : handleSignup());
+              }}
+              noValidate
+            >
               {!isLogin ? (
                 <div>
                   <label htmlFor="fullName" className={labelClass}>
@@ -183,7 +258,6 @@ export function AuthForm() {
                     type="text"
                     name="name"
                     autoComplete="name"
-                    required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Ad Soyad"
@@ -201,7 +275,6 @@ export function AuthForm() {
                   type="email"
                   name="email"
                   autoComplete="email"
-                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@email.com"
@@ -220,7 +293,6 @@ export function AuthForm() {
                   autoComplete={
                     isLogin ? "current-password" : "new-password"
                   }
-                  required
                   minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -239,7 +311,6 @@ export function AuthForm() {
                     type="password"
                     name="passwordConfirm"
                     autoComplete="new-password"
-                    required
                     minLength={6}
                     value={passwordConfirm}
                     onChange={(e) => setPasswordConfirm(e.target.value)}
@@ -248,7 +319,7 @@ export function AuthForm() {
                   />
                 </div>
               ) : null}
-            </div>
+            </form>
 
             {message ? (
               <p
@@ -263,14 +334,12 @@ export function AuthForm() {
             ) : null}
 
             <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                void (isLogin ? handleLogin() : handleSignup())
-              }
+              type="submit"
+              form="auth-email-form"
+              disabled={emailFlowBusy}
               className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-blue-600 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
             >
-              {busy
+              {emailFlowBusy
                 ? tc("ellipsis")
                 : isLogin
                   ? t("loginButton")

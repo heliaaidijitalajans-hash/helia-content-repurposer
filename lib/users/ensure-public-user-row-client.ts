@@ -39,7 +39,7 @@ export async function ensurePublicUserRow(
       .from("users")
       .insert({
         id: user.id,
-        email: user.email ?? null,
+        email: user.email?.trim() ? user.email.trim().toLowerCase() : null,
         plan: "free",
         video_credits: 30,
         text_credits: 3,
@@ -71,6 +71,21 @@ export async function ensurePublicUserRow(
       dbUser = newUser as PublicAppUserRow;
     } else {
       throw new Error("Failed to create user row");
+    }
+  } else if (user.email?.trim()) {
+    const rowEmail =
+      typeof dbUser.email === "string" ? dbUser.email.trim() : "";
+    const norm = user.email.trim().toLowerCase();
+    if (rowEmail === "" || rowEmail.toLowerCase() !== norm) {
+      const { error: upErr } = await supabase
+        .from("users")
+        .update({ email: norm })
+        .eq("id", user.id);
+      if (upErr) {
+        console.warn("[ensurePublicUserRow] email backfill:", upErr.message);
+      } else {
+        dbUser = { ...dbUser, email: norm } as PublicAppUserRow;
+      }
     }
   }
 
