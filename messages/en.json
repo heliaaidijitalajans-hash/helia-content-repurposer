@@ -295,6 +295,8 @@
     "passwordConfirmLabel": "Confirm password",
     "login": "Login",
     "signup": "Signup",
+    "oauthCallbackWorking": "Completing sign-in…",
+    "oauthCallbackError": "Redirecting…",
     "errorAuth": "Could not sign in. Try again or use email sign-in.",
     "errorPasswordMismatch": "Passwords do not match.",
     "errorFullName": "Full name must be at least 2 characters.",

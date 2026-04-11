@@ -295,6 +295,8 @@
     "passwordConfirmLabel": "Şifre tekrar",
     "login": "Giriş",
     "signup": "Kayıt ol",
+    "oauthCallbackWorking": "Oturum tamamlanıyor…",
+    "oauthCallbackError": "Yönlendiriliyor…",
     "errorAuth": "Oturum açılamadı. Tekrar deneyin veya e-posta ile giriş yapın.",
     "errorPasswordMismatch": "Şifreler eşleşmiyor.",
     "errorFullName": "İsim soyisim en az 2 karakter olmalı.",
