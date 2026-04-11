@@ -289,12 +289,17 @@
     "loginCta": "Giriş yap",
     "continueGoogle": "Google ile giriş",
     "orDivider": "veya",
+    "fullNameLabel": "İsim soyisim",
     "emailLabel": "E-posta",
     "passwordLabel": "Şifre",
+    "passwordConfirmLabel": "Şifre tekrar",
     "login": "Giriş",
     "signup": "Kayıt ol",
     "errorAuth": "Oturum açılamadı. Tekrar deneyin veya e-posta ile giriş yapın.",
     "signupSuccess": "Hesabınız oluşturuldu. E-posta doğrulaması gerekiyorsa gelen kutunuzu kontrol edin; ardından giriş yapın.",
+    "signupSuccessDirect": "Hesabın hazır. Yönlendiriliyorsun…",
+    "errorPasswordMismatch": "Şifreler eşleşmiyor.",
+    "errorFullName": "İsim soyisim en az 2 karakter olmalı.",
     "terms": "Devam ederek şartları ve gizlilik politikasını kabul etmiş olursunuz."
   },
   "dashboard": {

@@ -22,19 +22,31 @@ export function AuthForm() {
   const err = searchParams.get("error");
 
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState<"login" | "signup" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [messageVariant, setMessageVariant] = useState<"error" | "info">(
     "error",
   );
 
+  /** Mevcut çerezdeki oturum, yanlışlıkla hep aynı hesaba bağlanmayı önlemek için önce kapatılır. */
+  async function clearExistingSession(supabase: ReturnType<typeof createClient>) {
+    try {
+      await supabase.auth.signOut({ scope: "global" });
+    } catch {
+      /* ağ hatası — giriş denemesine devam */
+    }
+  }
+
   async function handleLogin() {
     setMessage(null);
     setLoading("login");
     const supabase = createClient();
     try {
+      await clearExistingSession(supabase);
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -53,14 +65,28 @@ export function AuthForm() {
 
   async function handleSignup() {
     setMessage(null);
+    const name = fullName.trim();
+    if (name.length < 2) {
+      setMessageVariant("error");
+      setMessage(t("errorFullName"));
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setMessageVariant("error");
+      setMessage(t("errorPasswordMismatch"));
+      return;
+    }
+
     setLoading("signup");
     const supabase = createClient();
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     try {
+      await clearExistingSession(supabase);
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
+          data: { full_name: name },
           emailRedirectTo: `${origin}/${locale}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
@@ -71,6 +97,8 @@ export function AuthForm() {
       }
       if (data.session) {
         await ensureAppUserAfterAuth(supabase);
+        setMessageVariant("info");
+        setMessage(t("signupSuccessDirect"));
         window.location.assign(next);
         return;
       }
@@ -83,6 +111,18 @@ export function AuthForm() {
 
   const isLogin = mode === "login";
   const busy = loading !== null;
+
+  function switchToSignup() {
+    setMode("signup");
+    setMessage(null);
+  }
+
+  function switchToLogin() {
+    setMode("login");
+    setMessage(null);
+    setFullName("");
+    setPasswordConfirm("");
+  }
 
   return (
     <div className="notranslate min-h-screen bg-white text-gray-900">
@@ -133,6 +173,25 @@ export function AuthForm() {
             ) : null}
 
             <div className="space-y-4">
+              {!isLogin ? (
+                <div>
+                  <label htmlFor="fullName" className={labelClass}>
+                    {t("fullNameLabel")}
+                  </label>
+                  <input
+                    id="fullName"
+                    type="text"
+                    name="name"
+                    autoComplete="name"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Ad Soyad"
+                    className={inputClass}
+                  />
+                </div>
+              ) : null}
+
               <div>
                 <label htmlFor="email" className={labelClass}>
                   {t("emailLabel")}
@@ -140,6 +199,7 @@ export function AuthForm() {
                 <input
                   id="email"
                   type="email"
+                  name="email"
                   autoComplete="email"
                   required
                   value={email}
@@ -156,6 +216,7 @@ export function AuthForm() {
                 <input
                   id="password"
                   type="password"
+                  name="password"
                   autoComplete={
                     isLogin ? "current-password" : "new-password"
                   }
@@ -167,6 +228,26 @@ export function AuthForm() {
                   className={inputClass}
                 />
               </div>
+
+              {!isLogin ? (
+                <div>
+                  <label htmlFor="passwordConfirm" className={labelClass}>
+                    {t("passwordConfirmLabel")}
+                  </label>
+                  <input
+                    id="passwordConfirm"
+                    type="password"
+                    name="passwordConfirm"
+                    autoComplete="new-password"
+                    required
+                    minLength={6}
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    className={inputClass}
+                  />
+                </div>
+              ) : null}
             </div>
 
             {message ? (
@@ -203,10 +284,7 @@ export function AuthForm() {
                   <button
                     type="button"
                     className="font-semibold text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline"
-                    onClick={() => {
-                      setMode("signup");
-                      setMessage(null);
-                    }}
+                    onClick={switchToSignup}
                   >
                     {t("signupCta")}
                   </button>
@@ -217,10 +295,7 @@ export function AuthForm() {
                   <button
                     type="button"
                     className="font-semibold text-blue-600 underline-offset-2 transition hover:text-blue-700 hover:underline"
-                    onClick={() => {
-                      setMode("login");
-                      setMessage(null);
-                    }}
+                    onClick={switchToLogin}
                   >
                     {t("loginCta")}
                   </button>
