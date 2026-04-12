@@ -21,6 +21,11 @@ export async function insertPublicUserAfterSignup(
 ): Promise<{ profileSyncWarning: boolean }> {
   const { user, displayName, session: sessionFromSignUp } = input;
 
+  if (!user) {
+    console.log("User not ready yet");
+    return { profileSyncWarning: false };
+  }
+
   const session =
     sessionFromSignUp ??
     (await supabase.auth.getSession()).data.session;

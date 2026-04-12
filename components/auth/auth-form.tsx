@@ -155,7 +155,11 @@ export function AuthForm() {
       });
 
       let profileSyncWarning = false;
-      if (data.user) {
+
+      // E-posta onayı açıksa Supabase bazen user/session dönmez; insert tetikleyici + callback sonrası tamamlanır.
+      if (!data.user) {
+        console.log("User not ready yet");
+      } else {
         const supabase = createClient();
         try {
           const insertResult = await insertPublicUserAfterSignup(supabase, {
