@@ -2,8 +2,13 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { usePathname as useNextPathname } from "next/navigation";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import { routing } from "@/i18n/routing";
+import {
+  setStandaloneLocaleCookieClient,
+  type AppLocaleCode,
+} from "@/lib/i18n/standalone-locale";
 
 const labels: Record<string, string> = { tr: "Türkçe", en: "English" };
 
@@ -11,6 +16,7 @@ export function LanguageSwitcher() {
   const t = useTranslations("nav");
   const locale = useLocale();
   const pathname = usePathname();
+  const fullPathname = useNextPathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -30,6 +36,16 @@ export function LanguageSwitcher() {
       setOpen(false);
       return;
     }
+    const code = nextLocale as AppLocaleCode;
+    setStandaloneLocaleCookieClient(code);
+
+    const isLocaleRoute = /^\/(tr|en)(\/|$)/.test(fullPathname);
+    if (!isLocaleRoute) {
+      setOpen(false);
+      window.location.reload();
+      return;
+    }
+
     router.replace(pathname, { locale: nextLocale });
     setOpen(false);
   }

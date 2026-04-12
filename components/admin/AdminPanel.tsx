@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   DEFAULT_TEXT_CREDITS,
   DEFAULT_VIDEO_CREDITS,
 } from "@/lib/credits/constants";
 import type { AdminStats, AdminUserRow } from "@/lib/admin/types";
+import { AdminPlansEditor } from "@/components/admin/AdminPlansEditor";
 
 /** API düz metin (ör. Unauthorized) veya JSON { error } döndürebilir. */
 function errorFromAdminBody(
@@ -19,21 +21,15 @@ function errorFromAdminBody(
   return fallback;
 }
 
-function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  try {
-    return new Date(iso).toLocaleString("tr-TR");
-  } catch {
-    return iso;
-  }
-}
-
-async function postUpdate(body: {
-  userId: string;
-  video_credits: number;
-  text_credits: number;
-  plan: string;
-}): Promise<{ ok: boolean; error?: string }> {
+async function postUpdate(
+  body: {
+    userId: string;
+    video_credits: number;
+    text_credits: number;
+    plan: string;
+  },
+  fallbackError: string,
+): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch("/api/admin/update-user", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -50,19 +46,29 @@ async function postUpdate(body: {
   if (!res.ok) {
     return {
       ok: false,
-      error: errorFromAdminBody(raw, parsed, "Güncelleme başarısız"),
+      error: errorFromAdminBody(raw, parsed, fallbackError),
     };
   }
   return { ok: true };
 }
 
-function planForUi(dbPlan: string): "free" | "pro" {
-  const p = dbPlan.trim().toLowerCase();
-  if (p === "free") return "free";
-  return "pro";
-}
+const KNOWN_DB_PLANS = new Set(["free", "aylık", "pro", "yearly"]);
 
 export function AdminPanel() {
+  const t = useTranslations("adminDashboard");
+  const locale = useLocale();
+  const dateLocale = locale === "tr" ? "tr-TR" : "en-US";
+  const [tab, setTab] = useState<"users" | "plans">("users");
+
+  function fmtDate(iso: string | null | undefined): string {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString(dateLocale);
+    } catch {
+      return iso;
+    }
+  }
+
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +92,7 @@ export function AdminPanel() {
         /* plain text */
       }
       if (!res.ok) {
-        setError(errorFromAdminBody(raw, data, "Liste yüklenemedi"));
+        setError(errorFromAdminBody(raw, data, t("errorListFailed")));
         setUsers([]);
         setStats(null);
         return;
@@ -94,13 +100,13 @@ export function AdminPanel() {
       setUsers(data.users ?? []);
       setStats(data.stats ?? null);
     } catch {
-      setError("Ağ hatası");
+      setError(t("errorNetwork"));
       setUsers([]);
       setStats(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -112,15 +118,18 @@ export function AdminPanel() {
   ) => {
     setBusyId(row.id);
     setError(null);
-    const r = await postUpdate({
-      userId: row.id,
-      video_credits: next.video_credits,
-      text_credits: next.text_credits,
-      plan: next.plan,
-    });
+    const r = await postUpdate(
+      {
+        userId: row.id,
+        video_credits: next.video_credits,
+        text_credits: next.text_credits,
+        plan: next.plan,
+      },
+      t("errorUpdateFailed"),
+    );
     setBusyId(null);
     if (!r.ok) {
-      setError(r.error ?? "Güncelleme başarısız");
+      setError(r.error ?? t("errorUpdateFailed"));
       return;
     }
     await load();
@@ -132,19 +141,73 @@ export function AdminPanel() {
       .map(([k, v]) => `${k}: ${v}`)
       .join(" · ");
 
+  async function lockSession() {
+    try {
+      await fetch("/api/admin/lock", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      /* ignore */
+    }
+    window.location.reload();
+  }
+
+  function subscriptionLabel(plan: string | null | undefined): string {
+    if (plan == null || plan === "") return "—";
+    const p = plan.trim().toLowerCase();
+    if (p === "pro") return t("subTierPro");
+    if (p === "free") return t("subTierFree");
+    return plan;
+  }
+
   return (
     <div className="space-y-6">
-      <p className="text-xs text-muted-foreground">
-        Benzersiz anonim site ziyareti bu panelde yok; aşağıdaki “kayıtlı hesap”
-        Supabase Auth&apos;taki kullanıcı sayısıdır. Ham trafik için Vercel
-        Analytics veya Plausible ekleyebilirsiniz.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+        <div className="flex gap-1 rounded-lg bg-muted/60 p-1">
+          <button
+            type="button"
+            onClick={() => setTab("users")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === "users"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t("tabUsers")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("plans")}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              tab === "plans"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t("tabPlans")}
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => void lockSession()}
+          className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
+          {t("lockSession")}
+        </button>
+      </div>
+
+      {tab === "plans" ? <AdminPlansEditor /> : null}
+
+      {tab === "users" ? (
+        <>
+      <p className="text-xs text-muted-foreground">{t("footnote")}</p>
 
       {stats && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Kayıtlı hesap (Auth)
+              {t("statAuthUsers")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.totalAuthUsers}
@@ -152,7 +215,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Uygulama profili (users)
+              {t("statAppUsers")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.totalUsers}
@@ -160,7 +223,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Abonelik: Pro
+              {t("statSubPro")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.subscriptionProCount}
@@ -168,7 +231,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Abonelik: Free
+              {t("statSubFree")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.subscriptionFreeCount}
@@ -176,7 +239,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Toplam metin üretimi (usage)
+              {t("statRepurposes")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.totalRepurposes}
@@ -184,7 +247,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Toplam transkripsiyon
+              {t("statTranscribes")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.totalTranscribes}
@@ -192,7 +255,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Kalan video kredisi (toplam)
+              {t("statVideoCredits")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.totalVideoCredits}
@@ -200,7 +263,7 @@ export function AdminPanel() {
           </div>
           <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="text-xs font-medium text-muted-foreground">
-              Kalan metin kredisi (toplam)
+              {t("statTextCredits")}
             </div>
             <div className="mt-1 text-2xl font-semibold tabular-nums">
               {stats.totalTextCredits}
@@ -211,7 +274,7 @@ export function AdminPanel() {
 
       {planSummary ? (
         <p className="text-sm text-muted-foreground">
-          Uygulama planı dağılımı (public.users): {planSummary}
+          {t("planDistribution")} {planSummary}
         </p>
       ) : null}
 
@@ -225,32 +288,35 @@ export function AdminPanel() {
       )}
 
       {loading ? (
-        <p className="text-sm text-muted-foreground">Yükleniyor…</p>
+        <p className="text-sm text-muted-foreground">{t("tableLoading")}</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border shadow-sm">
           <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="px-3 py-2 font-medium">E-posta (giriş)</th>
-                <th className="px-3 py-2 font-medium">Kayıt</th>
-                <th className="px-3 py-2 font-medium">Son giriş</th>
-                <th className="px-3 py-2 font-medium">Uygulama planı</th>
-                <th className="px-3 py-2 font-medium">Abonelik</th>
+                <th className="px-3 py-2 font-medium">{t("colEmail")}</th>
+                <th className="px-3 py-2 font-medium">{t("colRegistered")}</th>
+                <th className="px-3 py-2 font-medium">{t("colLastSignIn")}</th>
+                <th className="px-3 py-2 font-medium">{t("colAppPlan")}</th>
+                <th className="px-3 py-2 font-medium">{t("colSubscription")}</th>
                 <th className="px-3 py-2 font-medium tabular-nums">
-                  Metin üretimi
+                  {t("colTextGen")}
                 </th>
                 <th className="px-3 py-2 font-medium tabular-nums">
-                  Transkripsiyon
+                  {t("colTranscribe")}
                 </th>
-                <th className="px-3 py-2 font-medium tabular-nums">Video</th>
-                <th className="px-3 py-2 font-medium tabular-nums">Metin</th>
-                <th className="px-3 py-2 font-medium">Kredi / plan</th>
+                <th className="px-3 py-2 font-medium tabular-nums">
+                  {t("colVideoCredits")}
+                </th>
+                <th className="px-3 py-2 font-medium tabular-nums">
+                  {t("colTextCredits")}
+                </th>
+                <th className="px-3 py-2 font-medium">{t("colActions")}</th>
               </tr>
             </thead>
             <tbody>
               {users.map((row) => {
                 const disabled = busyId === row.id;
-                const uiPlan = planForUi(row.plan);
                 return (
                   <tr key={row.id} className="border-b last:border-0">
                     <td className="max-w-[200px] truncate px-3 py-2 align-middle">
@@ -266,7 +332,7 @@ export function AdminPanel() {
                       {row.plan}
                     </td>
                     <td className="px-3 py-2 align-middle text-xs">
-                      {row.subscription_plan ?? "—"}
+                      {subscriptionLabel(row.subscription_plan)}
                       {row.subscription_updated_at ? (
                         <span className="block text-[10px] text-muted-foreground">
                           {fmtDate(row.subscription_updated_at)}
@@ -288,11 +354,11 @@ export function AdminPanel() {
                     <td className="px-3 py-2 align-middle">
                       <div className="flex flex-col gap-2">
                         <select
-                          className="h-9 max-w-[120px] rounded-md border border-input bg-background px-2 text-xs"
-                          value={uiPlan}
+                          className="h-9 max-w-[140px] rounded-md border border-input bg-background px-2 text-xs"
+                          value={row.plan}
                           disabled={disabled}
                           onChange={(e) => {
-                            const v = e.target.value as "free" | "pro";
+                            const v = e.target.value;
                             void runUpdate(row, {
                               video_credits: row.video_credits,
                               text_credits: row.text_credits,
@@ -300,8 +366,13 @@ export function AdminPanel() {
                             });
                           }}
                         >
-                          <option value="free">free</option>
-                          <option value="pro">pro</option>
+                          {!KNOWN_DB_PLANS.has(row.plan) ? (
+                            <option value={row.plan}>{row.plan}</option>
+                          ) : null}
+                          <option value="free">{t("planDbFree")}</option>
+                          <option value="aylık">{t("planDbMonthly")}</option>
+                          <option value="pro">{t("planDbPro")}</option>
+                          <option value="yearly">{t("planDbYearly")}</option>
                         </select>
                         <div className="flex flex-wrap gap-1">
                           <button
@@ -316,7 +387,7 @@ export function AdminPanel() {
                               })
                             }
                           >
-                            +10V
+                            {t("btnPlus10V")}
                           </button>
                           <button
                             type="button"
@@ -330,7 +401,7 @@ export function AdminPanel() {
                               })
                             }
                           >
-                            +1T
+                            {t("btnPlus1T")}
                           </button>
                           <button
                             type="button"
@@ -344,7 +415,7 @@ export function AdminPanel() {
                               })
                             }
                           >
-                            Sıfırla
+                            {t("btnReset")}
                           </button>
                         </div>
                       </div>
@@ -355,12 +426,12 @@ export function AdminPanel() {
             </tbody>
           </table>
           {users.length === 0 && !loading && (
-            <p className="p-4 text-sm text-muted-foreground">
-              Kayıt yok veya liste boş.
-            </p>
+            <p className="p-4 text-sm text-muted-foreground">{t("emptyList")}</p>
           )}
         </div>
       )}
+        </>
+      ) : null}
     </div>
   );
 }

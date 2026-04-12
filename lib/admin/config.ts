@@ -2,6 +2,9 @@
  * Admin paneli ve /api/admin/* için izinli e-postalar.
  * İki yazım farklı Gmail hesaplarıdır: digital vs dijital — ikisi de admin.
  * İsteğe bağlı: HELIA_ADMIN_EMAIL ile ek adres (.env, sunucu).
+ *
+ * Ek koruma: HELIA_ADMIN_PANEL_PASSWORD tanımlıysa liste/plan API’leri için
+ * httpOnly çerez kapısı gerekir (`/api/admin/unlock`).
  */
 export const ADMIN_EMAIL = "helia.ai.digital.ajans@gmail.com";
 

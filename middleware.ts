@@ -1,9 +1,23 @@
 import createMiddleware from "next-intl/middleware";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+  localeFromPathname,
+  parseStandaloneLocale,
+  STANDALONE_LOCALE_COOKIE,
+} from "@/lib/i18n/standalone-locale";
 import { routing } from "@/i18n/routing";
 import { updateSession } from "@/lib/supabase/middleware";
 
 const handleI18n = createMiddleware(routing);
+
+/** Standalone sayfalarda RSC / root layout `headers()` ile dil alsın diye isteğe locale yazar. */
+function nextWithStandaloneLocaleOnRequest(request: NextRequest) {
+  const raw = request.cookies.get(STANDALONE_LOCALE_COOKIE)?.value;
+  const locale = parseStandaloneLocale(raw);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-next-intl-locale", locale);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,7 +29,10 @@ export async function middleware(request: NextRequest) {
     if (pathname === "/api/inngest" || pathname.startsWith("/api/inngest/")) {
       return NextResponse.next();
     }
-    return await updateSession(request, NextResponse.next());
+    return await updateSession(
+      request,
+      nextWithStandaloneLocaleOnRequest(request),
+    );
   }
 
   // Standalone SaaS shell (no locale prefix) — login redirect, dashboard, generate, …
@@ -38,11 +55,23 @@ export async function middleware(request: NextRequest) {
     pathname === "/checkout" ||
     pathname.startsWith("/checkout/")
   ) {
-    return await updateSession(request, NextResponse.next());
+    return await updateSession(
+      request,
+      nextWithStandaloneLocaleOnRequest(request),
+    );
   }
 
   const response = handleI18n(request);
-  return await updateSession(request, response);
+  const res = await updateSession(request, response);
+  const fromPath = localeFromPathname(pathname);
+  if (fromPath) {
+    res.cookies.set(STANDALONE_LOCALE_COOKIE, fromPath, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  }
+  return res;
 }
 
 export const config = {

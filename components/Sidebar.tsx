@@ -3,6 +3,8 @@
 import type { ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { lightCardClass } from "@/lib/ui/saas-card";
 
 type NavItem = {
@@ -12,29 +14,32 @@ type NavItem = {
   exact: boolean;
 };
 
-function buildNavItems(showAdminLink: boolean): NavItem[] {
+function buildNavItems(
+  showAdminLink: boolean,
+  t: ReturnType<typeof useTranslations<"workspaceShell">>,
+): NavItem[] {
   const base: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: IconHome, exact: true },
+    { href: "/dashboard", label: t("dashboard"), icon: IconHome, exact: true },
     {
       href: "/generate",
-      label: "Content Generator",
+      label: t("contentGenerator"),
       icon: IconSpark,
       exact: false,
     },
-    { href: "/history", label: "History", icon: IconClock, exact: false },
-    { href: "/account", label: "Account", icon: IconGear, exact: false },
+    { href: "/history", label: t("history"), icon: IconClock, exact: false },
+    { href: "/account", label: t("account"), icon: IconGear, exact: false },
   ];
   if (showAdminLink) {
     base.push({
       href: "/admin",
-      label: "Admin",
+      label: t("admin"),
       icon: IconShield,
       exact: true,
     });
   }
   base.push({
     href: "/support",
-    label: "Support",
+    label: t("support"),
     icon: IconLifebuoy,
     exact: false,
   });
@@ -62,7 +67,11 @@ export function Sidebar({
   showAdminLink = false,
 }: SidebarProps) {
   const pathname = usePathname();
-  const items = buildNavItems(showAdminLink);
+  const t = useTranslations("workspaceShell");
+  const items = useMemo(
+    () => buildNavItems(showAdminLink, t),
+    [showAdminLink, t],
+  );
 
   return (
     <>
@@ -77,7 +86,7 @@ export function Sidebar({
         className={`fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-blue-200/70 bg-gradient-to-b from-white/95 to-blue-50/50 pt-14 shadow-xl shadow-blue-900/10 backdrop-blur-md transition-transform duration-200 ease-out md:static md:z-0 md:translate-x-0 md:pt-0 md:shadow-none ${
           mobileOpen ? "translate-x-0" : ""
         }`}
-        aria-label="Workspace"
+        aria-label={t("sidebarWorkspaceAria")}
       >
         <nav className="flex flex-1 flex-col gap-0.5 p-3">
           {items.map(({ href, label, icon: Icon, exact }: NavItem) => {
@@ -108,9 +117,11 @@ export function Sidebar({
         </nav>
         <div className="border-t border-blue-100/80 p-3">
           <div className={lightCardClass}>
-            <p className="text-xs font-medium text-gray-900">Helia AI</p>
+            <p className="text-xs font-medium text-gray-900">
+              {t("sidebarBrand")}
+            </p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-gray-500">
-              Pro workspace
+              {t("sidebarPlanTeaser")}
             </p>
           </div>
         </div>

@@ -26,3 +26,15 @@ export type AdminStats = {
   totalVideoCredits: number;
   totalTextCredits: number;
 };
+
+/** `public.plans` satırı (admin plan/fiyat sekmesi + checkout fiyat birleştirme). */
+export type AdminPlanRow = {
+  id: string;
+  name: string;
+  video_limit: number;
+  text_limit: number;
+  price_display_tr: string | null;
+  price_display_en: string | null;
+  sort_order: number;
+  updated_at: string | null;
+};

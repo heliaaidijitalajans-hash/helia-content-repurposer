@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { HeliaLogoNext } from "@/components/brand/helia-logo";
+import { LanguageSwitcher } from "@/components/layout/language-switcher";
 
 type NavbarProps = {
   onMenuClick?: () => void;
@@ -10,6 +12,8 @@ type NavbarProps = {
 };
 
 export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
+  const locale = useLocale();
+  const t = useTranslations("workspaceShell");
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -53,29 +57,33 @@ export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
               </svg>
             </button>
           ) : null}
-          <HeliaLogoNext href="/" />
+          <HeliaLogoNext href={`/${locale}`} />
         </div>
 
         <div className="flex flex-shrink-0 items-center gap-1 sm:gap-2">
           <nav
             className="hidden items-center sm:flex"
-            aria-label="Main"
+            aria-label={t("mainNav")}
           >
             <Link href="/dashboard" className={linkClass}>
-              Dashboard
+              {t("dashboard")}
             </Link>
             <Link href="/account" className={linkClass}>
-              Hesabım
+              {t("account")}
             </Link>
             {showAdminLink ? (
               <Link href="/admin" className={linkClass}>
-                Admin
+                {t("admin")}
               </Link>
             ) : null}
             <Link href="/support" className={linkClass}>
-              Support
+              {t("support")}
             </Link>
           </nav>
+
+          <div className="shrink-0">
+            <LanguageSwitcher />
+          </div>
 
           <div className="relative pl-1 sm:pl-2" ref={profileRef}>
             <button
@@ -84,7 +92,7 @@ export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 text-xs font-semibold text-white shadow-md ring-2 ring-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
               aria-expanded={profileOpen}
               aria-haspopup="menu"
-              aria-label="Profile menu"
+              aria-label={t("profileMenuAria")}
             >
               JD
             </button>
@@ -99,7 +107,7 @@ export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
                   role="menuitem"
                   onClick={() => setProfileOpen(false)}
                 >
-                  Account settings
+                  {t("accountSettings")}
                 </Link>
                 {showAdminLink ? (
                   <Link
@@ -108,7 +116,7 @@ export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
                     role="menuitem"
                     onClick={() => setProfileOpen(false)}
                   >
-                    Admin panel
+                    {t("adminPanel")}
                   </Link>
                 ) : null}
                 <Link
@@ -117,7 +125,7 @@ export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
                   role="menuitem"
                   onClick={() => setProfileOpen(false)}
                 >
-                  Help &amp; support
+                  {t("helpSupport")}
                 </Link>
                 <hr className="my-1 border-gray-100" />
                 <button
@@ -126,7 +134,7 @@ export function Navbar({ onMenuClick, showAdminLink = false }: NavbarProps) {
                   className="w-full px-4 py-2.5 text-left text-sm text-red-600 transition hover:bg-red-50"
                   onClick={() => setProfileOpen(false)}
                 >
-                  Sign out
+                  {t("signOut")}
                 </button>
               </div>
             ) : null}

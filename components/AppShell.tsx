@@ -1,6 +1,8 @@
-import { createClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/lib/admin/config";
+import { NextIntlClientProvider } from "next-intl";
 import { Layout } from "@/components/Layout";
+import { isAdminEmail } from "@/lib/admin/config";
+import { getStandaloneLocale } from "@/lib/account/load-copy";
+import { createClient } from "@/lib/supabase/server";
 
 export async function AppShell({
   children,
@@ -12,6 +14,12 @@ export async function AppShell({
     data: { user },
   } = await supabase.auth.getUser();
   const showAdminLink = isAdminEmail(user?.email);
+  const locale = await getStandaloneLocale();
+  const messages = (await import(`@/messages/${locale}.json`)).default;
 
-  return <Layout showAdminLink={showAdminLink}>{children}</Layout>;
+  return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <Layout showAdminLink={showAdminLink}>{children}</Layout>
+    </NextIntlClientProvider>
+  );
 }

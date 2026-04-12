@@ -1,10 +1,13 @@
 "use client";
 
+import type en from "@/messages/en.json";
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 export type CheckoutPlanKey = "free" | "monthly" | "pro" | "yearly";
+
+export type CheckoutPageCopy = (typeof en)["checkoutPage"];
 
 type PlanDetails = {
   name: string;
@@ -13,35 +16,49 @@ type PlanDetails = {
   text: string;
 };
 
-const PLANS: Record<CheckoutPlanKey, PlanDetails> = {
-  free: {
-    name: "Ücretsiz",
-    price: "0 TL",
-    video: "30 dk video",
-    text: "3 metin",
-  },
-  monthly: {
-    name: "Aylık Plan",
-    price: "300 TL / ay",
-    video: "200 dk video",
-    text: "40 metin",
-  },
-  pro: {
-    name: "Pro Plan",
-    price: "420 TL / ay",
-    video: "300 dk video",
-    text: "55 metin",
-  },
-  yearly: {
-    name: "Yıllık Plan",
-    price: "2500 TL / yıl",
-    video: "3000 dk video",
-    text: "550 metin",
-  },
-};
+function planFromCopy(
+  copy: CheckoutPageCopy,
+  key: CheckoutPlanKey,
+): PlanDetails {
+  switch (key) {
+    case "free":
+      return {
+        name: copy.planFreeName,
+        price: copy.planFreePrice,
+        video: copy.planFreeVideo,
+        text: copy.planFreeText,
+      };
+    case "monthly":
+      return {
+        name: copy.planMonthlyName,
+        price: copy.planMonthlyPrice,
+        video: copy.planMonthlyVideo,
+        text: copy.planMonthlyText,
+      };
+    case "yearly":
+      return {
+        name: copy.planYearlyName,
+        price: copy.planYearlyPrice,
+        video: copy.planYearlyVideo,
+        text: copy.planYearlyText,
+      };
+    default:
+      return {
+        name: copy.planProName,
+        price: copy.planProPrice,
+        video: copy.planProVideo,
+        text: copy.planProText,
+      };
+  }
+}
 
 function normalizePlanKey(raw: string | undefined): CheckoutPlanKey {
-  if (raw === "free" || raw === "monthly" || raw === "pro" || raw === "yearly") {
+  if (
+    raw === "free" ||
+    raw === "monthly" ||
+    raw === "pro" ||
+    raw === "yearly"
+  ) {
     return raw;
   }
   return "pro";
@@ -55,16 +72,21 @@ type LegalLinks = {
 };
 
 type Props = {
+  copy: CheckoutPageCopy;
   email: string;
   planKey: string | undefined;
   legal: LegalLinks;
 };
 
-export function CheckoutDemoForm({ email, planKey, legal }: Props) {
+export function CheckoutDemoForm({ copy, email, planKey, legal }: Props) {
   const router = useRouter();
-  const plan = useMemo(
-    () => PLANS[normalizePlanKey(planKey)],
+  const normalized = useMemo(
+    () => normalizePlanKey(planKey),
     [planKey],
+  );
+  const plan = useMemo(
+    () => planFromCopy(copy, normalized),
+    [copy, normalized],
   );
 
   const [cardNumber, setCardNumber] = useState("");
@@ -100,17 +122,17 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok) {
         setSubmitError(
-          typeof data.error === "string" ? data.error : "İstek başarısız",
+          typeof data.error === "string" ? data.error : copy.errorRequest,
         );
         return;
       }
-      setToast("Plan kaydedildi. Yönlendiriliyorsunuz…");
+      setToast(copy.toastPlanSaved);
       router.refresh();
       window.setTimeout(() => {
         router.push("/dashboard");
       }, 600);
     } catch {
-      setSubmitError("Ağ hatası. Tekrar deneyin.");
+      setSubmitError(copy.errorNetwork);
     } finally {
       setSubmitting(false);
     }
@@ -122,20 +144,22 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
   return (
     <div className="notranslate mx-auto w-full max-w-[800px] px-4 py-8 sm:px-6 sm:py-10">
       <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
-        Ödeme
+        {copy.title}
       </h1>
-      <p className="mt-1 text-sm text-gray-500">Powered by AI ⚡</p>
+      <p className="mt-1 text-sm text-gray-500">{copy.tagline}</p>
 
       <div className="mt-8 space-y-6">
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-bold text-gray-900">Seçilen Plan</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            {copy.selectedPlanTitle}
+          </h2>
           <dl className="mt-4 space-y-2 text-sm text-gray-600">
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-gray-500">Plan</dt>
+              <dt className="text-gray-500">{copy.labelPlan}</dt>
               <dd className="font-semibold text-gray-900">{plan.name}</dd>
             </div>
             <div className="flex flex-wrap justify-between gap-2">
-              <dt className="text-gray-500">Fiyat</dt>
+              <dt className="text-gray-500">{copy.labelPrice}</dt>
               <dd className="font-semibold text-gray-900">{plan.price}</dd>
             </div>
           </dl>
@@ -153,16 +177,16 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
               {plan.text}
             </li>
           </ul>
-          <p className="mt-4 text-xs text-gray-500">
-            Abonelik otomatik yenilenir
-          </p>
+          <p className="mt-4 text-xs text-gray-500">{copy.renewNote}</p>
         </section>
 
         <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-base font-bold text-gray-900">Hesap</h2>
+          <h2 className="text-base font-bold text-gray-900">
+            {copy.accountTitle}
+          </h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div>
-              <dt className="text-gray-500">E-posta</dt>
+              <dt className="text-gray-500">{copy.emailLabel}</dt>
               <dd className="mt-1">
                 <input
                   type="email"
@@ -173,7 +197,7 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
               </dd>
             </div>
             <div>
-              <dt className="text-gray-500">Plan adı</dt>
+              <dt className="text-gray-500">{copy.planNameLabel}</dt>
               <dd className="mt-1 font-semibold text-gray-900">{plan.name}</dd>
             </div>
           </dl>
@@ -182,16 +206,16 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
         <form onSubmit={onSubmit} className="space-y-6">
           <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="text-base font-bold text-gray-900">
-              Ödeme Bilgileri
+              {copy.paymentTitle}
             </h2>
             <div className="mt-4 flex flex-col gap-4">
               <label className="block text-sm font-medium text-gray-700">
-                Kart Numarası
+                {copy.cardNumberLabel}
                 <input
                   type="text"
                   inputMode="numeric"
                   autoComplete="off"
-                  placeholder="0000 0000 0000 0000"
+                  placeholder={copy.cardNumberPlaceholder}
                   value={cardNumber}
                   onChange={(e) => setCardNumber(e.target.value)}
                   className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none ring-blue-500/20 focus:border-blue-500 focus:ring-2"
@@ -199,23 +223,23 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
               </label>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Son Kullanma
+                  {copy.expiryLabel}
                   <input
                     type="text"
                     autoComplete="off"
-                    placeholder="AA / YY"
+                    placeholder={copy.expiryPlaceholder}
                     value={expiry}
                     onChange={(e) => setExpiry(e.target.value)}
                     className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none ring-blue-500/20 focus:border-blue-500 focus:ring-2"
                   />
                 </label>
                 <label className="block text-sm font-medium text-gray-700">
-                  CVC
+                  {copy.cvcLabel}
                   <input
                     type="text"
                     inputMode="numeric"
                     autoComplete="off"
-                    placeholder="123"
+                    placeholder={copy.cvcPlaceholder}
                     value={cvc}
                     onChange={(e) => setCvc(e.target.value)}
                     className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none ring-blue-500/20 focus:border-blue-500 focus:ring-2"
@@ -226,7 +250,7 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
           </section>
 
           <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="sr-only">Yasal onaylar</h2>
+            <h2 className="sr-only">{copy.legalSectionSr}</h2>
             <ul className="space-y-3 text-sm text-gray-700">
               <li className="flex gap-3">
                 <input
@@ -237,10 +261,11 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
                   className="mt-1 size-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="legal-terms" className="leading-relaxed">
+                  {copy.termsBefore}
                   <NextLink href={legal.terms} className={linkClass}>
-                    Kullanım Şartları
+                    {copy.termsLink}
                   </NextLink>
-                  &apos;nı okudum ve kabul ediyorum
+                  {copy.termsAfter}
                 </label>
               </li>
               <li className="flex gap-3">
@@ -252,10 +277,11 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
                   className="mt-1 size-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="legal-distance" className="leading-relaxed">
+                  {copy.distanceBefore}
                   <NextLink href={legal.distanceSales} className={linkClass}>
-                    Mesafeli Satış Sözleşmesi
+                    {copy.distanceLink}
                   </NextLink>
-                  &apos;ni kabul ediyorum
+                  {copy.distanceAfter}
                 </label>
               </li>
               <li className="flex gap-3">
@@ -267,10 +293,11 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
                   className="mt-1 size-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="legal-privacy" className="leading-relaxed">
+                  {copy.privacyBefore}
                   <NextLink href={legal.privacy} className={linkClass}>
-                    Gizlilik Politikası
+                    {copy.privacyLink}
                   </NextLink>
-                  &apos;nı okudum
+                  {copy.privacyAfter}
                 </label>
               </li>
               <li className="flex gap-3">
@@ -282,10 +309,11 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
                   className="mt-1 size-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="legal-refund" className="leading-relaxed">
+                  {copy.refundBefore}
                   <NextLink href={legal.refund} className={linkClass}>
-                    İptal ve İade Politikası
+                    {copy.refundLink}
                   </NextLink>
-                  &apos;nı kabul ediyorum
+                  {copy.refundAfter}
                 </label>
               </li>
             </ul>
@@ -302,7 +330,7 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
             disabled={!canSubmit || submitting}
             className="flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-4 text-base font-semibold text-white shadow-md transition hover:from-blue-500 hover:to-indigo-500 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
           >
-            {submitting ? "Kaydediliyor…" : "Ödemeyi Tamamla"}
+            {submitting ? copy.submitSubmitting : copy.submitIdle}
           </button>
 
           <ul className="flex flex-col items-center gap-2 text-sm text-gray-600 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-8">
@@ -310,24 +338,24 @@ export function CheckoutDemoForm({ email, planKey, legal }: Props) {
               <span className="text-emerald-500" aria-hidden>
                 ✓
               </span>
-              Güvenli ödeme
+              {copy.trustSecure}
             </li>
             <li className="flex items-center gap-2">
               <span className="text-emerald-500" aria-hidden>
                 ✓
               </span>
-              256-bit SSL
+              {copy.trustSsl}
             </li>
             <li className="flex items-center gap-2">
               <span className="text-emerald-500" aria-hidden>
                 ✓
               </span>
-              İstediğin zaman iptal
+              {copy.trustCancel}
             </li>
           </ul>
 
           <p className="text-center text-xs leading-relaxed text-gray-500">
-            Ödeme sonrası aboneliğiniz hemen aktif edilir ve otomatik yenilenir.
+            {copy.footerNote}
           </p>
         </form>
       </div>
