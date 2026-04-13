@@ -5,6 +5,10 @@ import {
   LOW_TEXT_CREDITS_THRESHOLD,
   LOW_VIDEO_CREDITS_THRESHOLD,
 } from "@/lib/credits/constants";
+import {
+  createServiceRoleClient,
+  isServiceRoleConfigured,
+} from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { checkUserProSubscription } from "@/lib/subscription/plan";
 import {
@@ -26,13 +30,31 @@ export async function GET() {
 
   const isPro = await checkUserProSubscription(supabase);
 
-  const { data: appUserRow, error: appUserErr } = await supabase
+  let { data: appUserRow, error: appUserErr } = await supabase
     .from("users")
     .select("text_credits, video_credits")
     .eq("id", user.id)
     .maybeSingle();
   if (appUserErr) {
     console.warn("usage (app users):", appUserErr.message);
+  }
+  if (
+    (!appUserRow || appUserErr) &&
+    isServiceRoleConfigured()
+  ) {
+    try {
+      const admin = createServiceRoleClient();
+      const { data: svcRow, error: svcErr } = await admin
+        .from("users")
+        .select("text_credits, video_credits")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (!svcErr && svcRow) {
+        appUserRow = svcRow;
+      }
+    } catch (e) {
+      console.warn("usage (app users service read):", e);
+    }
   }
 
   const { data: row, error } = await supabase
@@ -61,18 +83,24 @@ export async function GET() {
   const used = row?.request_count ?? 0;
   const transcribeUsed =
     typeof row?.transcribe_count === "number" ? row.transcribe_count : 0;
-  const textCredits =
+  const tu =
     typeof appUserRow?.text_credits === "number"
       ? appUserRow.text_credits
-      : typeof row?.text_credits === "number"
-        ? row.text_credits
-        : DEFAULT_TEXT_CREDITS;
-  const videoCredits =
+      : null;
+  const tg =
+    typeof row?.text_credits === "number" ? row.text_credits : null;
+  const textCredits =
+    tu != null && tu > 0 ? tu : tg != null ? tg : tu ?? DEFAULT_TEXT_CREDITS;
+
+  const vu =
     typeof appUserRow?.video_credits === "number"
       ? appUserRow.video_credits
-      : typeof row?.video_credits === "number"
-        ? row.video_credits
-        : DEFAULT_VIDEO_CREDITS;
+      : null;
+  const vg =
+    typeof row?.video_credits === "number" ? row.video_credits : null;
+  /** `users` 0 kaldıysa `usage` dakika bankası (transkript ile aynı mantık). */
+  const videoCredits =
+    vu != null && vu > 0 ? vu : vg != null ? vg : vu ?? DEFAULT_VIDEO_CREDITS;
 
   const creditsLow =
     textCredits <= LOW_TEXT_CREDITS_THRESHOLD ||

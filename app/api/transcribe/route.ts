@@ -1,7 +1,8 @@
-import { rpcRefundUserVideoCredit } from "@/lib/credits/server-rpc";
 import {
   jsonResponseForUseCreditError,
+  refundVideoTranscribeDebit,
   useVideoCredit,
+  type VideoCreditDebitResult,
 } from "@/lib/credits/use-credits";
 import { getPublicSupabaseConfig } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
@@ -31,7 +32,7 @@ function isAllowedStorageUrl(urlString: string): boolean {
 
 export async function POST(req: Request) {
   let supabase: Awaited<ReturnType<typeof createClient>> | null = null;
-  let consumedVideoCredit = false;
+  let videoDebit: VideoCreditDebitResult | null = null;
 
   let body: { url?: unknown };
   try {
@@ -85,8 +86,7 @@ export async function POST(req: Request) {
     }
 
     try {
-      await useVideoCredit(supabase);
-      consumedVideoCredit = true;
+      videoDebit = await useVideoCredit(supabase);
     } catch (creditErr) {
       const res = jsonResponseForUseCreditError(creditErr);
       if (res) return res;
@@ -100,8 +100,8 @@ export async function POST(req: Request) {
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
     return new Response(JSON.stringify({ error: "OPENAI_API_KEY missing" }), {
       status: 503,
@@ -114,8 +114,8 @@ export async function POST(req: Request) {
     audioRes = await fetch(url, { redirect: "follow" });
   } catch (e) {
     console.error("[api/transcribe] fetch url:", e);
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
     return new Response(JSON.stringify({ error: "Download failed" }), {
       status: 502,
@@ -124,8 +124,8 @@ export async function POST(req: Request) {
   }
 
   if (!audioRes.ok) {
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
     return new Response(
       JSON.stringify({ error: `Download failed: ${audioRes.status}` }),
@@ -137,8 +137,8 @@ export async function POST(req: Request) {
   if (len) {
     const n = parseInt(len, 10);
     if (Number.isFinite(n) && n > MAX_BYTES) {
-      if (consumedVideoCredit && supabase) {
-        await rpcRefundUserVideoCredit(supabase);
+      if (supabase) {
+        await refundVideoTranscribeDebit(supabase, videoDebit);
       }
       return new Response(JSON.stringify({ error: "File too large for OpenAI" }), {
         status: 413,
@@ -149,8 +149,8 @@ export async function POST(req: Request) {
 
   const buffer = await audioRes.arrayBuffer();
   if (buffer.byteLength > MAX_BYTES) {
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
     return new Response(JSON.stringify({ error: "File too large for OpenAI" }), {
       status: 413,
@@ -173,8 +173,8 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     console.error("[api/transcribe] OpenAI fetch:", e);
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
     return new Response(JSON.stringify({ error: "OpenAI request failed" }), {
       status: 502,
@@ -186,8 +186,8 @@ export async function POST(req: Request) {
   try {
     result = await openaiRes.json();
   } catch {
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
     return new Response(JSON.stringify({ error: "OpenAI invalid JSON" }), {
       status: 502,
@@ -196,8 +196,8 @@ export async function POST(req: Request) {
   }
 
   if (!openaiRes.ok) {
-    if (consumedVideoCredit && supabase) {
-      await rpcRefundUserVideoCredit(supabase);
+    if (supabase) {
+      await refundVideoTranscribeDebit(supabase, videoDebit);
     }
   }
 

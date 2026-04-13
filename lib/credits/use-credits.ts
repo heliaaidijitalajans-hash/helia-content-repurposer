@@ -7,6 +7,9 @@ import {
 import {
   rpcConsumeUserTextCredit,
   rpcConsumeUserVideoCredit,
+  rpcRefundUserVideoCredit,
+  rpcRefundVideoCredits,
+  rpcReserveVideoCredits,
 } from "@/lib/credits/server-rpc";
 import {
   createServiceRoleClient,
@@ -108,6 +111,11 @@ async function loadUsersRowForTextCredits(
 
 export type UseCreditSuccess = { success: true };
 
+/** Video: önce `public.users`, bakiye 0 / yarışma ise `public.usage` (reserve_video_credits). */
+export type VideoCreditDebitResult =
+  | { source: "users" }
+  | { source: "usage"; minutes: number };
+
 /** Route handler’lar için: bilinen hata → HTTP cevabı, aksi halde null. */
 export function jsonResponseForUseCreditError(err: unknown): Response | null {
   if (!(err instanceof Error)) return null;
@@ -127,13 +135,12 @@ export function jsonResponseForUseCreditError(err: unknown): Response | null {
 }
 
 /**
- * Atomik düşüm Postgres’te `consume_user_*` RPC ile yapılır
- * (`UPDATE ... SET video_credits = video_credits - 1 WHERE id = auth.uid() ...`).
- * PostgREST `.update({ ... })` ile sütun-ifadesi gönderilemediği için RPC zorunlu.
+ * Transkript / video: önce `public.users` (`consume_user_video_credit`),
+ * yetersizse `public.usage` (`reserve_video_credits(1)`) — iki tablo senkron kalmadığında UI ile uyum.
  */
 export async function useVideoCredit(
   supabase: SupabaseClient,
-): Promise<UseCreditSuccess> {
+): Promise<VideoCreditDebitResult> {
   const {
     data: { user },
     error: authErr,
@@ -150,29 +157,40 @@ export async function useVideoCredit(
 
   const profile = await loadUsersRowForVideoCredits(supabase, user);
 
-  if (!profile) {
-    console.error("[useVideoCredit] Missing users row for id:", user.id);
-    throw new Error("User profile not found");
-  }
-  if (profile.video_credits <= 0) {
-    console.warn("[useVideoCredit] No video credits for user:", user.id);
-    throw new Error(NOT_ENOUGH_VIDEO_CREDITS_MSG);
+  if (profile && profile.video_credits > 0) {
+    const consumed = await rpcConsumeUserVideoCredit(supabase);
+    if (consumed?.ok) {
+      console.log(
+        "[useVideoCredit] users pool, remaining:",
+        consumed.remaining,
+      );
+      return { source: "users" };
+    }
   }
 
-  const consumed = await rpcConsumeUserVideoCredit(supabase);
-  if (!consumed?.ok) {
-    console.warn(
-      "[useVideoCredit] Atomic consume failed (race or drift) for user:",
-      user.id,
+  const reserved = await rpcReserveVideoCredits(supabase, 1);
+  if (reserved?.ok) {
+    console.log(
+      "[useVideoCredit] usage pool, remaining video bank:",
+      reserved.remaining,
     );
-    throw new Error(NOT_ENOUGH_VIDEO_CREDITS_MSG);
+    return { source: "usage", minutes: 1 };
   }
 
-  console.log(
-    "[useVideoCredit] success, remaining video_credits:",
-    consumed.remaining,
-  );
-  return { success: true };
+  console.warn("[useVideoCredit] No video credits (users + usage) for:", user.id);
+  throw new Error(NOT_ENOUGH_VIDEO_CREDITS_MSG);
+}
+
+export async function refundVideoTranscribeDebit(
+  supabase: SupabaseClient,
+  debit: VideoCreditDebitResult | null,
+): Promise<void> {
+  if (!debit) return;
+  if (debit.source === "users") {
+    await rpcRefundUserVideoCredit(supabase);
+  } else {
+    await rpcRefundVideoCredits(supabase, debit.minutes);
+  }
 }
 
 export async function useTextCredit(

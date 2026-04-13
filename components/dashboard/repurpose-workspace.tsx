@@ -704,14 +704,27 @@ export function RepurposeWorkspace() {
       return;
     }
 
-    const videoCredits =
+    let videoPool =
       typeof dbUser.video_credits === "number" ? dbUser.video_credits : 0;
-    if (videoCredits <= 0) {
+    try {
+      const ur = await fetch(apiOriginUrl("/api/usage"), {
+        credentials: "include",
+      });
+      if (ur.ok) {
+        const j = (await ur.json()) as { videoCredits?: number };
+        if (typeof j.videoCredits === "number") {
+          videoPool = j.videoCredits;
+        }
+      }
+    } catch {
+      /* keep dbUser-based pool */
+    }
+    if (videoPool < 1) {
       window.alert(CREDITS_INSUFFICIENT_ALERT);
       return;
     }
 
-    // Kredi düşürme: /api/transcribe içinde useVideoCredit; ardından AI.
+    // Kredi düşürme: /api/transcribe içinde useVideoCredit (+ usage yedeği); ardından AI.
 
     setTranscribeLoading(true);
     setTranscribeReady(false);
