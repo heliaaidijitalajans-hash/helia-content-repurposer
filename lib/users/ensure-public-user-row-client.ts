@@ -1,28 +1,13 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { apiOriginUrl } from "@/lib/api/origin-url";
+import type { PublicAppUserRow } from "@/lib/users/public-app-user-types";
 
-/** `public.users` satırı — `select("*")` / insert dönüşü */
-export type PublicAppUserRow = Record<string, unknown> & {
-  id: string;
-  text_credits?: number;
-  video_credits?: number;
-};
+export type { PublicAppUserRow };
 
-/**
- * Oturumdaki kullanıcı için `public.users` satırını getirir; yoksa free plan ile oluşturur.
- * Eşzamanlı iki istekte biri 23505 alırsa tekrar select edilir.
- */
-export async function ensurePublicUserRow(
+async function ensurePublicUserRowDirect(
   supabase: SupabaseClient,
+  user: User,
 ): Promise<PublicAppUserRow> {
-  const {
-    data: { user },
-    error: authErr,
-  } = await supabase.auth.getUser();
-
-  if (authErr || !user) {
-    throw new Error("No user");
-  }
-
   let { data: dbUser, error: selErr } = await supabase
     .from("users")
     .select("*")
@@ -96,4 +81,58 @@ export async function ensurePublicUserRow(
   }
 
   return dbUser as PublicAppUserRow;
+}
+
+/**
+ * Oturumdaki kullanıcı için `public.users` satırını getirir; yoksa free plan ile oluşturur.
+ * Tarayıcıda önce `/api/users/ensure-app-row` (service role) denenir — RLS 403/policy hatalarını önler.
+ */
+export async function ensurePublicUserRow(
+  supabase: SupabaseClient,
+): Promise<PublicAppUserRow> {
+  const {
+    data: { user },
+    error: authErr,
+  } = await supabase.auth.getUser();
+
+  if (authErr || !user) {
+    throw new Error("No user");
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch(apiOriginUrl("/api/users/ensure-app-row"), {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.status === 401) {
+        throw new Error("No user");
+      }
+      if (res.ok) {
+        const json = (await res.json()) as { user?: PublicAppUserRow };
+        if (json.user?.id) {
+          return json.user;
+        }
+      }
+      const errText = await res.text().catch(() => "");
+      console.warn(
+        "[ensurePublicUserRow] ensure-app-row API fallback:",
+        res.status,
+        errText.slice(0, 200),
+      );
+    } catch (e) {
+      console.warn("[ensurePublicUserRow] ensure-app-row API:", e);
+    }
+    return ensurePublicUserRowDirect(supabase, user);
+  }
+
+  const { isServiceRoleConfigured } = await import("@/lib/supabase/admin");
+  if (isServiceRoleConfigured()) {
+    const { upsertPublicUsersRowForAuthUser } = await import(
+      "@/lib/users/ensure-app-row-service"
+    );
+    return upsertPublicUsersRowForAuthUser(user);
+  }
+
+  return ensurePublicUserRowDirect(supabase, user);
 }
