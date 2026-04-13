@@ -10,6 +10,8 @@ import {
   rpcRefundUserVideoCredit,
   rpcRefundVideoCredits,
   rpcReserveVideoCredits,
+  rpcServiceDecrementVideoCredit,
+  rpcServiceRefundVideoCredit,
 } from "@/lib/credits/server-rpc";
 import {
   createServiceRoleClient,
@@ -111,10 +113,14 @@ async function loadUsersRowForTextCredits(
 
 export type UseCreditSuccess = { success: true };
 
-/** Video: önce `public.users`, bakiye 0 / yarışma ise `public.usage` (reserve_video_credits). */
+/**
+ * Video: JWT ile users → usage RPC; yetmezse / JWT yoksa service role (migration 028).
+ */
 export type VideoCreditDebitResult =
-  | { source: "users" }
-  | { source: "usage"; minutes: number };
+  | { kind: "jwt"; source: "users" }
+  | { kind: "jwt"; source: "usage"; minutes: number }
+  | { kind: "service"; source: "users" }
+  | { kind: "service"; source: "usage" };
 
 /** Route handler’lar için: bilinen hata → HTTP cevabı, aksi halde null. */
 export function jsonResponseForUseCreditError(err: unknown): Response | null {
@@ -164,7 +170,7 @@ export async function useVideoCredit(
         "[useVideoCredit] users pool, remaining:",
         consumed.remaining,
       );
-      return { source: "users" };
+      return { kind: "jwt", source: "users" };
     }
   }
 
@@ -174,10 +180,27 @@ export async function useVideoCredit(
       "[useVideoCredit] usage pool, remaining video bank:",
       reserved.remaining,
     );
-    return { source: "usage", minutes: 1 };
+    return { kind: "jwt", source: "usage", minutes: 1 };
   }
 
-  console.warn("[useVideoCredit] No video credits (users + usage) for:", user.id);
+  if (isServiceRoleConfigured()) {
+    try {
+      const admin = createServiceRoleClient();
+      const svc = await rpcServiceDecrementVideoCredit(admin, user.id);
+      if (svc.ok) {
+        console.log(
+          "[useVideoCredit] service pool=%s remaining=%s",
+          svc.pool,
+          svc.remaining,
+        );
+        return { kind: "service", source: svc.pool };
+      }
+    } catch (e) {
+      console.warn("[useVideoCredit] service decrement:", e);
+    }
+  }
+
+  console.warn("[useVideoCredit] No video credits (users + usage + service) for:", user.id);
   throw new Error(NOT_ENOUGH_VIDEO_CREDITS_MSG);
 }
 
@@ -186,6 +209,16 @@ export async function refundVideoTranscribeDebit(
   debit: VideoCreditDebitResult | null,
 ): Promise<void> {
   if (!debit) return;
+  if (debit.kind === "service") {
+    if (!isServiceRoleConfigured()) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const admin = createServiceRoleClient();
+    await rpcServiceRefundVideoCredit(admin, user.id, debit.source);
+    return;
+  }
   if (debit.source === "users") {
     await rpcRefundUserVideoCredit(supabase);
   } else {

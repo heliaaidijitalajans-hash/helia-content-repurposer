@@ -120,6 +120,61 @@ export async function rpcRefundUserVideoCredit(
   }
 }
 
+type ServiceVideoDebitRow = {
+  ok: boolean;
+  remaining: number;
+  credit_pool: string | null;
+};
+
+/** Service role: transkript video kredisi — önce users, sonra usage. Migration: 028. */
+export async function rpcServiceDecrementVideoCredit(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<
+  | { ok: true; remaining: number; pool: "users" | "usage" }
+  | { ok: false; remaining: number }
+> {
+  const { data, error } = await admin.rpc("service_decrement_video_credit", {
+    p_user_id: userId,
+  });
+  if (error) {
+    console.error("[credits] service_decrement_video_credit", error.message);
+    return { ok: false, remaining: 0 };
+  }
+  const row = firstRow<ServiceVideoDebitRow>(data);
+  if (!row || typeof row.ok !== "boolean") {
+    console.error(
+      "[credits] service_decrement_video_credit unexpected:",
+      JSON.stringify(data),
+    );
+    return { ok: false, remaining: 0 };
+  }
+  const pool =
+    row.credit_pool === "users" || row.credit_pool === "usage"
+      ? row.credit_pool
+      : null;
+  const remaining =
+    typeof row.remaining === "number" ? row.remaining : 0;
+  if (row.ok && pool) {
+    return { ok: true, remaining, pool };
+  }
+  return { ok: false, remaining };
+}
+
+export async function rpcServiceRefundVideoCredit(
+  admin: SupabaseClient,
+  userId: string,
+  pool: "users" | "usage",
+): Promise<void> {
+  const { error } = await admin.rpc("service_refund_video_credit", {
+    p_user_id: userId,
+    p_pool: pool,
+  });
+  if (error) {
+    console.error("[credits] service_refund_video_credit", error.message);
+  }
+}
+
 /** Service role: atomik text_credits -= 1 (yarışma güvenli). Migration: 021. */
 export type ServiceDecrementTextCreditResult =
   | { ok: true; remaining: number }
