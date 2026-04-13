@@ -84,19 +84,6 @@ export async function POST(req: Request) {
       });
     }
 
-    const { data: dbUser } = await supabase
-      .from("users")
-      .select("video_credits")
-      .eq("id", user.id)
-      .single();
-
-    if (!dbUser || dbUser.video_credits <= 0) {
-      return new Response(JSON.stringify({ error: "No credits" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
     try {
       await useVideoCredit(supabase);
       consumedVideoCredit = true;
